@@ -313,6 +313,46 @@ function App() {
                 </div>
               )
             })}
+            {aiden.inDoc && aiden.status !== 'idle' && (
+              <div className="msg msg-activity">
+                <div className="msg-avatar">
+                  <AgentAvatar size={28} name="Aiden" />
+                </div>
+                <div className="msg-body">
+                  <div className="activity-indicator" style={{ borderColor: AGENTS.Aiden.color + '30' }}>
+                    <span className="activity-dot" style={{ background: AGENTS.Aiden.color }} />
+                    <span className="activity-label" style={{ color: AGENTS.Aiden.color }}>
+                      {aiden.status === 'thinking' ? 'thinking...' :
+                       aiden.status === 'reading' ? 'reading doc...' :
+                       'writing in doc...'}
+                    </span>
+                    {aiden.thought && aiden.thought !== 'Thinking...' && (
+                      <span className="activity-thought">{aiden.thought}</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+            {nova.inDoc && nova.status !== 'idle' && (
+              <div className="msg msg-activity">
+                <div className="msg-avatar">
+                  <AgentAvatar size={28} name="Nova" />
+                </div>
+                <div className="msg-body">
+                  <div className="activity-indicator" style={{ borderColor: AGENTS.Nova.color + '30' }}>
+                    <span className="activity-dot" style={{ background: AGENTS.Nova.color }} />
+                    <span className="activity-label" style={{ color: AGENTS.Nova.color }}>
+                      {nova.status === 'thinking' ? 'thinking...' :
+                       nova.status === 'reading' ? 'reading doc...' :
+                       'writing in doc...'}
+                    </span>
+                    {nova.thought && nova.thought !== 'Thinking...' && (
+                      <span className="activity-thought">{nova.thought}</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
             {(aiden.status === 'thinking' || aiden.status === 'typing') && !aiden.inDoc && (
               <div className="msg">
                 <div className="msg-avatar">
