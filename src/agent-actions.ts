@@ -88,6 +88,17 @@ function findTextPos(editor: Editor, searchText: string): { from: number, to: nu
   return { from: posMap[idx], to: posMap[idx + searchText.length - 1] + 1 }
 }
 
+// Get all existing heading texts from the editor
+function getExistingHeadings(editor: Editor): Set<string> {
+  const headings = new Set<string>()
+  editor.state.doc.descendants((node) => {
+    if (node.type.name === 'heading') {
+      headings.add(node.textContent.trim().toLowerCase())
+    }
+  })
+  return headings
+}
+
 // Safe cursor helpers — catch mismatched transaction errors
 function safeCursor(editor: Editor, opts: { name: string, color: string, pos: number, selectionFrom?: number, selectionTo?: number, thought?: string }) {
   try { editor.commands.setAgentCursor(opts) } catch { /* stale state, skip */ }
@@ -184,7 +195,19 @@ export function executeAgentAction(
 
   } else if (action.type === 'insert') {
     postChatBefore()
-    const chunks = contentToBlocks(action.content || '')
+    const existingHeadings = getExistingHeadings(editor)
+    // Filter out heading blocks that already exist in the document
+    const chunks = contentToBlocks(action.content || '').filter(chunk => {
+      const headingMatch = chunk.match(/^<h[123]>(.*?)<\/h[123]>$/)
+      if (headingMatch) {
+        const headingText = headingMatch[1].trim().toLowerCase()
+        if (existingHeadings.has(headingText)) {
+          console.log('[agent-actions] skipping duplicate heading:', headingMatch[1])
+          return false
+        }
+      }
+      return true
+    })
     let insertPos = editor.state.doc.content.size
     if (action.position === 'after-heading') {
       editor.state.doc.descendants((node, pos) => {
