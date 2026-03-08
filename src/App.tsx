@@ -73,6 +73,28 @@ function MessageAvatar({ from, size = 28 }: { from: string, size?: number }) {
   return <PersonAvatar name={from} size={size} />
 }
 
+function AgentStatusChip({ name, color, status, thought, inDoc }: {
+  name: string, color: string, status: AgentState['status'], thought?: string, inDoc: boolean
+}) {
+  const isActive = inDoc && status !== 'idle'
+  const label = !inDoc ? 'in chat' :
+    status === 'idle' ? 'in doc' :
+    status === 'thinking' ? 'thinking...' :
+    status === 'reading' ? 'reading...' :
+    'writing...'
+
+  return (
+    <div className={`status-chip ${isActive ? 'status-chip-active' : ''}`} style={{ borderColor: isActive ? color + '40' : '#e0e0e0' }}>
+      <AgentAvatar size={18} name={name} />
+      <span className="status-chip-name" style={isActive ? { color } : undefined}>{name}</span>
+      <span className={`status-chip-label ${isActive ? 'status-chip-label-active' : ''}`}>{label}</span>
+      {isActive && thought && thought !== 'Thinking...' && (
+        <span className="status-chip-thought">{thought}</span>
+      )}
+    </div>
+  )
+}
+
 const ALL_NAMES = [...Object.keys(AGENTS), ...Object.keys(PERSON_PHOTOS).filter(n => n !== 'You')]
 const mentionRegex = new RegExp(`(@?(?:${ALL_NAMES.join('|')}))(?=\\s|$|[.,!?;:])`, 'gi')
 
@@ -313,46 +335,6 @@ function App() {
                 </div>
               )
             })}
-            {aiden.inDoc && aiden.status !== 'idle' && (
-              <div className="msg msg-activity">
-                <div className="msg-avatar">
-                  <AgentAvatar size={28} name="Aiden" />
-                </div>
-                <div className="msg-body">
-                  <div className="activity-indicator" style={{ borderColor: AGENTS.Aiden.color + '30' }}>
-                    <span className="activity-dot" style={{ background: AGENTS.Aiden.color }} />
-                    <span className="activity-label" style={{ color: AGENTS.Aiden.color }}>
-                      {aiden.status === 'thinking' ? 'thinking...' :
-                       aiden.status === 'reading' ? 'reading doc...' :
-                       'writing in doc...'}
-                    </span>
-                    {aiden.thought && aiden.thought !== 'Thinking...' && (
-                      <span className="activity-thought">{aiden.thought}</span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-            {nova.inDoc && nova.status !== 'idle' && (
-              <div className="msg msg-activity">
-                <div className="msg-avatar">
-                  <AgentAvatar size={28} name="Nova" />
-                </div>
-                <div className="msg-body">
-                  <div className="activity-indicator" style={{ borderColor: AGENTS.Nova.color + '30' }}>
-                    <span className="activity-dot" style={{ background: AGENTS.Nova.color }} />
-                    <span className="activity-label" style={{ color: AGENTS.Nova.color }}>
-                      {nova.status === 'thinking' ? 'thinking...' :
-                       nova.status === 'reading' ? 'reading doc...' :
-                       'writing in doc...'}
-                    </span>
-                    {nova.thought && nova.thought !== 'Thinking...' && (
-                      <span className="activity-thought">{nova.thought}</span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
             {(aiden.status === 'thinking' || aiden.status === 'typing') && !aiden.inDoc && (
               <div className="msg">
                 <div className="msg-avatar">
@@ -372,6 +354,24 @@ function App() {
             )}
             <div ref={chatEndRef} />
           </div>
+          {docOpen && (
+            <div className="agent-status-bar">
+              <AgentStatusChip
+                name="Aiden"
+                color={AGENTS.Aiden.color}
+                status={aiden.status}
+                thought={aiden.thought}
+                inDoc={aiden.inDoc}
+              />
+              <AgentStatusChip
+                name="Nova"
+                color={AGENTS.Nova.color}
+                status={nova.status}
+                thought={nova.thought}
+                inDoc={nova.inDoc}
+              />
+            </div>
+          )}
           <div className="chat-input">
             <input
               value={input}
