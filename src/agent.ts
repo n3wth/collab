@@ -1,6 +1,9 @@
-const API_KEY = import.meta.env.VITE_GEMINI_API_KEY as string
+const DEV_API_KEY = import.meta.env.VITE_GEMINI_API_KEY as string | undefined
 const MODEL = 'gemini-2.5-flash'
-const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${API_KEY}`
+// In production, use serverless proxy (no API key on client). In dev, call Gemini directly.
+const DIRECT_URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${DEV_API_KEY || ''}`
+const PROXY_URL = '/api/gemini'
+const API_URL = DEV_API_KEY ? DIRECT_URL : PROXY_URL
 
 // Rate limiter: tracks calls, enforces spacing, handles 429 backoff
 const rateLimiter = {
@@ -111,7 +114,7 @@ function buildPrompt(params: AskParams): string {
 - Replace/improve existing text
 - Send a chat message reacting to something the other agent added (use @mentions)
 
-Prefer actions that reference or build on the other agent's work. Be concise — max 3-4 bullets per insert. Don't repeat content already there.`
+Prefer actions that reference or build on the other agent's work. Be concise — max 3-4 bullets per insert. IMPORTANT: Before inserting a new heading, check if that heading already exists in the document. If it does, add content UNDER the existing heading using "replace" or insert after it — do NOT create a duplicate section.`
   } else if (params.trigger === 'instruction') {
     taskBlock = `The user said: "${params.instruction}"
 
@@ -125,6 +128,8 @@ Act on it — add content, expand, rewrite, whatever they're asking. The instruc
   return `${persona}
 
 You're in a shared document with other people and agents. The other agent is ${otherAgent}. You should actively interact — comment on each other's additions, build on what the other wrote, ask questions with @mentions in chat (e.g. "@Nova what about..." or "@Aiden can you spec..."). Reference specific content the other agent added. You're a team, not working in isolation.
+
+Chat style: casual, like a coworker on Slack. Occasionally (maybe 1 in 4 messages) use a single emoji naturally — e.g. "nice, this section is solid now" or "on it" or "hmm @Nova what about edge cases here?". Don't overdo it. Never use emoji in document content — only in chatBefore/chatMessage.
 
 DOCUMENT:
 ${truncateDoc(params.docText)}
@@ -156,6 +161,8 @@ Rules:
 - "chatMessage" is optional. Only include if you have something NEW to say after (e.g. a question for the other agent, a flag for the team). Don't just restate what chatBefore said. MAX 15 words.
 - "searchText" must be an EXACT substring.
 - "shouldContinue" usually false.
+- NEVER create a section heading that already exists in the document. Add content under existing headings instead.
+- When mentioning someone in chat, don't put a comma right after the name. Write "@Nova what do you think" not "@Nova, what do you think".
 - CRITICAL: Keep total JSON under 500 chars. Be terse.
 - Return ONLY the JSON object`
 }

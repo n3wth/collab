@@ -73,7 +73,7 @@ function MessageAvatar({ from, size = 28 }: { from: string, size?: number }) {
   return <PersonAvatar name={from} size={size} />
 }
 
-const ALL_NAMES = [...Object.keys(AGENTS), ...Object.keys(PERSON_PHOTOS)]
+const ALL_NAMES = [...Object.keys(AGENTS), ...Object.keys(PERSON_PHOTOS).filter(n => n !== 'You')]
 const mentionRegex = new RegExp(`(@?(?:${ALL_NAMES.join('|')}))(?=\\s|$|[.,!?;:])`, 'gi')
 
 function FormatMentions({ text }: { text: string }) {
@@ -164,7 +164,12 @@ function App() {
         setter(a => ({ ...a, status, thought }))
       },
       onChatMessage: (from, text) => {
-        setMessages(m => [...m, { id: uid(), from, text, time: now() }])
+        setMessages(m => {
+          // Dedup: skip if last message from same sender with same text
+          const last = m[m.length - 1]
+          if (last && last.from === from && last.text === text) return m
+          return [...m, { id: uid(), from, text, time: now() }]
+        })
       },
     })
     orchestratorRef.current = orch
@@ -232,7 +237,11 @@ function App() {
             setter(a => ({ ...a, status, thought }))
           },
           onChatMessage: (from, txt) => {
-            setMessages(msgs => [...msgs, { id: uid(), from, text: txt, time: now() }])
+            setMessages(msgs => {
+              const last = msgs[msgs.length - 1]
+              if (last && last.from === from && last.text === txt) return msgs
+              return [...msgs, { id: uid(), from, text: txt, time: now() }]
+            })
           },
         })
         orchestratorRef.current = orch
@@ -358,7 +367,11 @@ function App() {
                     setter(a => ({ ...a, status, thought }))
                   },
                   onChatMessage: (from, txt) => {
-                    setMessages(msgs => [...msgs, { id: uid(), from, text: txt, time: now() }])
+                    setMessages(msgs => {
+              const last = msgs[msgs.length - 1]
+              if (last && last.from === from && last.text === txt) return msgs
+              return [...msgs, { id: uid(), from, text: txt, time: now() }]
+            })
                   },
                 })
                 orchestratorRef.current = orch
