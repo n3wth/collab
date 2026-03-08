@@ -118,7 +118,9 @@ Prefer actions that reference or build on the other agent's work. Be concise —
   } else if (params.trigger === 'instruction') {
     taskBlock = `The user said: "${params.instruction}"
 
-Follow their instruction. Interpret contextually — "and another" means repeat your last action type, "build this out" or "more" means expand with new content, "@aiden" or "@nova" means they're talking to a specific agent. If it's conversational, respond in chat only.`
+Follow their instruction. Interpret contextually — "and another" means repeat your last action type, "build this out" or "more" means expand with new content, "@aiden" or "@nova" means they're talking to a specific agent. If it's conversational, respond in chat only.
+
+IMPORTANT: Always respond to the most recent context. If someone mentioned you, look at the LAST few chat messages to understand the current conversation — don't reply to something from 5 messages ago.`
   } else if (params.trigger === 'inline-doc') {
     taskBlock = `The user typed this directly in the document as an instruction to you: "${params.instruction}"
 
@@ -134,7 +136,7 @@ Chat style: casual, like a coworker on Slack. Occasionally (maybe 1 in 4 message
 DOCUMENT:
 ${truncateDoc(params.docText)}
 
-RECENT CHAT:
+RECENT CHAT (most recent at bottom — respond to the LAST message, not older ones):
 ${recentChat || '(no recent messages)'}
 ${contextBlock}
 

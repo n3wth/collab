@@ -189,9 +189,9 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
       case 'agent-tagged': {
         const target = payload?.agent
         const from = payload?.from || 'someone'
-        const instruction = payload?.instruction || ''
         if (target) {
-          enqueue({ agent: target, trigger: 'instruction', instruction: `${from} said: "${instruction}"` })
+          // Don't bake stale text — just tell the agent who tagged them
+          enqueue({ agent: target, trigger: 'instruction', instruction: `${from} just mentioned you in chat. Read the recent chat and respond to their latest message.` })
         }
         break
       }
