@@ -44,21 +44,6 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
   let agentTagCount = 0
   const MAX_AGENT_TAGS = 2 // max back-and-forth exchanges before cooling off
 
-  function scheduleFollowupTurn(forAgent: AgentName) {
-    if (destroyed) return
-    if (autonomousTurnCount[forAgent] >= MAX_AUTONOMOUS_TURNS) {
-      log(`${forAgent} hit max autonomous turns (${MAX_AUTONOMOUS_TURNS}), stopping`)
-      return
-    }
-    // Stagger the next turn to avoid back-to-back API calls
-    const delay = 8000 + Math.random() * 4000
-    setTimeout(() => {
-      if (!destroyed) {
-        enqueue({ agent: forAgent, trigger: 'autonomous' })
-      }
-    }, delay)
-  }
-
   function enqueue(req: TurnRequest) {
     if (destroyed) return
     log('enqueue', req.agent, req.trigger, req.instruction?.slice(0, 40))
@@ -100,7 +85,8 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
         onChatMessage: (from, text) => config.onChatMessage(from, text),
         onDone: () => {
           log('done', req.agent, action.type, 'shouldContinue:', action.shouldContinue)
-          lastActionDescription[req.agent] = describeAction(req.agent, action)
+          const actionDesc = describeAction(req.agent, action)
+          lastActionDescription[req.agent] = actionDesc
           if (req.trigger === 'autonomous') {
             autonomousTurnCount[req.agent]++
           }
@@ -112,11 +98,25 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
             delete pendingInstructions[req.agent]
             if (pending.instruction !== req.instruction) {
               enqueue({ agent: req.agent, trigger: pending.trigger, instruction: pending.instruction })
+              return
             }
           }
 
-          // If agent wants another turn and hasn't hit the cap
-          if (action.shouldContinue && autonomousTurnCount[req.agent] < MAX_AUTONOMOUS_TURNS) {
+          // After a doc edit, prompt the OTHER agent to react — creates back-and-forth
+          if ((action.type === 'insert' || action.type === 'replace') && queue.length === 0) {
+            const other: AgentName = req.agent === 'Aiden' ? 'Nova' : 'Aiden'
+            if (autonomousTurnCount[other] < MAX_AUTONOMOUS_TURNS) {
+              setTimeout(() => {
+                if (!destroyed) {
+                  enqueue({
+                    agent: other,
+                    trigger: 'instruction',
+                    instruction: `${req.agent} just edited the doc: ${actionDesc}. React to their changes — build on it, challenge it, add your perspective, or ask a question about it. Don't just repeat what they did.`,
+                  })
+                }
+              }, 3000 + Math.random() * 2000)
+            }
+          } else if (action.shouldContinue && autonomousTurnCount[req.agent] < MAX_AUTONOMOUS_TURNS) {
             enqueue({ agent: req.agent, trigger: 'autonomous' })
           } else {
             processQueue()
@@ -162,9 +162,7 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
           trigger: 'instruction',
           instruction: 'Review the doc and address the open questions from a product/user perspective — user scenarios, adoption risks, edge cases. Use your product strategy expertise.',
         }), 6000)
-        // After initial directed work, give each one follow-up autonomous turn
-        setTimeout(() => scheduleFollowupTurn('Aiden'), 20000)
-        setTimeout(() => scheduleFollowupTurn('Nova'), 25000)
+        // Follow-up turns happen naturally via the back-and-forth mechanism in onDone
         break
 
       case 'user-message': {
