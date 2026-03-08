@@ -272,11 +272,19 @@
 .agent-status-bar {
   display: flex;
   gap: 6px;
+  padding: 0 12px;
+  flex-shrink: 0;
+  align-items: center;
+  transition: padding 0.2s ease;
+}
+
+.agent-status-bar:has(.status-chip) {
   padding: 6px 12px;
   border-top: 1px solid #f1f3f4;
-  flex-shrink: 0;
-  min-height: 38px;
-  align-items: center;
+}
+
+.agent-status-bar:empty {
+  padding: 0;
 }
 
 .status-chip {
@@ -331,24 +339,6 @@
   0%, 100% { opacity: 0.7; transform: scale(1); }
   50% { opacity: 0.15; transform: scale(1.2); }
 }
-
-/* Idle in doc — subtle */
-.status-chip-idle {
-  border-color: #dadce0;
-  background: #fafafa;
-}
-
-/* Thinking — gentle pulse on whole chip */
-.status-chip-thinking {
-  animation: chipThinking 2s ease-in-out infinite;
-}
-
-@keyframes chipThinking {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.6; }
-}
-
-/* Reading — no extra animation, just colored */
 
 /* Writing — subtle glow */
 .status-chip-writing {

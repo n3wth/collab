@@ -76,29 +76,20 @@ function MessageAvatar({ from, size = 28 }: { from: string, size?: number }) {
 function AgentStatusChip({ name, color, status, inDoc }: {
   name: string, color: string, status: AgentState['status'], inDoc: boolean
 }) {
-  const isActive = inDoc && status !== 'idle'
-  const label = !inDoc ? 'in chat' :
-    status === 'idle' ? 'in doc' :
-    status === 'thinking' ? 'thinking' :
-    status === 'reading' ? 'reading' :
-    'writing'
+  const isVisible = inDoc && (status === 'reading' || status === 'editing' || status === 'typing')
+  if (!isVisible) return null
 
-  const statusClass = !inDoc ? '' :
-    status === 'idle' ? 'status-chip-idle' :
-    status === 'thinking' ? 'status-chip-thinking' :
-    status === 'reading' ? 'status-chip-reading' :
-    'status-chip-writing'
-
-  const displayText = label
+  const label = status === 'reading' ? 'reading' : 'writing'
+  const statusClass = status === 'reading' ? 'status-chip-reading' : 'status-chip-writing'
 
   return (
-    <div className={`status-chip ${statusClass}`} style={isActive ? { borderColor: color + '50', background: color + '08' } : undefined}>
+    <div className={`status-chip ${statusClass}`} style={{ borderColor: color + '50', background: color + '08' }}>
       <div className="status-chip-avatar-wrap">
         <AgentAvatar size={20} name={name} />
-        {isActive && <span className="status-chip-ring" style={{ borderColor: color }} />}
+        <span className="status-chip-ring" style={{ borderColor: color }} />
       </div>
-      <span className={`status-chip-label ${isActive ? 'status-chip-label-active' : ''}`} style={isActive ? { color } : undefined}>
-        {displayText}
+      <span className="status-chip-label status-chip-label-active" style={{ color }}>
+        {label}
       </span>
     </div>
   )
@@ -363,24 +354,20 @@ function App() {
             )}
             <div ref={chatEndRef} />
           </div>
-          {docOpen && (aiden.status !== 'idle' || nova.status !== 'idle') && (
+          {docOpen && (
             <div className="agent-status-bar">
-              {aiden.status !== 'idle' && (
-                <AgentStatusChip
-                  name="Aiden"
-                  color={AGENTS.Aiden.color}
-                  status={aiden.status}
-                  inDoc={aiden.inDoc}
-                />
-              )}
-              {nova.status !== 'idle' && (
-                <AgentStatusChip
-                  name="Nova"
-                  color={AGENTS.Nova.color}
-                  status={nova.status}
-                  inDoc={nova.inDoc}
-                />
-              )}
+              <AgentStatusChip
+                name="Aiden"
+                color={AGENTS.Aiden.color}
+                status={aiden.status}
+                inDoc={aiden.inDoc}
+              />
+              <AgentStatusChip
+                name="Nova"
+                color={AGENTS.Nova.color}
+                status={nova.status}
+                inDoc={nova.inDoc}
+              />
             </div>
           )}
           <div className="chat-input">
