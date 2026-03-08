@@ -89,6 +89,9 @@ function AgentStatusChip({ name, color, status, thought, inDoc }: {
     status === 'reading' ? 'status-chip-reading' :
     'status-chip-writing'
 
+  // Show thought instead of generic label when available
+  const displayText = (isActive && thought && thought !== 'Thinking...') ? thought : label
+
   return (
     <div className={`status-chip ${statusClass}`} style={isActive ? { borderColor: color + '50', background: color + '08' } : undefined}>
       <div className="status-chip-avatar-wrap">
@@ -96,11 +99,8 @@ function AgentStatusChip({ name, color, status, thought, inDoc }: {
         {isActive && <span className="status-chip-ring" style={{ borderColor: color }} />}
       </div>
       <span className={`status-chip-label ${isActive ? 'status-chip-label-active' : ''}`} style={isActive ? { color } : undefined}>
-        {label}
+        {displayText}
       </span>
-      {isActive && thought && thought !== 'Thinking...' && (
-        <span className="status-chip-thought">{thought}</span>
-      )}
     </div>
   )
 }
