@@ -83,11 +83,21 @@ function AgentStatusChip({ name, color, status, thought, inDoc }: {
     status === 'reading' ? 'reading...' :
     'writing...'
 
+  const statusClass = !inDoc ? '' :
+    status === 'idle' ? 'status-chip-idle' :
+    status === 'thinking' ? 'status-chip-thinking' :
+    status === 'reading' ? 'status-chip-reading' :
+    'status-chip-writing'
+
   return (
-    <div className={`status-chip ${isActive ? 'status-chip-active' : ''}`} style={{ borderColor: isActive ? color + '40' : '#e0e0e0' }}>
-      <AgentAvatar size={18} name={name} />
-      <span className="status-chip-name" style={isActive ? { color } : undefined}>{name}</span>
-      <span className={`status-chip-label ${isActive ? 'status-chip-label-active' : ''}`}>{label}</span>
+    <div className={`status-chip ${statusClass}`} style={isActive ? { borderColor: color + '50', background: color + '08' } : undefined}>
+      <div className="status-chip-avatar-wrap">
+        <AgentAvatar size={20} name={name} />
+        {isActive && <span className="status-chip-ring" style={{ borderColor: color }} />}
+      </div>
+      <span className={`status-chip-label ${isActive ? 'status-chip-label-active' : ''}`} style={isActive ? { color } : undefined}>
+        {label}
+      </span>
       {isActive && thought && thought !== 'Thinking...' && (
         <span className="status-chip-thought">{thought}</span>
       )}

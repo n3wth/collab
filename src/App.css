@@ -287,7 +287,7 @@
   border-radius: 18px;
   border: 1px solid #e0e0e0;
   background: #fff;
-  transition: border-color 0.2s ease, background 0.2s ease;
+  transition: all 0.3s ease;
   max-width: 50%;
   overflow: hidden;
 }
@@ -298,30 +298,64 @@
   flex-shrink: 0;
 }
 
-.status-chip-active {
+.status-chip-avatar-wrap {
+  position: relative;
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+}
+
+.status-chip-ring {
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  border: 2px solid;
+  animation: ringPulse 2s ease-in-out infinite;
+}
+
+@keyframes ringPulse {
+  0%, 100% { opacity: 0.8; transform: scale(1); }
+  50% { opacity: 0.2; transform: scale(1.1); }
+}
+
+/* Idle in doc — subtle */
+.status-chip-idle {
+  border-color: #dadce0;
   background: #fafafa;
 }
 
-.status-chip-name {
-  font-size: 12px;
-  font-weight: 500;
-  color: #3c4043;
-  white-space: nowrap;
+/* Thinking — gentle pulse on whole chip */
+.status-chip-thinking {
+  animation: chipThinking 2s ease-in-out infinite;
+}
+
+@keyframes chipThinking {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+/* Reading — no extra animation, just colored */
+
+/* Writing — subtle glow */
+.status-chip-writing {
+  box-shadow: 0 0 0 1px currentColor;
+  animation: chipWriting 1.5s ease-in-out infinite;
+}
+
+@keyframes chipWriting {
+  0%, 100% { box-shadow: 0 0 0px 0px rgba(0,0,0,0); }
+  50% { box-shadow: 0 0 6px 1px rgba(0,0,0,0.06); }
 }
 
 .status-chip-label {
   font-size: 11px;
+  font-weight: 500;
   color: #80868b;
   white-space: nowrap;
 }
 
 .status-chip-label-active {
-  animation: chipPulse 2s ease-in-out infinite;
-}
-
-@keyframes chipPulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+  font-weight: 500;
 }
 
 .status-chip-thought {
