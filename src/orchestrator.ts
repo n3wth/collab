@@ -172,10 +172,8 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
         const mentionsNova = lower.includes('nova') || lower.includes('@nova')
         const mentionsBoth = !mentionsAiden && !mentionsNova
 
-        // User messages take priority — clear any queued autonomous/agent-tagged turns
-        const urgentOnly = queue.filter(q => q.trigger === 'instruction')
+        // User messages take priority — clear ALL queued turns
         queue.length = 0
-        urgentOnly.forEach(q => queue.push(q))
 
         // Reset agent tag counter — user is re-engaging
         agentTagCount = 0

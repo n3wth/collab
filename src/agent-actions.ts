@@ -84,8 +84,22 @@ function findTextPos(editor: Editor, searchText: string): { from: number, to: nu
   }
 
   const idx = fullText.toLowerCase().indexOf(searchLower)
-  if (idx < 0) return null
-  return { from: posMap[idx], to: posMap[idx + searchText.length - 1] + 1 }
+  if (idx >= 0) {
+    return { from: posMap[idx], to: posMap[idx + searchText.length - 1] + 1 }
+  }
+
+  // Fallback: try matching first 30 chars (model often gets the tail wrong)
+  if (searchLower.length > 30) {
+    const partial = searchLower.slice(0, 30)
+    const pidx = fullText.toLowerCase().indexOf(partial)
+    if (pidx >= 0) {
+      // Find the end of the sentence/paragraph from that point
+      const endIdx = Math.min(pidx + searchText.length, fullText.length)
+      return { from: posMap[pidx], to: posMap[Math.min(endIdx - 1, posMap.length - 1)] + 1 }
+    }
+  }
+
+  return null
 }
 
 // Get all existing heading texts from the editor
