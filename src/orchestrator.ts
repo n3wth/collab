@@ -40,6 +40,9 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
   // Track how many autonomous turns each agent has taken (cap to avoid runaway API calls)
   const autonomousTurnCount: Record<string, number> = { Aiden: 0, Nova: 0 }
   const MAX_AUTONOMOUS_TURNS = 3 // max turns per agent per doc-opened session
+  // Track agent-to-agent tagging to prevent loops
+  let agentTagCount = 0
+  const MAX_AGENT_TAGS = 2 // max back-and-forth exchanges before cooling off
 
   function scheduleFollowupTurn(forAgent: AgentName) {
     if (destroyed) return
@@ -169,28 +172,43 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
         const mentionsNova = lower.includes('nova') || lower.includes('@nova')
         const mentionsBoth = !mentionsAiden && !mentionsNova
 
+        // User messages take priority — clear any queued autonomous/agent-tagged turns
+        const urgentOnly = queue.filter(q => q.trigger === 'instruction')
+        queue.length = 0
+        urgentOnly.forEach(q => queue.push(q))
+
+        // Reset agent tag counter — user is re-engaging
+        agentTagCount = 0
+
         if (mentionsAiden || mentionsBoth) {
-          if (processing && queue.some(q => q.agent === 'Aiden')) {
-            pendingInstructions['Aiden'] = { trigger: 'instruction', instruction }
-          } else {
-            enqueue({ agent: 'Aiden', trigger: 'instruction', instruction })
+          pendingInstructions['Aiden'] = { trigger: 'instruction', instruction }
+          if (!processing) {
+            const p = pendingInstructions['Aiden']
+            delete pendingInstructions['Aiden']
+            enqueue({ agent: 'Aiden', trigger: p.trigger, instruction: p.instruction })
           }
         }
         if (mentionsNova || mentionsBoth) {
-          if (processing && queue.some(q => q.agent === 'Nova')) {
-            pendingInstructions['Nova'] = { trigger: 'instruction', instruction }
-          } else {
-            enqueue({ agent: 'Nova', trigger: 'instruction', instruction })
+          pendingInstructions['Nova'] = { trigger: 'instruction', instruction }
+          if (!processing) {
+            const p = pendingInstructions['Nova']
+            delete pendingInstructions['Nova']
+            enqueue({ agent: 'Nova', trigger: p.trigger, instruction: p.instruction })
           }
         }
         break
       }
 
       case 'agent-tagged': {
+        // Limit agent-to-agent exchanges to prevent infinite loops
+        agentTagCount++
+        if (agentTagCount > MAX_AGENT_TAGS) {
+          log('agent-to-agent tag limit reached, ignoring')
+          break
+        }
         const target = payload?.agent
         const from = payload?.from || 'someone'
         if (target) {
-          // Don't bake stale text — just tell the agent who tagged them
           enqueue({ agent: target, trigger: 'instruction', instruction: `${from} just mentioned you in chat. Read the recent chat and respond to their latest message.` })
         }
         break
@@ -203,14 +221,13 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
   }
 
   function onMessage(from: string, text: string) {
-    // Check if an agent tagged the other agent
+    // Only trigger on explicit @mentions (not just name in text) to avoid loops
     if (from === 'Aiden' || from === 'Nova') {
-      const lower = text.toLowerCase()
       const other: AgentName = from === 'Aiden' ? 'Nova' : 'Aiden'
-      if (lower.includes('@' + other.toLowerCase()) || lower.includes(other.toLowerCase())) {
+      if (text.toLowerCase().includes('@' + other.toLowerCase())) {
         setTimeout(() => {
           trigger('agent-tagged', { agent: other, from, instruction: text })
-        }, 1500 + Math.random() * 2000)
+        }, 2000 + Math.random() * 2000)
       }
     }
   }
@@ -223,6 +240,7 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
     editorLockRef.current = null
     autonomousTurnCount.Aiden = 0
     autonomousTurnCount.Nova = 0
+    agentTagCount = 0
   }
 
   return { trigger, onMessage, destroy }
