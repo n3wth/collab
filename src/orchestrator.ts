@@ -106,11 +106,13 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
           }
           processing = false
 
-          // Process queued instruction (user-triggered always takes priority)
+          // Process queued instruction — but skip if it's the same one we just ran
           const pending = pendingInstructions[req.agent]
           if (pending) {
             delete pendingInstructions[req.agent]
-            enqueue({ agent: req.agent, trigger: pending.trigger, instruction: pending.instruction })
+            if (pending.instruction !== req.instruction) {
+              enqueue({ agent: req.agent, trigger: pending.trigger, instruction: pending.instruction })
+            }
           }
 
           // If agent wants another turn and hasn't hit the cap
@@ -172,26 +174,26 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
         const mentionsNova = lower.includes('nova') || lower.includes('@nova')
         const mentionsBoth = !mentionsAiden && !mentionsNova
 
-        // User messages take priority — clear ALL queued turns
+        // User messages take priority — clear ALL queued turns and pending instructions
         queue.length = 0
+        delete pendingInstructions['Aiden']
+        delete pendingInstructions['Nova']
 
         // Reset agent tag counter — user is re-engaging
         agentTagCount = 0
 
         if (mentionsAiden || mentionsBoth) {
-          pendingInstructions['Aiden'] = { trigger: 'instruction', instruction }
-          if (!processing) {
-            const p = pendingInstructions['Aiden']
-            delete pendingInstructions['Aiden']
-            enqueue({ agent: 'Aiden', trigger: p.trigger, instruction: p.instruction })
+          if (processing) {
+            pendingInstructions['Aiden'] = { trigger: 'instruction', instruction }
+          } else {
+            enqueue({ agent: 'Aiden', trigger: 'instruction', instruction })
           }
         }
         if (mentionsNova || mentionsBoth) {
-          pendingInstructions['Nova'] = { trigger: 'instruction', instruction }
-          if (!processing) {
-            const p = pendingInstructions['Nova']
-            delete pendingInstructions['Nova']
-            enqueue({ agent: 'Nova', trigger: p.trigger, instruction: p.instruction })
+          if (processing) {
+            pendingInstructions['Nova'] = { trigger: 'instruction', instruction }
+          } else {
+            enqueue({ agent: 'Nova', trigger: 'instruction', instruction })
           }
         }
         break
