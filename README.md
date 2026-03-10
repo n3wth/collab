@@ -45,51 +45,51 @@ Both agents are powered by **Google Gemini 2.5 Flash** and coordinate their turn
 ### High-Level Component Map
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                         Browser (React SPA)                         │
-│                                                                     │
+┌────────────────────────────────────────────────────────────────────┐
+│                         Browser (React SPA)                        │
+│                                                                    │
 │  ┌──────────────────────┐       ┌──────────────────────────────┐   │
-│  │      Chat Panel       │       │        Document Panel         │   │
+│  │      Chat Panel      │       │        Document Panel        │   │
 │  │  ─────────────────   │       │  ──────────────────────────  │   │
-│  │  Message bubbles      │       │  Tiptap rich-text editor     │   │
-│  │  Agent status chips   │       │  + AgentCursors extension    │   │
-│  │  Chat input           │       │    (cursors, thoughts,       │   │
+│  │  Message bubbles     │       │  Tiptap rich-text editor     │   │
+│  │  Agent status chips  │       │  + AgentCursors extension    │   │
+│  │  Chat input          │       │    (cursors, thoughts,       │   │
 │  └──────────┬───────────┘       │     selections)              │   │
 │             │                   └──────────────┬───────────────┘   │
-│             │                                  │                    │
+│             │                                  │                   │
 │             └──────────────┬───────────────────┘                   │
-│                            │                                        │
-│                  ┌─────────▼──────────┐                           │
+│                            │                                       │
+│                  ┌─────────▼──────────┐                            │
 │                  │   App.tsx (State)   │                           │
 │                  │  • docOpen          │                           │
 │                  │  • aiden / nova     │                           │
 │                  │  • messages[]       │                           │
-│                  └─────────┬──────────┘                           │
-│                            │                                        │
-│              ┌─────────────▼─────────────┐                        │
+│                  └─────────┬──────────┘                            │
+│                            │                                       │
+│              ┌─────────────▼─────────────┐                         │
 │              │     orchestrator.ts        │                        │
 │              │  Turn queue & coordination │                        │
 │              │  • Queue: TurnRequest[]    │                        │
 │              │  • Triggers: doc-opened,   │                        │
 │              │    user-message,           │                        │
 │              │    agent-tagged            │                        │
-│              └──────┬──────────┬─────────┘                        │
-│                     │          │                                    │
-│            ┌────────▼──┐  ┌───▼────────────┐                     │
-│            │  agent.ts  │  │agent-actions.ts│                     │
-│            │ askAgent() │  │executeAction() │                     │
-│            │ • Prompts  │  │ • insert       │                     │
-│            │ • Rate     │  │ • replace      │                     │
-│            │   limit    │  │ • read         │                     │
-│            │ • JSON     │  │ • chat         │                     │
-│            │   repair   │  │ • editor lock  │                     │
-│            └────────┬──┘  └────────────────┘                     │
-│                     │                                               │
+│              └──────┬──────────┬─────────┘                         │
+│                     │          │                                   │
+│            ┌────────▼──┐  ┌───▼────────────┐                       │
+│            │  agent.ts │  │agent-actions.ts│                       │
+│            │askAgent() │  │executeAction() │                       │
+│            │ • Prompts │  │ • insert       │                       │
+│            │ • Rate    │  │ • replace      │                       │
+│            │   limit   │  │ • read         │                       │
+│            │ • JSON    │  │ • chat         │                       │
+│            │   repair  │  │ • editor lock  │                       │
+│            └────────┬──┘  └────────────────┘                       │
+│                     │                                              │
 └─────────────────────┼───────────────────────────────────────────── ┘
                       │ HTTPS
            ┌──────────▼──────────┐
-           │  /api/gemini.ts      │  ← Vercel serverless proxy
-           │  (hides API key)     │
+           │  /api/gemini.ts     │  ← Vercel serverless proxy
+           │  (hides API key)    │
            └──────────┬──────────┘
                       │
            ┌──────────▼──────────┐
@@ -209,15 +209,16 @@ Aiden responds ... (limited to MAX_AGENT_TAGS = 2 exchanges)
 
 ```
                 ┌────────────────────────────────┐
-                │         rateLimiter             │
-                │  minIntervalMs: 7000            │
-                │  maxRetries: 3                  │
-                │                                 │
-                │  Backoff sequence on 429:        │
-                │   5 sec → 10 sec → 20 sec → 40 sec → 60 sec   │
-                │                                 │
-                │  After 3 consecutive errors:    │
-                │   30-second cool-down                 │
+                │         rateLimiter            │
+                │  minIntervalMs: 7000           │
+                │  maxRetries: 3                 │
+                │                                │
+                │  Backoff sequence on 429:      │
+                │   5 sec → 10 sec → 20 sec      │
+                │   → 40 sec → 60 sec            │
+                │                                │
+                │  After 3 consecutive errors:   │
+                │   30-second cool-down          │
                 └────────────────────────────────┘
 ```
 
