@@ -9,20 +9,18 @@ const AGENTS: Record<string, { color: string, bgColor: string }> = {
 export interface ActionCallbacks {
   onStateChange: (status: 'idle' | 'thinking' | 'typing' | 'reading' | 'editing', thought?: string) => void
   onChatMessage: (from: string, text: string) => void
-  onDone: () => void
+  onDone: (success?: boolean) => void
 }
 
 // Convert markdown-ish content to standalone HTML blocks for sequential insertion
 function contentToBlocks(content: string): string[] {
-  // Pre-process: normalize ### to ## , strip markdown bold/italic/code
   const cleaned = content
-    .replace(/^#{3,}\s+/gm, '## ')  // ### or #### → ##
-    .replace(/\*\*(.+?)\*\*/g, '$1') // **bold** → plain
-    .replace(/\*(.+?)\*/g, '$1')     // *italic* → plain
-    .replace(/`(.+?)`/g, '$1')       // `code` → plain
+    .replace(/^#{3,}\s+/gm, '## ')
+    .replace(/\*\*(.+?)\*\*/g, '$1')
+    .replace(/\*(.+?)\*/g, '$1')
+    .replace(/`(.+?)`/g, '$1')
   const lines = cleaned.split('\n').filter(l => l.trim() !== '')
   const blocks: string[] = []
-  // Track top-level and sub-level list items
   let topItems: { text: string, subItems: string[] }[] = []
 
   const flushList = () => {
@@ -39,13 +37,11 @@ function contentToBlocks(content: string): string[] {
   }
 
   for (const line of lines) {
-    // Indented bullet (2+ spaces or tab before -) → sub-item
     if (/^[\t ]{2,}- /.test(line)) {
       const text = line.replace(/^[\t ]*- /, '')
       if (topItems.length > 0) {
         topItems[topItems.length - 1].subItems.push(text)
       } else {
-        // No parent bullet — treat as top-level
         topItems.push({ text, subItems: [] })
       }
     } else if (line.startsWith('- ')) {
@@ -84,16 +80,15 @@ function findTextPos(editor: Editor, searchText: string): { from: number, to: nu
   }
 
   const idx = fullText.toLowerCase().indexOf(searchLower)
-  if (idx >= 0) {
+  if (idx >= 0 && idx + searchText.length - 1 < posMap.length) {
     return { from: posMap[idx], to: posMap[idx + searchText.length - 1] + 1 }
   }
 
-  // Fallback: try matching first 30 chars (model often gets the tail wrong)
+  // Fallback: try matching first 30 chars
   if (searchLower.length > 30) {
     const partial = searchLower.slice(0, 30)
     const pidx = fullText.toLowerCase().indexOf(partial)
     if (pidx >= 0) {
-      // Find the end of the sentence/paragraph from that point
       const endIdx = Math.min(pidx + searchText.length, fullText.length)
       return { from: posMap[pidx], to: posMap[Math.min(endIdx - 1, posMap.length - 1)] + 1 }
     }
@@ -113,9 +108,27 @@ function getExistingHeadings(editor: Editor): Set<string> {
   return headings
 }
 
+// Clamp position to valid document range
+function clampPos(editor: Editor, pos: number): number {
+  return Math.max(0, Math.min(pos, editor.state.doc.content.size))
+}
+
 // Safe cursor helpers — catch mismatched transaction errors
 function safeCursor(editor: Editor, opts: { name: string, color: string, pos: number, selectionFrom?: number, selectionTo?: number, thought?: string }) {
-  try { editor.commands.setAgentCursor(opts) } catch { /* stale state, skip */ }
+  try {
+    const clamped = {
+      ...opts,
+      pos: clampPos(editor, opts.pos),
+      selectionFrom: opts.selectionFrom !== undefined ? clampPos(editor, opts.selectionFrom) : undefined,
+      selectionTo: opts.selectionTo !== undefined ? clampPos(editor, opts.selectionTo) : undefined,
+    }
+    // Ensure selection range is valid
+    if (clamped.selectionFrom !== undefined && clamped.selectionTo !== undefined && clamped.selectionFrom >= clamped.selectionTo) {
+      clamped.selectionFrom = undefined
+      clamped.selectionTo = undefined
+    }
+    editor.commands.setAgentCursor(clamped)
+  } catch { /* stale state, skip */ }
 }
 
 function safeRemoveCursor(editor: Editor, name: string) {
@@ -136,7 +149,7 @@ function typeTextAt(
   const typeNext = () => {
     if (charIdx < text.length) {
       const char = text[charIdx]
-      editor.commands.insertContentAt(pos + charIdx, char)
+      editor.commands.insertContentAt(clampPos(editor, pos + charIdx), char)
       charIdx++
       safeCursor(editor, {
         name: agentName,
@@ -146,9 +159,9 @@ function typeTextAt(
       timers[agentName] = window.setTimeout(typeNext, 25 + Math.random() * 45)
     } else {
       cb.onStateChange('idle')
-      setTimeout(() => {
+      timers[agentName] = window.setTimeout(() => {
         safeRemoveCursor(editor, agentName)
-        cb.onDone()
+        cb.onDone(true)
       }, 800)
     }
   }
@@ -165,15 +178,24 @@ export function executeAgentAction(
   callbacks: ActionCallbacks
 ) {
   const needsLock = action.type === 'insert' || action.type === 'replace'
+
+  // Atomic lock check: verify lock is still free at execution time
   if (needsLock && editorLockRef.current && editorLockRef.current !== agentName) {
-    setTimeout(() => executeAgentAction(editor, agentName, action, editorLockRef, timers, callbacks), 1000 + Math.random() * 1500)
+    timers[agentName] = window.setTimeout(() => {
+      // Re-check lock atomically before retrying
+      if (editorLockRef.current && editorLockRef.current !== agentName) {
+        timers[agentName] = window.setTimeout(() => executeAgentAction(editor, agentName, action, editorLockRef, timers, callbacks), 500 + Math.random() * 1000)
+      } else {
+        executeAgentAction(editor, agentName, action, editorLockRef, timers, callbacks)
+      }
+    }, 1000 + Math.random() * 1500)
     return
   }
   if (needsLock) editorLockRef.current = agentName
 
-  const releaseLockAndDone = () => {
+  const releaseLockAndDone = (success?: boolean) => {
     if (needsLock) editorLockRef.current = null
-    callbacks.onDone()
+    callbacks.onDone(success)
   }
 
   const postChatBefore = () => {
@@ -200,17 +222,16 @@ export function executeAgentAction(
       selectionTo: found?.to,
       thought: action.thought || 'Reading...',
     })
-    setTimeout(() => {
+    timers[agentName] = window.setTimeout(() => {
       callbacks.onStateChange('idle')
       safeRemoveCursor(editor, agentName)
       postChatAfter()
-      releaseLockAndDone()
+      releaseLockAndDone(true)
     }, 3500)
 
   } else if (action.type === 'insert') {
     postChatBefore()
     const existingHeadings = getExistingHeadings(editor)
-    // Filter out heading blocks that already exist in the document
     const chunks = contentToBlocks(action.content || '').filter(chunk => {
       const headingMatch = chunk.match(/^<h[123]>(.*?)<\/h[123]>$/)
       if (headingMatch) {
@@ -222,6 +243,12 @@ export function executeAgentAction(
       }
       return true
     })
+
+    if (chunks.length === 0) {
+      releaseLockAndDone(false)
+      return
+    }
+
     let insertPos = editor.state.doc.content.size
     if (action.position === 'after-heading') {
       editor.state.doc.descendants((node, pos) => {
@@ -235,23 +262,23 @@ export function executeAgentAction(
     safeCursor(editor, {
       name: agentName,
       color: AGENTS[agentName].color,
-      pos: insertPos,
+      pos: clampPos(editor, insertPos),
       thought: action.thought || 'Writing...',
     })
 
     let chunkIdx = 0
     const insertNext = () => {
       if (chunkIdx >= chunks.length) {
-        setTimeout(() => {
+        timers[agentName] = window.setTimeout(() => {
           safeRemoveCursor(editor, agentName)
           callbacks.onStateChange('idle')
           postChatAfter()
-          releaseLockAndDone()
+          releaseLockAndDone(true)
         }, 600)
         return
       }
       const chunk = chunks[chunkIdx]
-      const currentPos = editor.state.doc.content.size - 1
+      const currentPos = Math.max(0, editor.state.doc.content.size - 1)
       editor.commands.insertContentAt(currentPos, chunk)
       const newPos = editor.state.doc.content.size
       safeCursor(editor, {
@@ -270,7 +297,7 @@ export function executeAgentAction(
     const found = action.searchText ? findTextPos(editor, action.searchText) : null
     if (!found) {
       callbacks.onChatMessage(agentName, `[from doc] Couldn't find that text to replace. Can you be more specific?`)
-      releaseLockAndDone()
+      releaseLockAndDone(false)
       return
     }
 
@@ -284,7 +311,7 @@ export function executeAgentAction(
       thought: action.thought || 'Rewriting...',
     })
 
-    setTimeout(() => {
+    timers[agentName] = window.setTimeout(() => {
       editor.chain()
         .deleteRange({ from: found.from, to: found.to })
         .run()
@@ -295,12 +322,12 @@ export function executeAgentAction(
       })
       typeTextAt(editor, agentName, found.from, action.replaceWith || '', timers, {
         ...callbacks,
-        onDone: () => { postChatAfter(); releaseLockAndDone() },
+        onDone: (success) => { postChatAfter(); releaseLockAndDone(success) },
       })
     }, 1200)
 
   } else if (action.type === 'chat') {
     callbacks.onChatMessage(agentName, action.chatMessage || 'Got it.')
-    releaseLockAndDone()
+    releaseLockAndDone(true)
   }
 }

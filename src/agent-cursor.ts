@@ -89,12 +89,12 @@ export const AgentCursors = Extension.create({
 
               // Selection highlight
               if (cursor.selectionFrom !== undefined && cursor.selectionTo !== undefined) {
-                const from = Math.min(cursor.selectionFrom, state.doc.content.size)
-                const to = Math.min(cursor.selectionTo, state.doc.content.size)
+                const from = Math.max(0, Math.min(cursor.selectionFrom, state.doc.content.size))
+                const to = Math.max(0, Math.min(cursor.selectionTo, state.doc.content.size))
                 if (from < to) {
                   decorations.push(
                     Decoration.inline(from, to, {
-                      style: `background: ${cursor.color}18;`,
+                      style: `background: ${cursor.color}30;`,
                     }, { key: `sel-${cursor.name}` })
                   )
                 }
