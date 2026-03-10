@@ -175,9 +175,8 @@ function App() {
   })
   editorRef.current = editor
 
-  // Create orchestrator on mount
-  useEffect(() => {
-    const orch = createOrchestrator({
+  const makeOrchestrator = useCallback(() => {
+    return createOrchestrator({
       getEditor: () => editorRef.current,
       getDocText: () => editorRef.current?.getText() || '',
       getMessages: () => messagesRef.current.slice(-10).map(m => ({ from: m.from, text: m.text })),
@@ -187,19 +186,33 @@ function App() {
       },
       onChatMessage: (from, text) => {
         setMessages(m => {
-          // Dedup: skip if last message from same sender with same text
           const last = m[m.length - 1]
           if (last && last.from === from && last.text === text) return m
           return [...m, { id: uid(), from, text, time: now() }]
         })
       },
+      onError: (_agent, error, failures) => {
+        if (failures >= 3) {
+          setMessages(m => [...m, {
+            id: uid(),
+            from: 'System',
+            text: `Agent paused after ${failures} failures: ${error.message}`,
+            time: now(),
+          }])
+        }
+      },
     })
+  }, [])
+
+  // Create orchestrator on mount
+  useEffect(() => {
+    const orch = makeOrchestrator()
     orchestratorRef.current = orch
     return () => {
       orch.destroy()
       orchestratorRef.current = null
     }
-  }, [])
+  }, [makeOrchestrator])
 
   // Watch for agent-to-agent tagging in new messages
   const lastProcessedMsg = useRef(0)
@@ -249,24 +262,7 @@ function App() {
         setAiden({ status: 'idle', inDoc: false })
         setNova({ status: 'idle', inDoc: false })
         setDocOpen(false)
-        // Recreate orchestrator for future use
-        const orch = createOrchestrator({
-          getEditor: () => editorRef.current,
-          getDocText: () => editorRef.current?.getText() || '',
-          getMessages: () => messagesRef.current.slice(-10).map(m => ({ from: m.from, text: m.text })),
-          onAgentState: (agent, status, thought) => {
-            const setter = agent === 'Aiden' ? setAiden : setNova
-            setter(a => ({ ...a, status, thought }))
-          },
-          onChatMessage: (from, txt) => {
-            setMessages(msgs => {
-              const last = msgs[msgs.length - 1]
-              if (last && last.from === from && last.text === txt) return msgs
-              return [...msgs, { id: uid(), from, text: txt, time: now() }]
-            })
-          },
-        })
-        orchestratorRef.current = orch
+        orchestratorRef.current = makeOrchestrator()
         setMessages(m => [...m,
           { id: uid(), from: 'Aiden', text: 'Back from the doc.', time: now() },
           { id: uid(), from: 'Nova', text: 'Same — wrapping up.', time: now() },
@@ -335,22 +331,27 @@ function App() {
                 </div>
               )
             })}
-            {(aiden.status === 'thinking' || aiden.status === 'typing') && !aiden.inDoc && (
-              <div className="msg">
-                <div className="msg-avatar">
-                  <AgentAvatar size={28} name="Aiden" />
-                </div>
-                <div className="msg-body">
-                  <div className="msg-header">
-                    <span className="msg-name" style={{ color: AGENTS.Aiden.color }}>Aiden</span>
-                    <span className="msg-owner-tag">your agent</span>
+            {[
+              { state: aiden, name: 'Aiden', label: 'your agent' },
+              { state: nova, name: 'Nova', label: "Sarah's agent" },
+            ].map(({ state, name, label }) =>
+              (state.status === 'thinking' || state.status === 'typing') && !state.inDoc ? (
+                <div key={name} className="msg">
+                  <div className="msg-avatar">
+                    <AgentAvatar size={28} name={name} />
                   </div>
-                  <div className="msg-thinking">
-                    <span className="thinking-text">{aiden.thought || 'Thinking...'}</span>
-                    <span className="typing-dots"><span /><span /><span /></span>
+                  <div className="msg-body">
+                    <div className="msg-header">
+                      <span className="msg-name" style={{ color: AGENTS[name].color }}>{name}</span>
+                      <span className="msg-owner-tag">{label}</span>
+                    </div>
+                    <div className="msg-thinking">
+                      <span className="thinking-text">{state.thought || 'Thinking...'}</span>
+                      <span className="typing-dots"><span /><span /><span /></span>
+                    </div>
                   </div>
                 </div>
-              </div>
+              ) : null
             )}
             <div ref={chatEndRef} />
           </div>
@@ -391,28 +392,11 @@ function App() {
                 <span className="collab-count">4 in doc</span>
               </div>
               <button className="doc-close" onClick={() => {
+                orchestratorRef.current?.destroy()
                 setDocOpen(false)
                 setAiden({ status: 'idle', inDoc: false })
                 setNova({ status: 'idle', inDoc: false })
-                orchestratorRef.current?.destroy()
-                // Recreate for future use
-                const orch = createOrchestrator({
-                  getEditor: () => editorRef.current,
-                  getDocText: () => editorRef.current?.getText() || '',
-                  getMessages: () => messagesRef.current.slice(-10).map(m => ({ from: m.from, text: m.text })),
-                  onAgentState: (agent, status, thought) => {
-                    const setter = agent === 'Aiden' ? setAiden : setNova
-                    setter(a => ({ ...a, status, thought }))
-                  },
-                  onChatMessage: (from, txt) => {
-                    setMessages(msgs => {
-              const last = msgs[msgs.length - 1]
-              if (last && last.from === from && last.text === txt) return msgs
-              return [...msgs, { id: uid(), from, text: txt, time: now() }]
-            })
-                  },
-                })
-                orchestratorRef.current = orch
+                orchestratorRef.current = makeOrchestrator()
               }}>
                 &times;
               </button>
