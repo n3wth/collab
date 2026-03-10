@@ -1,0 +1,35 @@
+flowchart TD
+    A["User sends message"] --> B["App.tsx"]
+    B --> C["Orchestrator"]
+    C --> D{"Detect trigger type"}
+
+    D -->|doc-opened| E["Enqueue both agents<br/>with initial instructions"]
+    D -->|user-message| F["Clear queue, detect<br/>@mention and enqueue<br/>relevant agent"]
+    D -->|agent-tagged| G["Limited back-and-forth<br/>(max 2 tags)"]
+
+    E --> H["processQueue()"]
+    F --> H
+    G --> H
+
+    H --> I["askAgent(params)"]
+    I --> J["Build prompt:<br/>• Persona injection<br/>• Doc text (≤2000 chars)<br/>• Chat history (last 6)<br/>• Recent changes context"]
+    J --> K["POST /api/gemini"]
+    K --> L["Gemini 2.5 Flash"]
+    L --> M["Parse JSON response<br/>(with repair on truncation)"]
+
+    M -->|insert| N["Acquire lock<br/>Insert at end/heading<br/>char-by-char"]
+    M -->|replace| O["Acquire lock<br/>Find & replace<br/>char-by-char"]
+    M -->|read| P["Highlight text<br/>Show thought bubble<br/>(3.5 seconds)"]
+
+    N --> Q["Turn complete"]
+    O --> Q
+    P --> Q
+
+    Q --> R{"Was doc edited?"}
+    R -->|Yes| S["Enqueue other<br/>agent to react"]
+    R -->|No| T["Continue queue"]
+
+    S --> U{"Autonomous turn cap?<br/>(max 3 per agent/session)"}
+    T --> U
+    U -->|Yes| V["Stop auto turns"]
+    U -->|No| W["Next turn"]

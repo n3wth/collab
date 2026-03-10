@@ -1,0 +1,57 @@
+graph TD
+    subgraph Browser["Browser (React SPA)"]
+        subgraph ChatPanel["Chat Panel"]
+            CP1["Message bubbles"]
+            CP2["Agent status chips"]
+            CP3["Chat input"]
+        end
+
+        subgraph DocPanel["Document Panel"]
+            DP1["Tiptap rich-text editor<br/>+ AgentCursors extension<br/>(cursors, thoughts, selections)"]
+        end
+
+        ChatPanel & DocPanel --> AppState
+
+        subgraph AppState["App.tsx (State)"]
+            S1["docOpen"]
+            S2["aiden / nova"]
+            S3["messages[]"]
+        end
+
+        AppState --> Orchestrator
+
+        subgraph Orchestrator["orchestrator.ts"]
+            O1["Turn queue & coordination"]
+            O2["Queue: TurnRequest[]"]
+            O3["Triggers: doc-opened,<br/>user-message, agent-tagged"]
+        end
+
+        Orchestrator --> Agent
+        Orchestrator --> Actions
+
+        subgraph Agent["agent.ts — askAgent()"]
+            A1["Prompts"]
+            A2["Rate limit"]
+            A3["JSON repair"]
+        end
+
+        subgraph Actions["agent-actions.ts — executeAction()"]
+            AC1["insert"]
+            AC2["replace"]
+            AC3["read"]
+            AC4["chat"]
+            AC5["editor lock"]
+        end
+    end
+
+    Agent -->|HTTPS| Proxy
+
+    subgraph Proxy["/api/gemini.ts"]
+        PX1["Vercel serverless proxy<br/>(hides API key)"]
+    end
+
+    Proxy --> Gemini
+
+    subgraph Gemini["Gemini 2.5 Flash"]
+        G1["Google AI API<br/>(LLM reasoning)"]
+    end

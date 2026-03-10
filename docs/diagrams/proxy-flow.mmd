@@ -1,0 +1,10 @@
+sequenceDiagram
+    participant Browser
+    participant Vercel as Vercel Function<br/>(api/gemini.ts)
+    participant Gemini as Gemini API
+
+    Browser->>Vercel: POST /api/gemini
+    Note over Vercel: Reads process.env.GEMINI_API_KEY
+    Vercel->>Gemini: POST (with API key)
+    Gemini-->>Vercel: Response
+    Vercel-->>Browser: JSON response

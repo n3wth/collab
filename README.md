@@ -44,58 +44,66 @@ Both agents are powered by **Google Gemini 2.5 Flash** and coordinate their turn
 
 ### High-Level Component Map
 
-```
-┌────────────────────────────────────────────────────────────────────┐
-│                         Browser (React SPA)                        │
-│                                                                    │
-│  ┌──────────────────────┐       ┌──────────────────────────────┐   │
-│  │      Chat Panel      │       │        Document Panel        │   │
-│  │  ─────────────────   │       │  ──────────────────────────  │   │
-│  │  Message bubbles     │       │  Tiptap rich-text editor     │   │
-│  │  Agent status chips  │       │  + AgentCursors extension    │   │
-│  │  Chat input          │       │    (cursors, thoughts,       │   │
-│  └──────────┬───────────┘       │     selections)              │   │
-│             │                   └──────────────┬───────────────┘   │
-│             │                                  │                   │
-│             └──────────────┬───────────────────┘                   │
-│                            │                                       │
-│                  ┌─────────▼──────────┐                            │
-│                  │   App.tsx (State)   │                           │
-│                  │  • docOpen          │                           │
-│                  │  • aiden / nova     │                           │
-│                  │  • messages[]       │                           │
-│                  └─────────┬──────────┘                            │
-│                            │                                       │
-│              ┌─────────────▼─────────────┐                         │
-│              │     orchestrator.ts        │                        │
-│              │  Turn queue & coordination │                        │
-│              │  • Queue: TurnRequest[]    │                        │
-│              │  • Triggers: doc-opened,   │                        │
-│              │    user-message,           │                        │
-│              │    agent-tagged            │                        │
-│              └──────┬──────────┬─────────┘                         │
-│                     │          │                                   │
-│            ┌────────▼──┐  ┌───▼────────────┐                       │
-│            │  agent.ts │  │agent-actions.ts│                       │
-│            │askAgent() │  │executeAction() │                       │
-│            │ • Prompts │  │ • insert       │                       │
-│            │ • Rate    │  │ • replace      │                       │
-│            │   limit   │  │ • read         │                       │
-│            │ • JSON    │  │ • chat         │                       │
-│            │   repair  │  │ • editor lock  │                       │
-│            └────────┬──┘  └────────────────┘                       │
-│                     │                                              │
-└─────────────────────┼───────────────────────────────────────────── ┘
-                      │ HTTPS
-           ┌──────────▼──────────┐
-           │  /api/gemini.ts     │  ← Vercel serverless proxy
-           │  (hides API key)    │
-           └──────────┬──────────┘
-                      │
-           ┌──────────▼──────────┐
-           │  Gemini 2.5 Flash   │  ← Google AI API
-           │  (LLM reasoning)    │
-           └─────────────────────┘
+<!-- Diagram source: docs/diagrams/high-level-component-map.mmd -->
+
+```mermaid
+graph TD
+    subgraph Browser["Browser (React SPA)"]
+        subgraph ChatPanel["Chat Panel"]
+            CP1["Message bubbles"]
+            CP2["Agent status chips"]
+            CP3["Chat input"]
+        end
+
+        subgraph DocPanel["Document Panel"]
+            DP1["Tiptap rich-text editor<br/>+ AgentCursors extension<br/>(cursors, thoughts, selections)"]
+        end
+
+        ChatPanel & DocPanel --> AppState
+
+        subgraph AppState["App.tsx (State)"]
+            S1["docOpen"]
+            S2["aiden / nova"]
+            S3["messages[]"]
+        end
+
+        AppState --> Orchestrator
+
+        subgraph Orchestrator["orchestrator.ts"]
+            O1["Turn queue & coordination"]
+            O2["Queue: TurnRequest[]"]
+            O3["Triggers: doc-opened,<br/>user-message, agent-tagged"]
+        end
+
+        Orchestrator --> Agent
+        Orchestrator --> Actions
+
+        subgraph Agent["agent.ts — askAgent()"]
+            A1["Prompts"]
+            A2["Rate limit"]
+            A3["JSON repair"]
+        end
+
+        subgraph Actions["agent-actions.ts — executeAction()"]
+            AC1["insert"]
+            AC2["replace"]
+            AC3["read"]
+            AC4["chat"]
+            AC5["editor lock"]
+        end
+    end
+
+    Agent -->|HTTPS| Proxy
+
+    subgraph Proxy["/api/gemini.ts"]
+        PX1["Vercel serverless proxy<br/>(hides API key)"]
+    end
+
+    Proxy --> Gemini
+
+    subgraph Gemini["Gemini 2.5 Flash"]
+        G1["Google AI API<br/>(LLM reasoning)"]
+    end
 ```
 
 ### Module Responsibilities
@@ -115,61 +123,44 @@ Both agents are powered by **Google Gemini 2.5 Flash** and coordinate their turn
 
 ### Agent Turn Lifecycle
 
-```
-User sends message  ──►  App.tsx  ──►  Orchestrator
-                                          │
-                                   Detect trigger type
-                                          │
-                          ┌───────────────┼───────────────┐
-                          │               │               │
-                    doc-opened      user-message    agent-tagged
-                          │               │               │
-                    Enqueue both    Clear queue,    Limited back-
-                    agents with     detect @mention  and-forth
-                    initial         and enqueue      (max 2 tags)
-                    instructions    relevant agent
-                          │               │               │
-                          └───────────────┼───────────────┘
-                                          │
-                                   processQueue()
-                                          │
-                                   askAgent(params)
-                                          │
-                                  Build prompt:
-                                  • Persona injection
-                                  • Doc text (≤2000 chars)
-                                  • Chat history (last 6)
-                                  • Recent changes context
-                                          │
-                                  POST /api/gemini
-                                          │
-                                  Gemini 2.5 Flash
-                                          │
-                                  Parse JSON response
-                                  (with repair on truncation)
-                                          │
-                              ┌───────────┼──────────────┐
-                              │           │              │
-                           insert      replace         read
-                              │           │              │
-                        Acquire lock  Acquire lock  Highlight text
-                        Insert at     Find & replace  Show thought
-                        end/heading   char-by-char   bubble (3.5 seconds)
-                        char-by-char
-                              │           │              │
-                              └───────────┼──────────────┘
-                                          │
-                                   Turn complete
-                                          │
-                                   Was doc edited?
-                                    Yes ──► Enqueue other
-                                            agent to react
-                                    No  ──► Continue queue
-                                          │
-                                   Autonomous turn cap?
-                                    (max 3 per agent/session)
-                                    Yes ──► Stop auto turns
-                                    No  ──► Next turn
+<!-- Diagram source: docs/diagrams/agent-turn-lifecycle.mmd -->
+
+```mermaid
+flowchart TD
+    A["User sends message"] --> B["App.tsx"]
+    B --> C["Orchestrator"]
+    C --> D{"Detect trigger type"}
+
+    D -->|doc-opened| E["Enqueue both agents<br/>with initial instructions"]
+    D -->|user-message| F["Clear queue, detect<br/>@mention and enqueue<br/>relevant agent"]
+    D -->|agent-tagged| G["Limited back-and-forth<br/>(max 2 tags)"]
+
+    E --> H["processQueue()"]
+    F --> H
+    G --> H
+
+    H --> I["askAgent(params)"]
+    I --> J["Build prompt:<br/>• Persona injection<br/>• Doc text (≤2000 chars)<br/>• Chat history (last 6)<br/>• Recent changes context"]
+    J --> K["POST /api/gemini"]
+    K --> L["Gemini 2.5 Flash"]
+    L --> M["Parse JSON response<br/>(with repair on truncation)"]
+
+    M -->|insert| N["Acquire lock<br/>Insert at end/heading<br/>char-by-char"]
+    M -->|replace| O["Acquire lock<br/>Find & replace<br/>char-by-char"]
+    M -->|read| P["Highlight text<br/>Show thought bubble<br/>(3.5 seconds)"]
+
+    N --> Q["Turn complete"]
+    O --> Q
+    P --> Q
+
+    Q --> R{"Was doc edited?"}
+    R -->|Yes| S["Enqueue other<br/>agent to react"]
+    R -->|No| T["Continue queue"]
+
+    S --> U{"Autonomous turn cap?<br/>(max 3 per agent/session)"}
+    T --> U
+    U -->|Yes| V["Stop auto turns"]
+    U -->|No| W["Next turn"]
 ```
 
 ### Editor Action Types
@@ -183,43 +174,38 @@ User sends message  ──►  App.tsx  ──►  Orchestrator
 
 ### Agent-to-Agent Collaboration
 
-```
-Aiden inserts "Technical Architecture" section
-        │
-        ▼
-Orchestrator detects insert action
-        │
-        ▼
-Auto-enqueue Nova: "React to Aiden's changes to Technical Architecture"
-        │
-        ▼
-Nova reads section → decides to add UX commentary or question Aiden
-        │
-        ▼
-Nova's chat message: "@Aiden should we add onboarding flows here?"
-        │
-        ▼
-Orchestrator detects @Aiden mention (agent-tagged trigger)
-        │
-        ▼
-Aiden responds ... (limited to MAX_AGENT_TAGS = 2 exchanges)
+<!-- Diagram source: docs/diagrams/agent-to-agent-collaboration.mmd -->
+
+```mermaid
+sequenceDiagram
+    participant Aiden
+    participant Orchestrator
+    participant Nova
+
+    Aiden->>Orchestrator: Inserts "Technical Architecture" section
+    Orchestrator->>Orchestrator: Detects insert action
+    Orchestrator->>Nova: Auto-enqueue: "React to Aiden's changes<br/>to Technical Architecture"
+    Nova->>Nova: Reads section
+    Nova->>Nova: Decides to add UX commentary<br/>or question Aiden
+    Nova->>Orchestrator: Chat: "@Aiden should we add<br/>onboarding flows here?"
+    Orchestrator->>Orchestrator: Detects @Aiden mention<br/>(agent-tagged trigger)
+    Orchestrator->>Aiden: Enqueue response
+    Aiden->>Orchestrator: Responds<br/>(limited to MAX_AGENT_TAGS = 2 exchanges)
 ```
 
 ### Rate Limiting & Reliability
 
-```
-                ┌────────────────────────────────┐
-                │         rateLimiter            │
-                │  minIntervalMs: 7000           │
-                │  maxRetries: 3                 │
-                │                                │
-                │  Backoff sequence on 429:      │
-                │   5 sec → 10 sec → 20 sec      │
-                │   → 40 sec → 60 sec            │
-                │                                │
-                │  After 3 consecutive errors:   │
-                │   30-second cool-down          │
-                └────────────────────────────────┘
+<!-- Diagram source: docs/diagrams/rate-limiting.mmd -->
+
+```mermaid
+flowchart LR
+    subgraph rateLimiter["rateLimiter"]
+        direction TB
+        A["minIntervalMs: 7000"]
+        B["maxRetries: 3"]
+        C["Backoff sequence on 429:<br/>5s → 10s → 20s → 40s → 60s"]
+        D["After 3 consecutive errors:<br/>30-second cool-down"]
+    end
 ```
 
 The 7-second minimum interval keeps usage safely below the free-tier limit of ~10 RPM.
@@ -278,6 +264,14 @@ Open **http://localhost:5173** in your browser.
 collab/
 ├── api/
 │   └── gemini.ts           # Vercel serverless proxy — hides Gemini key in prod
+│
+├── docs/
+│   └── diagrams/           # Mermaid diagram sources (.mmd)
+│       ├── high-level-component-map.mmd
+│       ├── agent-turn-lifecycle.mmd
+│       ├── agent-to-agent-collaboration.mmd
+│       ├── rate-limiting.mmd
+│       └── proxy-flow.mmd
 │
 ├── src/
 │   ├── main.tsx            # React entry point
@@ -362,12 +356,19 @@ The client in production will call `/api/gemini` (the serverless proxy) instead 
 
 ### How the proxy works
 
-```
-Browser  ──POST /api/gemini──►  Vercel Function (api/gemini.ts)
-                                    reads process.env.GEMINI_API_KEY
-                                    ──POST──►  Gemini API
-                                    ◄── response ──
-         ◄── JSON response ──
+<!-- Diagram source: docs/diagrams/proxy-flow.mmd -->
+
+```mermaid
+sequenceDiagram
+    participant Browser
+    participant Vercel as Vercel Function<br/>(api/gemini.ts)
+    participant Gemini as Gemini API
+
+    Browser->>Vercel: POST /api/gemini
+    Note over Vercel: Reads process.env.GEMINI_API_KEY
+    Vercel->>Gemini: POST (with API key)
+    Gemini-->>Vercel: Response
+    Vercel-->>Browser: JSON response
 ```
 
 ---

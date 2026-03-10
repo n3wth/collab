@@ -1,0 +1,14 @@
+sequenceDiagram
+    participant Aiden
+    participant Orchestrator
+    participant Nova
+
+    Aiden->>Orchestrator: Inserts "Technical Architecture" section
+    Orchestrator->>Orchestrator: Detects insert action
+    Orchestrator->>Nova: Auto-enqueue: "React to Aiden's changes<br/>to Technical Architecture"
+    Nova->>Nova: Reads section
+    Nova->>Nova: Decides to add UX commentary<br/>or question Aiden
+    Nova->>Orchestrator: Chat: "@Aiden should we add<br/>onboarding flows here?"
+    Orchestrator->>Orchestrator: Detects @Aiden mention<br/>(agent-tagged trigger)
+    Orchestrator->>Aiden: Enqueue response
+    Aiden->>Orchestrator: Responds<br/>(limited to MAX_AGENT_TAGS = 2 exchanges)
