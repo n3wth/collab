@@ -1,5 +1,5 @@
 import type { Editor } from '@tiptap/react'
-import { askAgent, type AgentAction, type AskParams } from './agent'
+import { askAgent, disposeRateLimiter, type AgentAction, type AskParams } from './agent'
 import { executeAgentAction, type ActionCallbacks } from './agent-actions'
 
 type AgentName = 'Aiden' | 'Nova'
@@ -60,7 +60,10 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
   function clearAllTimers() {
     scheduledTimers.forEach(id => clearTimeout(id))
     scheduledTimers.clear()
-    Object.values(typingTimers).forEach(t => clearTimeout(t))
+    Object.keys(typingTimers).forEach(k => {
+      clearTimeout(typingTimers[k])
+      delete typingTimers[k]
+    })
   }
 
   function enqueue(req: TurnRequest) {
@@ -257,6 +260,7 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
   function destroy() {
     destroyed = true
     clearAllTimers()
+    disposeRateLimiter()
     queue.length = 0
     processing = false
     editorLockRef.current = null
