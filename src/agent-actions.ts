@@ -12,51 +12,58 @@ export interface ActionCallbacks {
   onDone: (success?: boolean) => void
 }
 
-// Convert markdown-ish content to standalone HTML blocks for sequential insertion
-function contentToBlocks(content: string): string[] {
+// Represents a single streamable piece of content
+interface StreamBlock {
+  // 'heading', 'paragraph', 'listItem' — determines the wrapper node
+  type: 'heading' | 'paragraph' | 'listItem'
+  text: string
+  level?: number // for headings (2 = h2)
+  subItems?: string[] // for list items with children
+}
+
+// Convert markdown-ish content to streamable blocks
+function contentToStreamBlocks(content: string): StreamBlock[] {
   const cleaned = content
     .replace(/^#{3,}\s+/gm, '## ')
     .replace(/\*\*(.+?)\*\*/g, '$1')
     .replace(/\*(.+?)\*/g, '$1')
     .replace(/`(.+?)`/g, '$1')
   const lines = cleaned.split('\n').filter(l => l.trim() !== '')
-  const blocks: string[] = []
-  let topItems: { text: string, subItems: string[] }[] = []
+  const blocks: StreamBlock[] = []
+  let pendingListItems: { text: string, subItems: string[] }[] = []
 
   const flushList = () => {
-    if (topItems.length > 0) {
-      const html = topItems.map(item => {
-        if (item.subItems.length > 0) {
-          return `<li>${item.text}<ul>${item.subItems.map(s => `<li>${s}</li>`).join('')}</ul></li>`
-        }
-        return `<li>${item.text}</li>`
-      }).join('')
-      blocks.push(`<ul>${html}</ul>`)
-      topItems = []
+    for (const item of pendingListItems) {
+      blocks.push({ type: 'listItem', text: item.text, subItems: item.subItems.length > 0 ? item.subItems : undefined })
     }
+    pendingListItems = []
   }
 
   for (const line of lines) {
     if (/^[\t ]{2,}- /.test(line)) {
       const text = line.replace(/^[\t ]*- /, '')
-      if (topItems.length > 0) {
-        topItems[topItems.length - 1].subItems.push(text)
+      if (pendingListItems.length > 0) {
+        pendingListItems[pendingListItems.length - 1].subItems.push(text)
       } else {
-        topItems.push({ text, subItems: [] })
+        pendingListItems.push({ text, subItems: [] })
       }
     } else if (line.startsWith('- ')) {
-      topItems.push({ text: line.slice(2), subItems: [] })
+      pendingListItems.push({ text: line.slice(2), subItems: [] })
     } else {
       flushList()
-      if (line.startsWith('### ')) blocks.push(`<h3>${line.slice(4)}</h3>`)
-      else if (line.startsWith('## ')) blocks.push(`<h2>${line.slice(3)}</h2>`)
-      else if (line.startsWith('# ')) blocks.push(`<h1>${line.slice(2)}</h1>`)
-      else blocks.push(`<p>${line}</p>`)
+      if (line.startsWith('## ')) {
+        blocks.push({ type: 'heading', text: line.slice(3), level: 2 })
+      } else if (line.startsWith('# ')) {
+        blocks.push({ type: 'heading', text: line.slice(2), level: 1 })
+      } else {
+        blocks.push({ type: 'paragraph', text: line })
+      }
     }
   }
   flushList()
   return blocks
 }
+
 
 // Find position of text in the document (works across text node boundaries)
 function findTextPos(editor: Editor, searchText: string): { from: number, to: number } | null {
@@ -84,7 +91,6 @@ function findTextPos(editor: Editor, searchText: string): { from: number, to: nu
     return { from: posMap[idx], to: posMap[idx + searchText.length - 1] + 1 }
   }
 
-  // Fallback: try matching first 30 chars
   if (searchLower.length > 30) {
     const partial = searchLower.slice(0, 30)
     const pidx = fullText.toLowerCase().indexOf(partial)
@@ -113,8 +119,25 @@ function clampPos(editor: Editor, pos: number): number {
   return Math.max(0, Math.min(pos, editor.state.doc.content.size))
 }
 
+// Scroll the editor view so a position is visible
+function scrollToPos(editor: Editor, pos: number) {
+  try {
+    const clamped = clampPos(editor, pos)
+    const coords = editor.view.coordsAtPos(clamped)
+    const scrollParent = editor.view.dom.closest('.doc-body')
+    if (!scrollParent || !coords) return
+    const rect = scrollParent.getBoundingClientRect()
+    const cursorY = coords.top - rect.top + scrollParent.scrollTop
+    const viewTop = scrollParent.scrollTop
+    const viewBottom = viewTop + rect.height
+    if (cursorY < viewTop + 60 || cursorY > viewBottom - 80) {
+      scrollParent.scrollTo({ top: Math.max(0, cursorY - rect.height / 3), behavior: 'smooth' })
+    }
+  } catch { /* coords can fail at doc boundaries */ }
+}
+
 // Safe cursor helpers — catch mismatched transaction errors
-function safeCursor(editor: Editor, opts: { name: string, color: string, pos: number, selectionFrom?: number, selectionTo?: number, thought?: string }) {
+function safeCursor(editor: Editor, opts: { name: string, color: string, pos: number, selectionFrom?: number, selectionTo?: number, thought?: string }, scroll = false) {
   try {
     const clamped = {
       ...opts,
@@ -122,12 +145,14 @@ function safeCursor(editor: Editor, opts: { name: string, color: string, pos: nu
       selectionFrom: opts.selectionFrom !== undefined ? clampPos(editor, opts.selectionFrom) : undefined,
       selectionTo: opts.selectionTo !== undefined ? clampPos(editor, opts.selectionTo) : undefined,
     }
-    // Ensure selection range is valid
     if (clamped.selectionFrom !== undefined && clamped.selectionTo !== undefined && clamped.selectionFrom >= clamped.selectionTo) {
       clamped.selectionFrom = undefined
       clamped.selectionTo = undefined
     }
     editor.commands.setAgentCursor(clamped)
+    if (scroll) {
+      scrollToPos(editor, clamped.pos)
+    }
   } catch { /* stale state, skip */ }
 }
 
@@ -135,7 +160,38 @@ function safeRemoveCursor(editor: Editor, name: string) {
   try { editor.commands.removeAgentCursor(name) } catch { /* skip */ }
 }
 
-// Type text character by character at a position
+// Stream-type text into the editor at a position, character by character
+function streamTypeAt(
+  editor: Editor,
+  agentName: string,
+  pos: number,
+  text: string,
+  timers: Record<string, number>,
+  onChar?: () => void,
+): Promise<void> {
+  return new Promise(resolve => {
+    let charIdx = 0
+    const typeNext = () => {
+      if (charIdx < text.length) {
+        const char = text[charIdx]
+        editor.commands.insertContentAt(clampPos(editor, pos + charIdx), char)
+        charIdx++
+        safeCursor(editor, {
+          name: agentName,
+          color: AGENTS[agentName].color,
+          pos: pos + charIdx,
+        }, charIdx % 20 === 0) // scroll every 20 chars
+        onChar?.()
+        timers[agentName] = window.setTimeout(typeNext, 18 + Math.random() * 32)
+      } else {
+        resolve()
+      }
+    }
+    timers[agentName] = window.setTimeout(typeNext, 50)
+  })
+}
+
+// Type text character by character at a position (legacy, used by replace)
 function typeTextAt(
   editor: Editor,
   agentName: string,
@@ -155,8 +211,8 @@ function typeTextAt(
         name: agentName,
         color: AGENTS[agentName].color,
         pos: pos + charIdx,
-      })
-      timers[agentName] = window.setTimeout(typeNext, 25 + Math.random() * 45)
+      }, charIdx % 20 === 0)
+      timers[agentName] = window.setTimeout(typeNext, 18 + Math.random() * 32)
     } else {
       cb.onStateChange('idle')
       timers[agentName] = window.setTimeout(() => {
@@ -179,10 +235,8 @@ export function executeAgentAction(
 ) {
   const needsLock = action.type === 'insert' || action.type === 'replace'
 
-  // Atomic lock check: verify lock is still free at execution time
   if (needsLock && editorLockRef.current && editorLockRef.current !== agentName) {
     timers[agentName] = window.setTimeout(() => {
-      // Re-check lock atomically before retrying
       if (editorLockRef.current && editorLockRef.current !== agentName) {
         timers[agentName] = window.setTimeout(() => executeAgentAction(editor, agentName, action, editorLockRef, timers, callbacks), 500 + Math.random() * 1000)
       } else {
@@ -221,7 +275,7 @@ export function executeAgentAction(
       selectionFrom: found?.from,
       selectionTo: found?.to,
       thought: action.thought || 'Reading...',
-    })
+    }, true) // scroll to reading position
     timers[agentName] = window.setTimeout(() => {
       callbacks.onStateChange('idle')
       safeRemoveCursor(editor, agentName)
@@ -232,23 +286,24 @@ export function executeAgentAction(
   } else if (action.type === 'insert') {
     postChatBefore()
     const existingHeadings = getExistingHeadings(editor)
-    const chunks = contentToBlocks(action.content || '').filter(chunk => {
-      const headingMatch = chunk.match(/^<h[123]>(.*?)<\/h[123]>$/)
-      if (headingMatch) {
-        const headingText = headingMatch[1].trim().toLowerCase()
-        if (existingHeadings.has(headingText)) {
-          console.log('[agent-actions] skipping duplicate heading:', headingMatch[1])
+
+    // Parse into stream blocks and filter duplicate headings
+    const streamBlocks = contentToStreamBlocks(action.content || '').filter(block => {
+      if (block.type === 'heading') {
+        if (existingHeadings.has(block.text.trim().toLowerCase())) {
+          console.log('[agent-actions] skipping duplicate heading:', block.text)
           return false
         }
       }
       return true
     })
 
-    if (chunks.length === 0) {
+    if (streamBlocks.length === 0) {
       releaseLockAndDone(false)
       return
     }
 
+    // Determine insert position
     let insertPos = editor.state.doc.content.size
     if (action.position === 'after-heading') {
       editor.state.doc.descendants((node, pos) => {
@@ -264,11 +319,12 @@ export function executeAgentAction(
       color: AGENTS[agentName].color,
       pos: clampPos(editor, insertPos),
       thought: action.thought || 'Writing...',
-    })
+    }, true)
 
-    let chunkIdx = 0
-    const insertNext = () => {
-      if (chunkIdx >= chunks.length) {
+    // Stream each block: insert empty node, then type text into it
+    let blockIdx = 0
+    const streamNextBlock = () => {
+      if (blockIdx >= streamBlocks.length) {
         timers[agentName] = window.setTimeout(() => {
           safeRemoveCursor(editor, agentName)
           callbacks.onStateChange('idle')
@@ -277,20 +333,65 @@ export function executeAgentAction(
         }, 600)
         return
       }
-      const chunk = chunks[chunkIdx]
-      const currentPos = Math.max(0, editor.state.doc.content.size - 1)
-      editor.commands.insertContentAt(currentPos, chunk)
-      const newPos = editor.state.doc.content.size
-      safeCursor(editor, {
-        name: agentName,
-        color: AGENTS[agentName].color,
-        pos: newPos,
-        thought: action.thought || 'Writing...',
-      })
-      chunkIdx++
-      timers[agentName] = window.setTimeout(insertNext, 400 + Math.random() * 600)
+
+      const block = streamBlocks[blockIdx]
+      blockIdx++
+
+      if (block.type === 'listItem') {
+        // For list items, insert complete HTML (streaming individual list items is complex)
+        // But add a small per-item delay for visual effect
+        const currentPos = Math.max(0, editor.state.doc.content.size - 1)
+        let html: string
+        if (block.subItems && block.subItems.length > 0) {
+          html = `<ul><li>${block.text}<ul>${block.subItems.map(s => `<li>${s}</li>`).join('')}</ul></li></ul>`
+        } else {
+          html = `<ul><li>${block.text}</li></ul>`
+        }
+        editor.commands.insertContentAt(currentPos, html)
+        const newPos = editor.state.doc.content.size
+        safeCursor(editor, {
+          name: agentName,
+          color: AGENTS[agentName].color,
+          pos: newPos,
+          thought: action.thought || 'Writing...',
+        }, true)
+        // Delay between list items for visual pacing
+        timers[agentName] = window.setTimeout(streamNextBlock, 300 + Math.random() * 400)
+      } else {
+        // For headings and paragraphs: insert empty node, then stream-type text
+        const currentPos = Math.max(0, editor.state.doc.content.size - 1)
+        if (block.type === 'heading') {
+          const tag = `h${block.level || 2}`
+          editor.commands.insertContentAt(currentPos, `<${tag}> </${tag}>`)
+        } else {
+          editor.commands.insertContentAt(currentPos, '<p> </p>')
+        }
+
+        // Find the position of the space we just inserted (inside the new node)
+        // It's at the end of the doc, inside the new node
+        let textPos = currentPos + 1 // just inside the new node
+
+        // Delete the placeholder space
+        try {
+          editor.chain().deleteRange({ from: textPos, to: textPos + 1 }).run()
+        } catch { /* may fail if positions shift */ }
+
+        safeCursor(editor, {
+          name: agentName,
+          color: AGENTS[agentName].color,
+          pos: textPos,
+          thought: action.thought || 'Writing...',
+        }, true)
+
+        // Stream-type the text content
+        streamTypeAt(editor, agentName, textPos, block.text, timers).then(() => {
+          // Small pause between blocks
+          timers[agentName] = window.setTimeout(streamNextBlock, 200 + Math.random() * 300)
+        })
+      }
     }
-    timers[agentName] = window.setTimeout(insertNext, 800)
+
+    timers[agentName] = window.setTimeout(streamNextBlock, 600)
 
   } else if (action.type === 'replace') {
     postChatBefore()
@@ -309,7 +410,7 @@ export function executeAgentAction(
       selectionFrom: found.from,
       selectionTo: found.to,
       thought: action.thought || 'Rewriting...',
-    })
+    }, true) // scroll to replace position
 
     timers[agentName] = window.setTimeout(() => {
       editor.chain()
