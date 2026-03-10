@@ -30,18 +30,27 @@ function uid() {
 }
 
 const AGENTS: Record<string, { color: string, bgColor: string }> = {
-  Aiden: { color: '#1a73e8', bgColor: '#e8f0fe' },
+  Aiden: { color: '#4285f4', bgColor: '#e8f0fe' },
   Nova: { color: '#e37400', bgColor: '#fef7e0' },
 }
 
 const AGENT_PALETTES: Record<string, string[]> = {
-  Aiden: ['#1a73e8', '#4285f4', '#8ab4f8', '#c5dafc', '#e8f0fe'],
+  Aiden: ['#4285f4', '#5e97f6', '#8ab4f8', '#c5dafc', '#e8f0fe'],
   Nova: ['#e37400', '#f29900', '#fdd663', '#feefc3', '#fef7e0'],
 }
 
 const PERSON_PHOTOS: Record<string, string> = {
   You: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=face',
   Sarah: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop&crop=face',
+}
+
+function GeminiSparkle({ size = 12, color = 'currentColor' }: { size?: number, color?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={{ display: 'inline-block', verticalAlign: 'middle' }}>
+      <path d="M12 2L13.5 8.5L20 10L13.5 11.5L12 18L10.5 11.5L4 10L10.5 8.5L12 2Z" fill={color} />
+      <path d="M19 14L19.75 16.25L22 17L19.75 17.75L19 20L18.25 17.75L16 17L18.25 16.25L19 14Z" fill={color} opacity="0.6" />
+    </svg>
+  )
 }
 
 function AgentAvatar({ size = 28, name = 'Aiden', className = '' }: { size?: number, name?: string, className?: string }) {
@@ -279,39 +288,46 @@ function App() {
   return (
     <div className="shell">
       <div className="top-bar">
-        <span className="top-bar-title">n3wth/collab</span>
+        <div className="top-bar-brand">
+          <GeminiSparkle size={20} color="#4285f4" />
+          <span className="top-bar-title">Collab</span>
+        </div>
         <div className="participants">
-          <PersonAvatar name="You" size={30} />
-          <div style={{ position: 'relative' }}>
-            <AgentAvatar size={26} name="Aiden" />
-            <span className={`avatar-status ${aiden.inDoc ? 'status-working' : aiden.status !== 'idle' ? 'status-active' : ''}`} />
-          </div>
-          <PersonAvatar name="Sarah" size={30} />
-          <div style={{ position: 'relative' }}>
-            <AgentAvatar size={26} name="Nova" />
-            <span className={`avatar-status ${nova.inDoc ? 'status-working' : nova.status !== 'idle' ? 'status-active' : ''}`} />
-          </div>
+          {(['You', 'Aiden', 'Sarah', 'Nova'] as const).map(name => {
+            const isAgent = name === 'Aiden' || name === 'Nova'
+            const agentState = name === 'Aiden' ? aiden : name === 'Nova' ? nova : null
+            return (
+              <div key={name} className="participant-item">
+                {isAgent
+                  ? <AgentAvatar size={32} name={name} />
+                  : <PersonAvatar name={name} size={32} />
+                }
+                {agentState && (
+                  <span className={`avatar-status ${agentState.inDoc ? 'status-working' : agentState.status !== 'idle' ? 'status-active' : ''}`} />
+                )}
+                <span className="participant-name">{name === 'You' ? 'You' : name}</span>
+              </div>
+            )
+          })}
         </div>
       </div>
 
       <div className="main-area">
         <div className={`chat-panel ${docOpen ? 'chat-side' : 'chat-full'}`}>
-          <div className="chat-header">
-            Group Chat
-          </div>
           <div className="chat-messages">
             {messages.map(m => {
               const isAgent = m.from === 'Aiden' || m.from === 'Nova'
               const ownerLabel = m.from === 'Aiden' ? 'your agent' : m.from === 'Nova' ? 'Sarah\'s agent' : ''
               const agent = isAgent ? AGENTS[m.from] : null
               return (
-                <div key={m.id} className="msg">
+                <div key={m.id} className={`msg ${isAgent ? 'msg-agent' : 'msg-human'}`} data-agent={isAgent ? m.from.toLowerCase() : undefined}>
                   <div className="msg-avatar">
-                    <MessageAvatar from={m.from} size={28} />
+                    <MessageAvatar from={m.from} size={32} />
                   </div>
                   <div className="msg-body">
                     <div className="msg-header">
                       <span className="msg-name" style={agent ? { color: agent.color } : undefined}>
+                        {agent && <GeminiSparkle size={12} color={agent.color} />}{' '}
                         {m.from}
                       </span>
                       {ownerLabel && <span className="msg-owner-tag">{ownerLabel}</span>}
@@ -323,7 +339,7 @@ function App() {
                     </div>
                     {m.showDocButton && !docOpen && (
                       <button className="doc-prompt" onClick={openDocWithAgents}>
-                        <svg className="doc-prompt-icon" width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" fill="#1a73e8" opacity="0.15" stroke="#1a73e8" strokeWidth="1.5" strokeLinejoin="round"/><path d="M14 2v6h6" stroke="#1a73e8" strokeWidth="1.5" strokeLinejoin="round"/><path d="M8 13h8M8 17h5" stroke="#1a73e8" strokeWidth="1.5" strokeLinecap="round"/></svg>
+                        <svg className="doc-prompt-icon" width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" fill="#4285f4" opacity="0.15" stroke="#4285f4" strokeWidth="1.5" strokeLinejoin="round"/><path d="M14 2v6h6" stroke="#4285f4" strokeWidth="1.5" strokeLinejoin="round"/><path d="M8 13h8M8 17h5" stroke="#4285f4" strokeWidth="1.5" strokeLinecap="round"/></svg>
                         Open doc
                       </button>
                     )}
@@ -342,12 +358,14 @@ function App() {
                   </div>
                   <div className="msg-body">
                     <div className="msg-header">
-                      <span className="msg-name" style={{ color: AGENTS[name].color }}>{name}</span>
+                      <span className="msg-name" style={{ color: AGENTS[name].color }}>
+                        <GeminiSparkle size={12} color={AGENTS[name].color} /> {name}
+                      </span>
                       <span className="msg-owner-tag">{label}</span>
                     </div>
                     <div className="msg-thinking">
                       <span className="thinking-text">{state.thought || 'Thinking...'}</span>
-                      <span className="typing-dots"><span /><span /><span /></span>
+                      <span className="typing-dots" style={{ color: AGENTS[name].color }}><span /><span /><span /></span>
                     </div>
                   </div>
                 </div>
