@@ -1,0 +1,16 @@
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#f1f5f9', 'primaryTextColor': '#1a1a2e', 'primaryBorderColor': '#475569', 'lineColor': '#64748b' }}}%%
+flowchart LR
+    subgraph rl["⏱️ Rate Limiter"]
+        direction TB
+        A["🔄 Min interval — 7 000 ms between calls"]:::config
+        B["🔁 Max retries — 3 attempts per request"]:::config
+        C["📈 Backoff on 429:<br/>5 s → 10 s → 20 s → 40 s → 60 s"]:::warn
+        D["🛑 3 consecutive errors → 30 s cool-down"]:::error
+        A ~~~ B ~~~ C ~~~ D
+    end
+
+    classDef config fill:#e0f2fe,stroke:#0284c7,stroke-width:1.5px,color:#0c4a6e
+    classDef warn fill:#fef3c7,stroke:#d97706,stroke-width:1.5px,color:#78350f
+    classDef error fill:#fee2e2,stroke:#dc2626,stroke-width:1.5px,color:#7f1d1d
+
+    style rl fill:#f8fafc,stroke:#475569,stroke-width:2px,color:#1e293b
