@@ -677,6 +677,23 @@
 
 .doc-prompt-icon { display: block; flex-shrink: 0; }
 
+/* Reset doc */
+.doc-reset {
+  border: none;
+  background: transparent;
+  color: var(--text-tertiary);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  font-family: var(--font-ui);
+  transition: background 0.15s var(--ease-standard);
+}
+.doc-reset:hover {
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+
 /* Close doc */
 .doc-close {
   width: 36px;

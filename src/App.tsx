@@ -129,6 +129,20 @@ function FormatMentions({ text }: { text: string }) {
   )
 }
 
+const STORAGE_KEYS = { doc: 'collab-doc-content', chat: 'collab-chat-messages' }
+
+function loadSavedDoc(): string | null {
+  try { return localStorage.getItem(STORAGE_KEYS.doc) } catch { return null }
+}
+
+function loadSavedMessages(): Message[] | null {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEYS.chat)
+    if (!saved) return null
+    return JSON.parse(saved) as Message[]
+  } catch { return null }
+}
+
 const INITIAL_DOC = `<h1>Project Proposal: Ambient AI Companions</h1>
 <h2>Overview</h2>
 <p>Personal AI agents that persist across contexts — chat, docs, browsing — maintaining continuity of thought and conversation. Each person has their own agent with distinct capabilities, and agents collaborate alongside humans in shared workspaces.</p>
@@ -156,17 +170,22 @@ function App() {
   const [docOpen, setDocOpen] = useState(false)
   const [aiden, setAiden] = useState<AgentState>({ status: 'idle', inDoc: false })
   const [nova, setNova] = useState<AgentState>({ status: 'idle', inDoc: false })
-  const [messages, setMessages] = useState<Message[]>([
-    { id: uid(), from: 'You', text: 'the proposal doc needs work before Thursday — can you two jump in?', time: '2:41 PM' },
-    { id: uid(), from: 'Sarah', text: 'agreed. the open questions section is basically empty and the architecture is hand-wavy', time: '2:41 PM' },
-    { id: uid(), from: 'Aiden', text: 'I\'ll take technical architecture. Needs a real system design, not placeholders — data model, sync protocol, component boundaries.', time: '2:42 PM', showDocButton: true },
-    { id: uid(), from: 'Nova', text: 'I\'ll own the product side. The trust-building arc Sarah flagged is critical — users won\'t adopt this if the agent feels unpredictable. Let me write that up.', time: '2:42 PM' },
-  ])
+  const [messages, setMessages] = useState<Message[]>(() => {
+    const saved = loadSavedMessages()
+    if (saved && saved.length > 0) return saved
+    return [
+      { id: uid(), from: 'You', text: 'the proposal doc needs work before Thursday — can you two jump in?', time: '2:41 PM' },
+      { id: uid(), from: 'Sarah', text: 'agreed. the open questions section is basically empty and the architecture is hand-wavy', time: '2:41 PM' },
+      { id: uid(), from: 'Aiden', text: 'I\'ll take technical architecture. Needs a real system design, not placeholders — data model, sync protocol, component boundaries.', time: '2:42 PM', showDocButton: true },
+      { id: uid(), from: 'Nova', text: 'I\'ll own the product side. The trust-building arc Sarah flagged is critical — users won\'t adopt this if the agent feels unpredictable. Let me write that up.', time: '2:42 PM' },
+    ]
+  })
   const [input, setInput] = useState('')
   const chatEndRef = useRef<HTMLDivElement>(null)
   const messagesRef = useRef(messages)
   const orchestratorRef = useRef<ReturnType<typeof createOrchestrator> | null>(null)
   const editorRef = useRef<Editor | null>(null)
+  const docSaveTimer = useRef<number | null>(null)
   messagesRef.current = messages
 
   const editor = useEditor({
@@ -175,14 +194,30 @@ function App() {
       Placeholder.configure({ placeholder: 'Start writing...' }),
       AgentCursors,
     ],
-    content: INITIAL_DOC,
+    content: loadSavedDoc() || INITIAL_DOC,
     editorProps: {
       attributes: {
         class: 'doc-editor',
       },
     },
+    onUpdate: ({ editor: ed }) => {
+      if (docSaveTimer.current) clearTimeout(docSaveTimer.current)
+      docSaveTimer.current = window.setTimeout(() => {
+        try { localStorage.setItem(STORAGE_KEYS.doc, ed.getHTML()) } catch { /* full */ }
+      }, 2000)
+    },
   })
   editorRef.current = editor
+
+  // Persist chat messages (debounced via effect)
+  useEffect(() => {
+    try { localStorage.setItem(STORAGE_KEYS.chat, JSON.stringify(messages)) } catch { /* full */ }
+  }, [messages])
+
+  // Cleanup save timer
+  useEffect(() => {
+    return () => { if (docSaveTimer.current) clearTimeout(docSaveTimer.current) }
+  }, [])
 
   const makeOrchestrator = useCallback(() => {
     return createOrchestrator({
@@ -409,6 +444,13 @@ function App() {
               <div className="doc-toolbar-collabs">
                 <span className="collab-count">4 in doc</span>
               </div>
+              <button className="doc-reset" onClick={() => {
+                localStorage.removeItem(STORAGE_KEYS.doc)
+                localStorage.removeItem(STORAGE_KEYS.chat)
+                window.location.reload()
+              }} title="Reset document and chat">
+                Reset
+              </button>
               <button className="doc-close" onClick={() => {
                 orchestratorRef.current?.destroy()
                 setDocOpen(false)
