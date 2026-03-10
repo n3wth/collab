@@ -247,11 +247,11 @@ npm install
 Create a `.env.local` file in the project root:
 
 ```env
-# Used by the client in development (never commit this file)
-VITE_GEMINI_API_KEY=your_gemini_api_key_here
+# Used by the server-side proxy (never exposed to the client)
+GEMINI_API_KEY=your_gemini_api_key_here
 ```
 
-> **Note:** The `VITE_` prefix exposes the key in the browser bundle — this is acceptable for local development only. For production, use the serverless proxy (see [Deployment](#deployment)).
+> **Note:** The API key is only read server-side by the `/api/gemini` proxy. It is never bundled into the client.
 
 ### 3. Start the dev server
 
