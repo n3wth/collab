@@ -1,5 +1,5 @@
 import type { Editor } from '@tiptap/react'
-import { askAgent, type AgentAction, type AskParams } from './agent'
+import { askAgent, AgentError, type AgentAction, type AskParams } from './agent'
 import { executeAgentAction, type ActionCallbacks } from './agent-actions'
 
 type AgentName = 'Aiden' | 'Nova'
@@ -17,6 +17,7 @@ interface OrchestratorConfig {
   getMessages: () => { from: string, text: string }[]
   onAgentState: (agent: AgentName, status: 'idle' | 'thinking' | 'typing' | 'reading' | 'editing', thought?: string) => void
   onChatMessage: (from: string, text: string) => void
+  onError?: (agent: AgentName, error: AgentError, consecutiveFailures: number) => void
 }
 
 interface OrchestratorHandle {
@@ -45,6 +46,10 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
   const MAX_EXCHANGES = 4
   // Track pending doc-edit reaction to prevent double-triggers
   let pendingReaction: AgentName | null = null
+  // Track consecutive failures per agent — pause after MAX_CONSECUTIVE_FAILURES
+  const consecutiveFailures: Record<string, number> = { Aiden: 0, Nova: 0 }
+  const MAX_CONSECUTIVE_FAILURES = 3
+  const pausedAgents = new Set<AgentName>()
   // Track ALL scheduled timeouts so we can clear them on destroy/user-message
   const scheduledTimers = new Set<number>()
 
@@ -65,6 +70,10 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
 
   function enqueue(req: TurnRequest) {
     if (destroyed) return
+    if (pausedAgents.has(req.agent)) {
+      log('enqueue skipped — agent paused due to errors:', req.agent)
+      return
+    }
     log('enqueue', req.agent, req.trigger, req.instruction?.slice(0, 40))
     queue.push(req)
     processQueue()
@@ -104,6 +113,7 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
         onChatMessage: (from, text) => config.onChatMessage(from, text),
         onDone: (success?: boolean) => {
           if (destroyed) return
+          consecutiveFailures[req.agent] = 0
           log('done', req.agent, action.type, 'success:', success, 'shouldContinue:', action.shouldContinue)
           const actionDesc = describeAction(req.agent, action)
           lastActionDescription[req.agent] = actionDesc
@@ -149,6 +159,27 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
       executeAgentAction(editor, req.agent, action, editorLockRef, typingTimers, callbacks)
     } catch (err) {
       log('error', req.agent, err)
+      consecutiveFailures[req.agent]++
+      const failures = consecutiveFailures[req.agent]
+
+      const agentError = err instanceof AgentError
+        ? err
+        : new AgentError(
+            err instanceof Error ? err.message : String(err),
+            'network_error',
+          )
+
+      config.onError?.(req.agent, agentError, failures)
+
+      if (failures >= MAX_CONSECUTIVE_FAILURES) {
+        log(`pausing ${req.agent} after ${failures} consecutive failures`)
+        pausedAgents.add(req.agent)
+        // Drain queued requests for this agent
+        for (let i = queue.length - 1; i >= 0; i--) {
+          if (queue[i].agent === req.agent) queue.splice(i, 1)
+        }
+      }
+
       config.onAgentState(req.agent, 'idle')
       processing = false
       processQueue()
@@ -202,6 +233,10 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
         scheduledTimers.clear()
         exchangeCount = 0
         pendingReaction = null
+        // Unpause agents on user interaction so they can retry
+        pausedAgents.clear()
+        consecutiveFailures.Aiden = 0
+        consecutiveFailures.Nova = 0
 
         if (mentionsAiden || mentionsBoth) {
           if (processing) {
@@ -264,6 +299,9 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
     turnCount.Nova = 0
     exchangeCount = 0
     pendingReaction = null
+    pausedAgents.clear()
+    consecutiveFailures.Aiden = 0
+    consecutiveFailures.Nova = 0
   }
 
   return { trigger, onMessage, destroy }
