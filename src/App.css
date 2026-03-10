@@ -340,10 +340,14 @@
   50% { opacity: 0.15; transform: scale(1.2); }
 }
 
+/* Thinking — subtle pulse on ring only */
+.status-chip-thinking .status-chip-ring {
+  animation: ringPulse 1.8s ease-in-out infinite;
+}
+
 /* Writing — subtle glow */
 .status-chip-writing {
-  box-shadow: 0 0 0 1px currentColor;
-  animation: chipWriting 1.5s ease-in-out infinite;
+  box-shadow: none;
 }
 
 @keyframes chipWriting {
@@ -733,4 +737,19 @@
 .chat-messages::-webkit-scrollbar-thumb:hover,
 .doc-body::-webkit-scrollbar-thumb:hover {
   background: #bdc1c6;
+}
+
+/* Mobile: stack panels vertically */
+@media (max-width: 640px) {
+  .main-area { flex-direction: column; }
+  .chat-panel.chat-side {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    max-height: 40vh;
+    border-right: none;
+    border-bottom: 1px solid #dadce0;
+  }
+  .doc-panel { min-height: 60vh; }
+  .doc-editor { padding: 24px 16px; }
 }

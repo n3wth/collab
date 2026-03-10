@@ -37,12 +37,31 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
   const typingTimers: Record<string, number> = {}
   const pendingInstructions: Record<string, { trigger: AskParams['trigger'], instruction: string }> = {}
   let lastActionDescription: Record<string, string> = {}
-  // Track how many autonomous turns each agent has taken (cap to avoid runaway API calls)
-  const autonomousTurnCount: Record<string, number> = { Aiden: 0, Nova: 0 }
-  const MAX_AUTONOMOUS_TURNS = 3 // max turns per agent per doc-opened session
-  // Track agent-to-agent tagging to prevent loops
-  let agentTagCount = 0
-  const MAX_AGENT_TAGS = 2 // max back-and-forth exchanges before cooling off
+  // Track total turns per agent (caps all non-user-initiated work)
+  const turnCount: Record<string, number> = { Aiden: 0, Nova: 0 }
+  const MAX_TURNS = 4
+  // Track back-and-forth exchanges
+  let exchangeCount = 0
+  const MAX_EXCHANGES = 4
+  // Track pending doc-edit reaction to prevent double-triggers
+  let pendingReaction: AgentName | null = null
+  // Track ALL scheduled timeouts so we can clear them on destroy/user-message
+  const scheduledTimers = new Set<number>()
+
+  function scheduleTimeout(fn: () => void, ms: number): number {
+    const id = window.setTimeout(() => {
+      scheduledTimers.delete(id)
+      fn()
+    }, ms)
+    scheduledTimers.add(id)
+    return id
+  }
+
+  function clearAllTimers() {
+    scheduledTimers.forEach(id => clearTimeout(id))
+    scheduledTimers.clear()
+    Object.values(typingTimers).forEach(t => clearTimeout(t))
+  }
 
   function enqueue(req: TurnRequest) {
     if (destroyed) return
@@ -83,13 +102,13 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
       const callbacks: ActionCallbacks = {
         onStateChange: (status, thought) => config.onAgentState(req.agent, status, thought),
         onChatMessage: (from, text) => config.onChatMessage(from, text),
-        onDone: () => {
-          log('done', req.agent, action.type, 'shouldContinue:', action.shouldContinue)
+        onDone: (success?: boolean) => {
+          if (destroyed) return
+          log('done', req.agent, action.type, 'success:', success, 'shouldContinue:', action.shouldContinue)
           const actionDesc = describeAction(req.agent, action)
           lastActionDescription[req.agent] = actionDesc
-          if (req.trigger === 'autonomous') {
-            autonomousTurnCount[req.agent]++
-          }
+          turnCount[req.agent]++
+          if (pendingReaction === req.agent) pendingReaction = null
           processing = false
 
           // Process queued instruction — but skip if it's the same one we just ran
@@ -102,11 +121,14 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
             }
           }
 
-          // After a doc edit, prompt the OTHER agent to react — creates back-and-forth
-          if ((action.type === 'insert' || action.type === 'replace') && queue.length === 0) {
+          // After a SUCCESSFUL doc edit, prompt the OTHER agent to react
+          const didEdit = (action.type === 'insert' || action.type === 'replace') && success !== false
+          if (didEdit && queue.length === 0) {
             const other: AgentName = req.agent === 'Aiden' ? 'Nova' : 'Aiden'
-            if (autonomousTurnCount[other] < MAX_AUTONOMOUS_TURNS) {
-              setTimeout(() => {
+            if (exchangeCount < MAX_EXCHANGES && turnCount[other] < MAX_TURNS && pendingReaction !== other) {
+              exchangeCount++
+              pendingReaction = other
+              scheduleTimeout(() => {
                 if (!destroyed) {
                   enqueue({
                     agent: other,
@@ -116,7 +138,7 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
                 }
               }, 3000 + Math.random() * 2000)
             }
-          } else if (action.shouldContinue && autonomousTurnCount[req.agent] < MAX_AUTONOMOUS_TURNS) {
+          } else if (action.shouldContinue && turnCount[req.agent] < MAX_TURNS) {
             enqueue({ agent: req.agent, trigger: 'autonomous' })
           } else {
             processQueue()
@@ -148,21 +170,20 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
 
     switch (type) {
       case 'doc-opened':
-        // Reset turn counters for new session
-        autonomousTurnCount.Aiden = 0
-        autonomousTurnCount.Nova = 0
-        // Each agent gets a directed first task matching their expertise
-        setTimeout(() => enqueue({
+        turnCount.Aiden = 0
+        turnCount.Nova = 0
+        exchangeCount = 0
+        pendingReaction = null
+        scheduleTimeout(() => enqueue({
           agent: 'Aiden',
           trigger: 'instruction',
           instruction: 'Review the doc and add technical depth — architecture details, system design, implementation specifics. Use your engineering expertise.',
         }), 2500)
-        setTimeout(() => enqueue({
+        scheduleTimeout(() => enqueue({
           agent: 'Nova',
           trigger: 'instruction',
           instruction: 'Review the doc and address the open questions from a product/user perspective — user scenarios, adoption risks, edge cases. Use your product strategy expertise.',
         }), 6000)
-        // Follow-up turns happen naturally via the back-and-forth mechanism in onDone
         break
 
       case 'user-message': {
@@ -172,13 +193,15 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
         const mentionsNova = lower.includes('nova') || lower.includes('@nova')
         const mentionsBoth = !mentionsAiden && !mentionsNova
 
-        // User messages take priority — clear ALL queued turns and pending instructions
+        // User messages take priority — clear everything
         queue.length = 0
         delete pendingInstructions['Aiden']
         delete pendingInstructions['Nova']
-
-        // Reset agent tag counter — user is re-engaging
-        agentTagCount = 0
+        // Cancel all pending reaction timeouts
+        scheduledTimers.forEach(id => clearTimeout(id))
+        scheduledTimers.clear()
+        exchangeCount = 0
+        pendingReaction = null
 
         if (mentionsAiden || mentionsBoth) {
           if (processing) {
@@ -198,33 +221,34 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
       }
 
       case 'agent-tagged': {
-        // Limit agent-to-agent exchanges to prevent infinite loops
-        agentTagCount++
-        if (agentTagCount > MAX_AGENT_TAGS) {
-          log('agent-to-agent tag limit reached, ignoring')
-          break
-        }
         const target = payload?.agent
         const from = payload?.from || 'someone'
-        if (target) {
+        if (target && pendingReaction === target) {
+          log('agent-tagged skipped — already has pending reaction', target)
+          break
+        }
+        if (exchangeCount >= MAX_EXCHANGES) {
+          log('exchange limit reached, ignoring agent tag')
+          break
+        }
+        if (target && turnCount[target] < MAX_TURNS) {
+          exchangeCount++
           enqueue({ agent: target, trigger: 'instruction', instruction: `${from} just mentioned you in chat. Read the recent chat and respond to their latest message.` })
         }
         break
       }
 
       case 'turn-complete':
-        // Handled internally
         break
     }
   }
 
   function onMessage(from: string, text: string) {
-    // Only trigger on explicit @mentions (not just name in text) to avoid loops
     if (from === 'Aiden' || from === 'Nova') {
       const other: AgentName = from === 'Aiden' ? 'Nova' : 'Aiden'
       if (text.toLowerCase().includes('@' + other.toLowerCase())) {
-        setTimeout(() => {
-          trigger('agent-tagged', { agent: other, from, instruction: text })
+        scheduleTimeout(() => {
+          trigger('agent-tagged', { agent: other, from })
         }, 2000 + Math.random() * 2000)
       }
     }
@@ -232,13 +256,14 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
 
   function destroy() {
     destroyed = true
-    Object.values(typingTimers).forEach(t => clearTimeout(t))
+    clearAllTimers()
     queue.length = 0
     processing = false
     editorLockRef.current = null
-    autonomousTurnCount.Aiden = 0
-    autonomousTurnCount.Nova = 0
-    agentTagCount = 0
+    turnCount.Aiden = 0
+    turnCount.Nova = 0
+    exchangeCount = 0
+    pendingReaction = null
   }
 
   return { trigger, onMessage, destroy }

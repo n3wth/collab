@@ -76,11 +76,11 @@ function MessageAvatar({ from, size = 28 }: { from: string, size?: number }) {
 function AgentStatusChip({ name, color, status, inDoc }: {
   name: string, color: string, status: AgentState['status'], inDoc: boolean
 }) {
-  const isVisible = inDoc && (status === 'reading' || status === 'editing' || status === 'typing')
+  const isVisible = inDoc && status !== 'idle'
   if (!isVisible) return null
 
-  const label = status === 'reading' ? 'reading' : 'writing'
-  const statusClass = status === 'reading' ? 'status-chip-reading' : 'status-chip-writing'
+  const label = status === 'reading' ? 'reading' : status === 'thinking' ? 'thinking' : 'writing'
+  const statusClass = status === 'reading' ? 'status-chip-reading' : status === 'thinking' ? 'status-chip-thinking' : 'status-chip-writing'
 
   return (
     <div className={`status-chip ${statusClass}`} style={{ borderColor: color + '50', background: color + '08' }}>
