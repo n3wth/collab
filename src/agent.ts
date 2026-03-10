@@ -1,9 +1,5 @@
-const DEV_API_KEY = import.meta.env.VITE_GEMINI_API_KEY as string | undefined
-const MODEL = 'gemini-2.5-flash'
-// In production, use serverless proxy (no API key on client). In dev, call Gemini directly.
-const DIRECT_URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${DEV_API_KEY || ''}`
-const PROXY_URL = '/api/gemini'
-const API_URL = DEV_API_KEY ? DIRECT_URL : PROXY_URL
+// All API calls go through the server-side proxy to avoid exposing API keys in the client bundle.
+const API_URL = '/api/gemini'
 
 // Rate limiter: tracks calls, enforces spacing, handles 429 backoff
 const rateLimiter = {
@@ -302,6 +298,12 @@ export async function askAgent(params: AskParams): Promise<AgentAction> {
       return action
     } catch (err) {
       console.error('[agent] catch error:', err)
+      if (err instanceof TypeError && (err as TypeError).message === 'Failed to fetch') {
+        console.error(
+          '[agent] Could not reach the API proxy at /api/gemini. ' +
+          'Make sure the server-side proxy is running and GEMINI_API_KEY is set in your environment.'
+        )
+      }
       rateLimiter.onError()
       if (attempt < rateLimiter.maxRetries) {
         await rateLimiter.waitForSlot()
