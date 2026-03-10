@@ -44,6 +44,15 @@ const PERSON_PHOTOS: Record<string, string> = {
   Sarah: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop&crop=face',
 }
 
+function GeminiSparkle({ size = 12, color = 'currentColor' }: { size?: number, color?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={{ display: 'inline-block', verticalAlign: 'middle' }}>
+      <path d="M12 2L13.5 8.5L20 10L13.5 11.5L12 18L10.5 11.5L4 10L10.5 8.5L12 2Z" fill={color} />
+      <path d="M19 14L19.75 16.25L22 17L19.75 17.75L19 20L18.25 17.75L16 17L18.25 16.25L19 14Z" fill={color} opacity="0.6" />
+    </svg>
+  )
+}
+
 function AgentAvatar({ size = 28, name = 'Aiden', className = '' }: { size?: number, name?: string, className?: string }) {
   return (
     <div className={`avatar-wrapper ${className}`} style={{ width: size, height: size }}>
@@ -316,6 +325,7 @@ function App() {
                   <div className="msg-body">
                     <div className="msg-header">
                       <span className="msg-name" style={agent ? { color: agent.color } : undefined}>
+                        {agent && <GeminiSparkle size={12} color={agent.color} />}{' '}
                         {m.from}
                       </span>
                       {ownerLabel && <span className="msg-owner-tag">{ownerLabel}</span>}
@@ -342,12 +352,14 @@ function App() {
                 </div>
                 <div className="msg-body">
                   <div className="msg-header">
-                    <span className="msg-name" style={{ color: AGENTS.Aiden.color }}>Aiden</span>
+                    <span className="msg-name" style={{ color: AGENTS.Aiden.color }}>
+                      <GeminiSparkle size={12} color={AGENTS.Aiden.color} /> Aiden
+                    </span>
                     <span className="msg-owner-tag">your agent</span>
                   </div>
                   <div className="msg-thinking">
                     <span className="thinking-text">{aiden.thought || 'Thinking...'}</span>
-                    <span className="typing-dots"><span /><span /><span /></span>
+                    <span className="typing-dots" style={{ color: AGENTS.Aiden.color }}><span /><span /><span /></span>
                   </div>
                 </div>
               </div>

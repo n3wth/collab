@@ -6,53 +6,55 @@
   --font-body: 'Google Sans Text', 'Google Sans', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-ui: 'Google Sans', -apple-system, BlinkMacSystemFont, sans-serif;
 
-  /* Surfaces */
+  /* Surfaces — warm, soft Gemini tones */
   --surface-0: #ffffff;
-  --surface-1: #f8f9fa;
-  --surface-2: #f0f4f9;
-  --surface-3: #e8ecf1;
-  --surface-4: #dadfe5;
+  --surface-1: #f6f7f9;
+  --surface-2: #eef1f6;
+  --surface-3: #e3e7ee;
+  --surface-dim: #f0f2f5;
 
   /* Text */
-  --text-primary: #1f1f1f;
-  --text-secondary: #444746;
-  --text-tertiary: #5f6368;
-  --text-disabled: #80868b;
+  --text-primary: #1b1b1f;
+  --text-secondary: #44474e;
+  --text-tertiary: #74777f;
+  --text-disabled: #94979f;
 
   /* Borders */
-  --border-subtle: #e8eaed;
-  --border-default: #dadce0;
-  --border-strong: #c4c7cc;
+  --border-subtle: #e4e6eb;
+  --border-default: #d3d6db;
 
-  /* Agent: Aiden (blue) */
+  /* Agent: Aiden (blue-violet, Gemini-like) */
   --aiden-primary: #4285f4;
-  --aiden-light: #8ab4f8;
+  --aiden-secondary: #669df6;
   --aiden-bg: #e8f0fe;
-  --aiden-surface: rgba(66, 133, 244, 0.06);
+  --aiden-gradient: linear-gradient(135deg, #4285f4, #7b61ff);
 
-  /* Agent: Nova (warm) */
+  /* Agent: Nova (warm amber) */
   --nova-primary: #e37400;
-  --nova-light: #f29900;
+  --nova-secondary: #f29900;
   --nova-bg: #fef7e0;
-  --nova-surface: rgba(227, 116, 0, 0.06);
+  --nova-gradient: linear-gradient(135deg, #e37400, #f59e0b);
 
   /* Accent */
   --accent: #4285f4;
   --accent-hover: #3b78e7;
   --accent-active: #2b6be0;
+  --accent-container: #d3e3fd;
 
-  /* Radius */
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
-  --radius-xl: 20px;
-  --radius-pill: 28px;
+  /* Radii — very round, Gemini style */
+  --radius-sm: 12px;
+  --radius-md: 16px;
+  --radius-lg: 20px;
+  --radius-xl: 24px;
+  --radius-2xl: 28px;
+  --radius-pill: 9999px;
   --radius-full: 50%;
 
-  /* Easing */
+  /* Easing — Material You */
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
   --ease-decelerate: cubic-bezier(0, 0, 0, 1);
   --ease-accelerate: cubic-bezier(0.3, 0, 1, 1);
+  --ease-spring: cubic-bezier(0.175, 0.885, 0.32, 1.1);
 
   font-family: var(--font-body);
   line-height: 1.5;
