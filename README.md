@@ -1,4 +1,4 @@
-# 🤝 Collab — Ambient AI Companions for Real-Time Collaboration
+# Collab — Ambient AI Companions for Real-Time Collaboration
 
 > A prototype workspace where personal AI agents work *alongside* humans in shared documents and chat — visible, transparent, and collaborating with each other in real time.
 
@@ -19,14 +19,14 @@ The demo centers on two AI personas editing a shared project proposal together w
 
 | Agent | Color | Expertise |
 |-------|-------|-----------|
-| **Aiden** | 🔵 Blue | Technical architecture, specifications, data models |
-| **Nova** | 🟠 Orange | Product strategy, UX design, adoption risks, user journeys |
+| **Aiden** | Blue | Technical architecture, specifications, data models |
+| **Nova** | Orange | Product strategy, UX design, adoption risks, user journeys |
 
 Both agents are powered by **Google Gemini 2.5 Flash** and coordinate their turns through a shared queue so they never conflict.
 
 ---
 
-## ✨ Key Features
+## Key Features
 
 - **Live agent cursors** — Animated avatars move through the document as agents read and write
 - **Thought bubbles** — Agents display their reasoning before acting, making AI transparent
@@ -40,7 +40,7 @@ Both agents are powered by **Google Gemini 2.5 Flash** and coordinate their turn
 
 ---
 
-## 🏗 Architecture
+## Architecture
 
 ### High-Level Component Map
 
@@ -111,7 +111,7 @@ Both agents are powered by **Google Gemini 2.5 Flash** and coordinate their turn
 
 ---
 
-## 🔄 How It Works
+## How It Works
 
 ### Agent Turn Lifecycle
 
@@ -176,10 +176,10 @@ User sends message  ──►  App.tsx  ──►  Orchestrator
 
 | Action | Description | Lock needed? |
 |--------|-------------|--------------|
-| `insert` | Appends content blocks at end or after a heading | ✅ Yes |
-| `replace` | Finds exact text, deletes it, types replacement | ✅ Yes |
-| `read` | Highlights a passage, shows thought bubble for 3.5 seconds | ❌ No |
-| `chat` | Sends a chat message only, no editor interaction | ❌ No |
+| `insert` | Appends content blocks at end or after a heading | Yes |
+| `replace` | Finds exact text, deletes it, types replacement | Yes |
+| `read` | Highlights a passage, shows thought bubble for 3.5 seconds | No |
+| `chat` | Sends a chat message only, no editor interaction | No |
 
 ### Agent-to-Agent Collaboration
 
@@ -226,7 +226,7 @@ The 7-second minimum interval keeps usage safely below the free-tier limit of ~1
 
 ---
 
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
 
@@ -251,7 +251,7 @@ Create a `.env.local` file in the project root:
 VITE_GEMINI_API_KEY=your_gemini_api_key_here
 ```
 
-> **⚠️ Note:** `VITE_` prefix exposes the key in the browser bundle — this is fine for local development. For production, use the serverless proxy (see [Deployment](#-deployment)).
+> **Note:** The `VITE_` prefix exposes the key in the browser bundle — this is acceptable for local development only. For production, use the serverless proxy (see [Deployment](#deployment)).
 
 ### 3. Start the dev server
 
@@ -272,7 +272,7 @@ Open **http://localhost:5173** in your browser.
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 collab/
@@ -304,7 +304,7 @@ collab/
 
 ---
 
-## 🤖 Agent Personas
+## Agent Personas
 
 ### Aiden (Technical)
 
@@ -328,7 +328,7 @@ Both agents receive the same document context and recent chat history on every t
 
 ---
 
-## 🔧 Available Scripts
+## Available Scripts
 
 | Script | Description |
 |--------|-------------|
@@ -339,7 +339,7 @@ Both agents receive the same document context and recent chat history on every t
 
 ---
 
-## ☁️ Deployment
+## Deployment
 
 This project is designed to deploy on **[Vercel](https://vercel.com/)** using its native serverless function support.
 
@@ -372,7 +372,7 @@ Browser  ──POST /api/gemini──►  Vercel Function (api/gemini.ts)
 
 ---
 
-## 🧩 Tech Stack
+## Tech Stack
 
 | Layer | Technology | Version |
 |-------|-----------|---------|
@@ -387,19 +387,19 @@ Browser  ──POST /api/gemini──►  Vercel Function (api/gemini.ts)
 
 ---
 
-## 🔐 Security Considerations
+## Security Considerations
 
 | Concern | Development | Production |
 |---------|-------------|------------|
 | Gemini API key | In `.env.local` (client-side) | In Vercel env var (server-side only) |
-| Key exposure | ⚠️ Visible in browser bundle | ✅ Hidden behind serverless proxy |
+| Key exposure | Exposed in browser bundle | Hidden behind serverless proxy |
 | Request validation | None | None (add auth if needed) |
 
 > For a production deployment with multiple users, add authentication to `/api/gemini` to prevent key abuse.
 
 ---
 
-## ⚠️ Known Limitations
+## Known Limitations
 
 - **No persistence** — All state is lost on page refresh
 - **Single document** — One hardcoded proposal; no multi-doc support
@@ -411,6 +411,6 @@ Browser  ──POST /api/gemini──►  Vercel Function (api/gemini.ts)
 
 ---
 
-## 📄 License
+## License
 
 MIT — see [LICENSE](LICENSE) for details.
