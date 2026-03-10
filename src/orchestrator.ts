@@ -1,5 +1,5 @@
 import type { Editor } from '@tiptap/react'
-import { askAgent, AgentError, disposeRateLimiter, type AgentAction, type AskParams } from './agent'
+import { askAgent, AgentError, resetRateLimiter, type AgentAction, type AskParams } from './agent'
 import { executeAgentAction, type ActionCallbacks } from './agent-actions'
 
 type AgentName = 'Aiden' | 'Nova'
@@ -161,6 +161,7 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
 
       executeAgentAction(editor, req.agent, action, editorLockRef, typingTimers, callbacks)
     } catch (err) {
+      if (destroyed) { processing = false; return }
       log('error', req.agent, err)
       consecutiveFailures[req.agent]++
       const failures = consecutiveFailures[req.agent]
@@ -177,7 +178,6 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
       if (failures >= MAX_CONSECUTIVE_FAILURES) {
         log(`pausing ${req.agent} after ${failures} consecutive failures`)
         pausedAgents.add(req.agent)
-        // Drain queued requests for this agent
         for (let i = queue.length - 1; i >= 0; i--) {
           if (queue[i].agent === req.agent) queue.splice(i, 1)
         }
@@ -295,7 +295,7 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
   function destroy() {
     destroyed = true
     clearAllTimers()
-    disposeRateLimiter()
+    resetRateLimiter()
     queue.length = 0
     processing = false
     editorLockRef.current = null

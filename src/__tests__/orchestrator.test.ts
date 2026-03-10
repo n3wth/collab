@@ -7,6 +7,14 @@ vi.mock('../agent', () => ({
     chatMessage: 'test message',
     shouldContinue: false,
   }),
+  AgentError: class AgentError extends Error {
+    code: string
+    constructor(message: string, code: string) {
+      super(message)
+      this.code = code
+    }
+  },
+  resetRateLimiter: vi.fn(),
 }))
 
 // Mock agent-actions module

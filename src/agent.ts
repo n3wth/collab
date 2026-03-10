@@ -90,7 +90,12 @@ const rateLimiter = {
   },
 
   reset() {
+    this.pendingTimers.forEach(id => clearTimeout(id))
+    this.pendingTimers.clear()
     this.disposed = false
+    this.consecutiveErrors = 0
+    this.backoffUntil = 0
+    this.lastCallTime = 0
   },
 }
 
