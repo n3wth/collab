@@ -1,4 +1,6 @@
-# Collab — Ambient AI Companions for Real-Time Collaboration
+# n3wth/collab
+
+Ambient AI Companions for Real-Time Collaboration
 
 > A prototype workspace where personal AI agents work *alongside* humans in shared documents and chat — visible, transparent, and collaborating with each other in real time.
 
@@ -6,7 +8,7 @@
 [![React](https://img.shields.io/badge/React-19-61DAFB?logo=react)](https://react.dev/)
 [![Vite](https://img.shields.io/badge/Vite-7-646CFF?logo=vite)](https://vitejs.dev/)
 [![Tiptap](https://img.shields.io/badge/Tiptap-3-1A1A1A?logo=tiptap)](https://tiptap.dev/)
-[![Gemini](https://img.shields.io/badge/Gemini-2.5_Flash-4285F4?logo=google)](https://deepmind.google/technologies/gemini/)
+[![Gemini](https://img.shields.io/badge/Gemini-3-Flash-Preview-4285F4?logo=google)](https://deepmind.google/technologies/gemini/)
 [![Vercel](https://img.shields.io/badge/Deploy-Vercel-000?logo=vercel)](https://vercel.com/)
 
 ---
