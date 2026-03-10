@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 
-const MODEL = 'gemini-2.5-flash'
+const MODEL = process.env.GEMINI_MODEL || 'gemini-3-flash-preview'
 const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {

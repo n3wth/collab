@@ -24,7 +24,7 @@ The demo centers on two AI personas editing a shared project proposal together w
 | **Aiden** | Blue | Technical architecture, specifications, data models |
 | **Nova** | Orange | Product strategy, UX design, adoption risks, user journeys |
 
-Both agents are powered by **Google Gemini 2.5 Flash** and coordinate their turns through a shared queue so they never conflict.
+Both agents are powered by **Google Gemini 3 Flash Preview** and coordinate their turns through a shared queue so they never conflict.
 
 ---
 
@@ -95,7 +95,7 @@ Both agents are powered by **Google Gemini 2.5 Flash** and coordinate their turn
            └──────────┬──────────┘
                       │
            ┌──────────▼──────────┐
-           │  Gemini 2.5 Flash   │  ← Google AI API
+           │ Gemini 3 Flash Prev │  ← Google AI API
            │  (LLM reasoning)    │
            └─────────────────────┘
 ```
@@ -145,7 +145,7 @@ User sends message  ──►  App.tsx  ──►  Orchestrator
                                           │
                                   POST /api/gemini
                                           │
-                                  Gemini 2.5 Flash
+                                  Gemini 3 Flash Preview
                                           │
                                   Parse JSON response
                                   (with repair on truncation)
@@ -251,6 +251,9 @@ Create a `.env.local` file in the project root:
 ```env
 # Used by the client in development (never commit this file)
 VITE_GEMINI_API_KEY=your_gemini_api_key_here
+
+# Optional: override the default Gemini model (default: gemini-3-flash-preview)
+VITE_GEMINI_MODEL=gemini-3-flash-preview
 ```
 
 > **Note:** The `VITE_` prefix exposes the key in the browser bundle — this is acceptable for local development only. For production, use the serverless proxy (see [Deployment](#deployment)).
@@ -358,6 +361,7 @@ In the Vercel dashboard → **Settings → Environment Variables**, add:
 
 ```
 GEMINI_API_KEY = your_gemini_api_key_here
+GEMINI_MODEL = gemini-3-flash-preview   # optional, defaults to gemini-3-flash-preview
 ```
 
 The client in production will call `/api/gemini` (the serverless proxy) instead of the Gemini API directly, keeping your key secure.
@@ -383,7 +387,7 @@ Browser  ──POST /api/gemini──►  Vercel Function (api/gemini.ts)
 | Build Tool | Vite | 7.3 |
 | Rich Text Editor | Tiptap | 3.20 |
 | CRDT / Collab Primitives | Yjs | 13.6 |
-| AI Model | Gemini 2.5 Flash | — |
+| AI Model | Gemini 3 Flash Preview | — |
 | Serverless Hosting | Vercel | — |
 | Avatar Generation | boring-avatars | 2.0 |
 

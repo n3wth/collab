@@ -1,5 +1,5 @@
 const DEV_API_KEY = import.meta.env.VITE_GEMINI_API_KEY as string | undefined
-const MODEL = 'gemini-2.5-flash'
+const MODEL = (import.meta.env.VITE_GEMINI_MODEL as string | undefined) || 'gemini-3-flash-preview'
 // In production, use serverless proxy (no API key on client). In dev, call Gemini directly.
 const DIRECT_URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${DEV_API_KEY || ''}`
 const PROXY_URL = '/api/gemini'
