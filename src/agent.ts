@@ -8,20 +8,34 @@ const rateLimiter = {
   backoffUntil: 0,
   consecutiveErrors: 0,
   maxRetries: 3,
+  pendingTimers: new Set<ReturnType<typeof setTimeout>>(),
+  disposed: false,
 
   async waitForSlot(): Promise<boolean> {
+    if (this.disposed) return false
+
     // If we're in backoff, check if it's expired
     if (Date.now() < this.backoffUntil) {
       const wait = this.backoffUntil - Date.now()
       console.log(`[rate] backing off for ${Math.round(wait / 1000)}s`)
-      await new Promise(r => setTimeout(r, wait))
+      await new Promise<void>((resolve) => {
+        const id = setTimeout(() => { this.pendingTimers.delete(id); resolve() }, wait)
+        this.pendingTimers.add(id)
+      })
     }
+
+    if (this.disposed) return false
 
     // Enforce minimum interval between calls
     const elapsed = Date.now() - this.lastCallTime
     if (elapsed < this.minIntervalMs) {
-      await new Promise(r => setTimeout(r, this.minIntervalMs - elapsed))
+      await new Promise<void>((resolve) => {
+        const id = setTimeout(() => { this.pendingTimers.delete(id); resolve() }, this.minIntervalMs - elapsed)
+        this.pendingTimers.add(id)
+      })
     }
+
+    if (this.disposed) return false
 
     this.lastCallTime = Date.now()
     return true
@@ -47,7 +61,17 @@ const rateLimiter = {
   },
 
   shouldRetry(): boolean {
-    return this.consecutiveErrors < this.maxRetries
+    return this.consecutiveErrors < this.maxRetries && !this.disposed
+  },
+
+  dispose() {
+    this.disposed = true
+    this.pendingTimers.forEach(id => clearTimeout(id))
+    this.pendingTimers.clear()
+  },
+
+  reset() {
+    this.disposed = false
   },
 }
 
@@ -291,7 +315,8 @@ function repairJSON(raw: string): AgentAction | null {
 }
 
 export async function askAgent(params: AskParams): Promise<AgentAction> {
-  await rateLimiter.waitForSlot()
+  const ready = await rateLimiter.waitForSlot()
+  if (!ready) return fallbackAction(params)
 
   for (let attempt = 0; attempt <= rateLimiter.maxRetries; attempt++) {
     try {
@@ -384,6 +409,14 @@ export async function askAgent(params: AskParams): Promise<AgentAction> {
   }
 
   return fallbackAction(params)
+}
+
+export function disposeRateLimiter() {
+  rateLimiter.dispose()
+}
+
+export function resetRateLimiter() {
+  rateLimiter.reset()
 }
 
 function fallbackAction(params: AskParams): AgentAction {
