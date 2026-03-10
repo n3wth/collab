@@ -337,58 +337,66 @@ export function executeAgentAction(
       const block = streamBlocks[blockIdx]
       blockIdx++
 
+      // All block types: insert empty structure, then stream-type text
+      const currentPos = Math.max(0, editor.state.doc.content.size - 1)
+
       if (block.type === 'listItem') {
-        // For list items, insert complete HTML (streaming individual list items is complex)
-        // But add a small per-item delay for visual effect
-        const currentPos = Math.max(0, editor.state.doc.content.size - 1)
-        let html: string
-        if (block.subItems && block.subItems.length > 0) {
-          html = `<ul><li>${block.text}<ul>${block.subItems.map(s => `<li>${s}</li>`).join('')}</ul></li></ul>`
-        } else {
-          html = `<ul><li>${block.text}</li></ul>`
-        }
-        editor.commands.insertContentAt(currentPos, html)
-        const newPos = editor.state.doc.content.size
-        safeCursor(editor, {
-          name: agentName,
-          color: AGENTS[agentName].color,
-          pos: newPos,
-          thought: action.thought || 'Writing...',
-        }, true)
-        // Delay between list items for visual pacing
-        timers[agentName] = window.setTimeout(streamNextBlock, 300 + Math.random() * 400)
+        editor.commands.insertContentAt(currentPos, '<ul><li> </li></ul>')
+      } else if (block.type === 'heading') {
+        const tag = `h${block.level || 2}`
+        editor.commands.insertContentAt(currentPos, `<${tag}> </${tag}>`)
       } else {
-        // For headings and paragraphs: insert empty node, then stream-type text
-        const currentPos = Math.max(0, editor.state.doc.content.size - 1)
-        if (block.type === 'heading') {
-          const tag = `h${block.level || 2}`
-          editor.commands.insertContentAt(currentPos, `<${tag}> </${tag}>`)
-        } else {
-          editor.commands.insertContentAt(currentPos, '<p> </p>')
-        }
-
-        // Find the position of the space we just inserted (inside the new node)
-        // It's at the end of the doc, inside the new node
-        let textPos = currentPos + 1 // just inside the new node
-
-        // Delete the placeholder space
-        try {
-          editor.chain().deleteRange({ from: textPos, to: textPos + 1 }).run()
-        } catch { /* may fail if positions shift */ }
-
-        safeCursor(editor, {
-          name: agentName,
-          color: AGENTS[agentName].color,
-          pos: textPos,
-          thought: action.thought || 'Writing...',
-        }, true)
-
-        // Stream-type the text content
-        streamTypeAt(editor, agentName, textPos, block.text, timers).then(() => {
-          // Small pause between blocks
-          timers[agentName] = window.setTimeout(streamNextBlock, 200 + Math.random() * 300)
-        })
+        editor.commands.insertContentAt(currentPos, '<p> </p>')
       }
+
+      // Text position inside the new node (list items have extra <ul> wrapper)
+      const textPos = currentPos + (block.type === 'listItem' ? 2 : 1)
+
+      // Delete placeholder space
+      try {
+        editor.chain().deleteRange({ from: textPos, to: textPos + 1 }).run()
+      } catch { /* positions may shift */ }
+
+      safeCursor(editor, {
+        name: agentName,
+        color: AGENTS[agentName].color,
+        pos: textPos,
+        thought: action.thought || 'Writing...',
+      }, true)
+
+      // Stream-type the text content character by character
+      streamTypeAt(editor, agentName, textPos, block.text, timers).then(() => {
+        // If list item has sub-items, stream those sequentially too
+        if (block.type === 'listItem' && block.subItems && block.subItems.length > 0) {
+          let subIdx = 0
+          const streamNextSub = () => {
+            if (subIdx >= block.subItems!.length) {
+              timers[agentName] = window.setTimeout(streamNextBlock, 200 + Math.random() * 300)
+              return
+            }
+            const subText = block.subItems![subIdx]
+            subIdx++
+            const subPos = Math.max(0, editor.state.doc.content.size - 1)
+            editor.commands.insertContentAt(subPos, '<ul><li> </li></ul>')
+            const subTextPos = subPos + 2
+            try {
+              editor.chain().deleteRange({ from: subTextPos, to: subTextPos + 1 }).run()
+            } catch { /* skip */ }
+            safeCursor(editor, {
+              name: agentName,
+              color: AGENTS[agentName].color,
+              pos: subTextPos,
+              thought: action.thought || 'Writing...',
+            }, true)
+            streamTypeAt(editor, agentName, subTextPos, subText, timers).then(() => {
+              timers[agentName] = window.setTimeout(streamNextSub, 150 + Math.random() * 200)
+            })
+          }
+          timers[agentName] = window.setTimeout(streamNextSub, 150)
+        } else {
+          timers[agentName] = window.setTimeout(streamNextBlock, 200 + Math.random() * 300)
+        }
+      })
     }
 
     timers[agentName] = window.setTimeout(streamNextBlock, 600)
