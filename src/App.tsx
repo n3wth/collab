@@ -30,12 +30,12 @@ function uid() {
 }
 
 const AGENTS: Record<string, { color: string, bgColor: string }> = {
-  Aiden: { color: '#1a73e8', bgColor: '#e8f0fe' },
+  Aiden: { color: '#4285f4', bgColor: '#e8f0fe' },
   Nova: { color: '#e37400', bgColor: '#fef7e0' },
 }
 
 const AGENT_PALETTES: Record<string, string[]> = {
-  Aiden: ['#1a73e8', '#4285f4', '#8ab4f8', '#c5dafc', '#e8f0fe'],
+  Aiden: ['#4285f4', '#5e97f6', '#8ab4f8', '#c5dafc', '#e8f0fe'],
   Nova: ['#e37400', '#f29900', '#fdd663', '#feefc3', '#fef7e0'],
 }
 
@@ -327,7 +327,7 @@ function App() {
                     </div>
                     {m.showDocButton && !docOpen && (
                       <button className="doc-prompt" onClick={openDocWithAgents}>
-                        <svg className="doc-prompt-icon" width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" fill="#1a73e8" opacity="0.15" stroke="#1a73e8" strokeWidth="1.5" strokeLinejoin="round"/><path d="M14 2v6h6" stroke="#1a73e8" strokeWidth="1.5" strokeLinejoin="round"/><path d="M8 13h8M8 17h5" stroke="#1a73e8" strokeWidth="1.5" strokeLinecap="round"/></svg>
+                        <svg className="doc-prompt-icon" width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" fill="#4285f4" opacity="0.15" stroke="#4285f4" strokeWidth="1.5" strokeLinejoin="round"/><path d="M14 2v6h6" stroke="#4285f4" strokeWidth="1.5" strokeLinejoin="round"/><path d="M8 13h8M8 17h5" stroke="#4285f4" strokeWidth="1.5" strokeLinecap="round"/></svg>
                         Open doc
                       </button>
                     )}

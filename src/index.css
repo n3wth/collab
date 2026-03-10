@@ -1,10 +1,63 @@
-@import url('https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;600&family=Google+Sans+Text:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;600&family=Google+Sans+Text:wght@400;500&family=Google+Sans+Display:wght@400;500&display=swap');
 
 :root {
-  font-family: 'Google Sans Text', 'Google Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  /* Typography */
+  --font-display: 'Google Sans Display', 'Google Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-body: 'Google Sans Text', 'Google Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-ui: 'Google Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+
+  /* Surfaces */
+  --surface-0: #ffffff;
+  --surface-1: #f8f9fa;
+  --surface-2: #f0f4f9;
+  --surface-3: #e8ecf1;
+  --surface-4: #dadfe5;
+
+  /* Text */
+  --text-primary: #1f1f1f;
+  --text-secondary: #444746;
+  --text-tertiary: #5f6368;
+  --text-disabled: #80868b;
+
+  /* Borders */
+  --border-subtle: #e8eaed;
+  --border-default: #dadce0;
+  --border-strong: #c4c7cc;
+
+  /* Agent: Aiden (blue) */
+  --aiden-primary: #4285f4;
+  --aiden-light: #8ab4f8;
+  --aiden-bg: #e8f0fe;
+  --aiden-surface: rgba(66, 133, 244, 0.06);
+
+  /* Agent: Nova (warm) */
+  --nova-primary: #e37400;
+  --nova-light: #f29900;
+  --nova-bg: #fef7e0;
+  --nova-surface: rgba(227, 116, 0, 0.06);
+
+  /* Accent */
+  --accent: #4285f4;
+  --accent-hover: #3b78e7;
+  --accent-active: #2b6be0;
+
+  /* Radius */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-pill: 28px;
+  --radius-full: 50%;
+
+  /* Easing */
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-decelerate: cubic-bezier(0, 0, 0, 1);
+  --ease-accelerate: cubic-bezier(0.3, 0, 1, 1);
+
+  font-family: var(--font-body);
   line-height: 1.5;
-  color: #202124;
-  background-color: #fff;
+  color: var(--text-primary);
+  background-color: var(--surface-0);
   font-size: 14px;
 }
 
