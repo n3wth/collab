@@ -43,6 +43,10 @@ export const AgentCursors = Extension.create({
     }
   },
 
+  onDestroy() {
+    this.storage.cursors = []
+  },
+
   addProseMirrorPlugins() {
     const ext = this
 

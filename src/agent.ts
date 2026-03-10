@@ -17,12 +17,8 @@ export class AgentError extends Error {
   }
 }
 
-const DEV_API_KEY = import.meta.env.VITE_GEMINI_API_KEY as string | undefined
-const MODEL = 'gemini-2.5-flash'
-// In production, use serverless proxy (no API key on client). In dev, call Gemini directly.
-const DIRECT_URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${DEV_API_KEY || ''}`
-const PROXY_URL = '/api/gemini'
-const API_URL = DEV_API_KEY ? DIRECT_URL : PROXY_URL
+// All API calls go through the server-side proxy to avoid exposing API keys in the client bundle.
+const API_URL = '/api/gemini'
 
 // Rate limiter: tracks calls, enforces spacing, handles 429 backoff
 const rateLimiter = {
@@ -31,20 +27,34 @@ const rateLimiter = {
   backoffUntil: 0,
   consecutiveErrors: 0,
   maxRetries: 3,
+  pendingTimers: new Set<ReturnType<typeof setTimeout>>(),
+  disposed: false,
 
   async waitForSlot(): Promise<boolean> {
+    if (this.disposed) return false
+
     // If we're in backoff, check if it's expired
     if (Date.now() < this.backoffUntil) {
       const wait = this.backoffUntil - Date.now()
       console.log(`[rate] backing off for ${Math.round(wait / 1000)}s`)
-      await new Promise(r => setTimeout(r, wait))
+      await new Promise<void>((resolve) => {
+        const id = setTimeout(() => { this.pendingTimers.delete(id); resolve() }, wait)
+        this.pendingTimers.add(id)
+      })
     }
+
+    if (this.disposed) return false
 
     // Enforce minimum interval between calls
     const elapsed = Date.now() - this.lastCallTime
     if (elapsed < this.minIntervalMs) {
-      await new Promise(r => setTimeout(r, this.minIntervalMs - elapsed))
+      await new Promise<void>((resolve) => {
+        const id = setTimeout(() => { this.pendingTimers.delete(id); resolve() }, this.minIntervalMs - elapsed)
+        this.pendingTimers.add(id)
+      })
     }
+
+    if (this.disposed) return false
 
     this.lastCallTime = Date.now()
     return true
@@ -70,7 +80,17 @@ const rateLimiter = {
   },
 
   shouldRetry(): boolean {
-    return this.consecutiveErrors < this.maxRetries
+    return this.consecutiveErrors < this.maxRetries && !this.disposed
+  },
+
+  dispose() {
+    this.disposed = true
+    this.pendingTimers.forEach(id => clearTimeout(id))
+    this.pendingTimers.clear()
+  },
+
+  reset() {
+    this.disposed = false
   },
 }
 
@@ -188,10 +208,78 @@ Rules:
 - Return ONLY the JSON object`
 }
 
+const VALID_ACTION_TYPES = new Set(['insert', 'replace', 'read', 'chat'])
+
+// Strip markdown code fences that Gemini sometimes wraps around JSON
+function stripCodeFences(text: string): string {
+  let s = text.trim()
+  // Remove ```json or ``` prefix and trailing ```
+  s = s.replace(/^```(?:json)?\s*\n?/, '').replace(/\n?```\s*$/, '')
+  return s.trim()
+}
+
+// Validate that a parsed object has required fields for its action type
+function validateAction(obj: unknown): AgentAction | null {
+  if (typeof obj !== 'object' || obj === null) return null
+
+  const record = obj as Record<string, unknown>
+
+  if (typeof record.type !== 'string') return null
+
+  if (!VALID_ACTION_TYPES.has(record.type)) {
+    console.warn('[agent] unknown action type, skipping:', record.type)
+    return null
+  }
+
+  // Validate required fields per action type
+  switch (record.type) {
+    case 'insert':
+      if (typeof record.content !== 'string' || !record.content) {
+        console.warn('[agent] insert action missing content')
+        return null
+      }
+      if (record.position !== undefined && typeof record.position !== 'string') {
+        console.warn('[agent] insert action has invalid position')
+        return null
+      }
+      break
+    case 'replace':
+      if (typeof record.searchText !== 'string' || !record.searchText) {
+        console.warn('[agent] replace action missing searchText')
+        return null
+      }
+      if (typeof record.replaceWith !== 'string') {
+        console.warn('[agent] replace action missing replaceWith')
+        return null
+      }
+      break
+    case 'read':
+      // highlightText is optional but should be string if present
+      if (record.highlightText !== undefined && typeof record.highlightText !== 'string') {
+        console.warn('[agent] read action has invalid highlightText')
+        return null
+      }
+      break
+    case 'chat':
+      if (typeof record.chatMessage !== 'string' || !record.chatMessage) {
+        console.warn('[agent] chat action missing chatMessage')
+        return null
+      }
+      break
+  }
+
+  return obj as AgentAction
+}
+
 // Attempt to repair truncated JSON (close open strings/objects)
-function repairJSON(text: string): AgentAction | null {
+function repairJSON(raw: string): AgentAction | null {
+  const text = stripCodeFences(raw)
+
   // Try as-is first
-  try { return JSON.parse(text) } catch { /* continue */ }
+  try {
+    const parsed = JSON.parse(text)
+    return validateAction(parsed)
+  } catch { /* continue */ }
 
   let fixed = text.trim()
 
@@ -210,7 +298,8 @@ function repairJSON(text: string): AgentAction | null {
 
   try {
     const parsed = JSON.parse(fixed)
-    if (parsed.type) return parsed as AgentAction
+    const validated = validateAction(parsed)
+    if (validated) return validated
   } catch { /* continue */ }
 
   // Strategy 2: truncated after a comma or colon — remove trailing garbage and close
@@ -232,7 +321,8 @@ function repairJSON(text: string): AgentAction | null {
             fixed = fixed.slice(0, lastCompleteValue + 1) + '}'
             try {
               const parsed = JSON.parse(fixed)
-              if (parsed.type) return parsed as AgentAction
+              const validated = validateAction(parsed)
+              if (validated) return validated
             } catch { /* continue */ }
           }
         }
@@ -244,7 +334,8 @@ function repairJSON(text: string): AgentAction | null {
 }
 
 export async function askAgent(params: AskParams): Promise<AgentAction> {
-  await rateLimiter.waitForSlot()
+  const ready = await rateLimiter.waitForSlot()
+  if (!ready) throw new AgentError('Rate limiter disposed', 'rate_limit')
 
   for (let attempt = 0; attempt <= rateLimiter.maxRetries; attempt++) {
     try {
@@ -326,6 +417,12 @@ export async function askAgent(params: AskParams): Promise<AgentAction> {
     } catch (err) {
       if (err instanceof AgentError) throw err
       console.error('[agent] catch error:', err)
+      if (err instanceof TypeError && (err as TypeError).message === 'Failed to fetch') {
+        console.error(
+          '[agent] Could not reach the API proxy at /api/gemini. ' +
+          'Make sure the server-side proxy is running and GEMINI_API_KEY is set in your environment.'
+        )
+      }
       rateLimiter.onError()
       if (attempt < rateLimiter.maxRetries) {
         await rateLimiter.waitForSlot()
@@ -343,3 +440,10 @@ export async function askAgent(params: AskParams): Promise<AgentAction> {
   throw new AgentError('All retry attempts exhausted', 'api_error')
 }
 
+export function disposeRateLimiter() {
+  rateLimiter.dispose()
+}
+
+export function resetRateLimiter() {
+  rateLimiter.reset()
+}
