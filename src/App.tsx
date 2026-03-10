@@ -186,6 +186,8 @@ function App() {
   const orchestratorRef = useRef<ReturnType<typeof createOrchestrator> | null>(null)
   const editorRef = useRef<Editor | null>(null)
   const docSaveTimer = useRef<number | null>(null)
+  const docEditTimer = useRef<number | null>(null)
+  const lastDocSnapshot = useRef('')
   messagesRef.current = messages
 
   const editor = useEditor({
@@ -201,22 +203,49 @@ function App() {
       },
     },
     onUpdate: ({ editor: ed }) => {
+      // Save to localStorage (debounced)
       if (docSaveTimer.current) clearTimeout(docSaveTimer.current)
       docSaveTimer.current = window.setTimeout(() => {
         try { localStorage.setItem(STORAGE_KEYS.doc, ed.getHTML()) } catch { /* full */ }
       }, 2000)
+      // Detect user edits and notify agents (debounced 3s)
+      if (docEditTimer.current) clearTimeout(docEditTimer.current)
+      docEditTimer.current = window.setTimeout(() => {
+        const currentText = ed.getText()
+        const prev = lastDocSnapshot.current
+        if (!prev) { lastDocSnapshot.current = currentText; return }
+        // Find what was added
+        let i = 0
+        while (i < prev.length && i < currentText.length && prev[i] === currentText[i]) i++
+        const added = currentText.slice(i, currentText.length - (prev.length - i))
+        lastDocSnapshot.current = currentText
+        // Only trigger for meaningful additions when agents are in doc
+        if (added.trim().length > 15 && orchestratorRef.current) {
+          orchestratorRef.current.trigger('user-message', {
+            instruction: `The user just typed this in the document: "${added.trim().slice(0, 200)}". React to it — if it's an instruction, follow it. If it's content, build on it.`,
+          })
+        }
+      }, 3000)
     },
   })
   editorRef.current = editor
+
+  // Initialize doc snapshot for edit detection
+  useEffect(() => {
+    if (editor) lastDocSnapshot.current = editor.getText()
+  }, [editor])
 
   // Persist chat messages (debounced via effect)
   useEffect(() => {
     try { localStorage.setItem(STORAGE_KEYS.chat, JSON.stringify(messages)) } catch { /* full */ }
   }, [messages])
 
-  // Cleanup save timer
+  // Cleanup timers
   useEffect(() => {
-    return () => { if (docSaveTimer.current) clearTimeout(docSaveTimer.current) }
+    return () => {
+      if (docSaveTimer.current) clearTimeout(docSaveTimer.current)
+      if (docEditTimer.current) clearTimeout(docEditTimer.current)
+    }
   }, [])
 
   const makeOrchestrator = useCallback(() => {
