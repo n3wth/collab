@@ -165,10 +165,78 @@ Rules:
 - Return ONLY the JSON object`
 }
 
+const VALID_ACTION_TYPES = new Set(['insert', 'replace', 'read', 'chat'])
+
+// Strip markdown code fences that Gemini sometimes wraps around JSON
+function stripCodeFences(text: string): string {
+  let s = text.trim()
+  // Remove ```json or ``` prefix and trailing ```
+  s = s.replace(/^```(?:json)?\s*\n?/, '').replace(/\n?```\s*$/, '')
+  return s.trim()
+}
+
+// Validate that a parsed object has required fields for its action type
+function validateAction(obj: unknown): AgentAction | null {
+  if (typeof obj !== 'object' || obj === null) return null
+
+  const record = obj as Record<string, unknown>
+
+  if (typeof record.type !== 'string') return null
+
+  if (!VALID_ACTION_TYPES.has(record.type)) {
+    console.warn('[agent] unknown action type, skipping:', record.type)
+    return null
+  }
+
+  // Validate required fields per action type
+  switch (record.type) {
+    case 'insert':
+      if (typeof record.content !== 'string' || !record.content) {
+        console.warn('[agent] insert action missing content')
+        return null
+      }
+      if (record.position !== undefined && typeof record.position !== 'string') {
+        console.warn('[agent] insert action has invalid position')
+        return null
+      }
+      break
+    case 'replace':
+      if (typeof record.searchText !== 'string' || !record.searchText) {
+        console.warn('[agent] replace action missing searchText')
+        return null
+      }
+      if (typeof record.replaceWith !== 'string') {
+        console.warn('[agent] replace action missing replaceWith')
+        return null
+      }
+      break
+    case 'read':
+      // highlightText is optional but should be string if present
+      if (record.highlightText !== undefined && typeof record.highlightText !== 'string') {
+        console.warn('[agent] read action has invalid highlightText')
+        return null
+      }
+      break
+    case 'chat':
+      if (typeof record.chatMessage !== 'string' || !record.chatMessage) {
+        console.warn('[agent] chat action missing chatMessage')
+        return null
+      }
+      break
+  }
+
+  return obj as AgentAction
+}
+
 // Attempt to repair truncated JSON (close open strings/objects)
-function repairJSON(text: string): AgentAction | null {
+function repairJSON(raw: string): AgentAction | null {
+  const text = stripCodeFences(raw)
+
   // Try as-is first
-  try { return JSON.parse(text) } catch { /* continue */ }
+  try {
+    const parsed = JSON.parse(text)
+    return validateAction(parsed)
+  } catch { /* continue */ }
 
   let fixed = text.trim()
 
@@ -187,7 +255,8 @@ function repairJSON(text: string): AgentAction | null {
 
   try {
     const parsed = JSON.parse(fixed)
-    if (parsed.type) return parsed as AgentAction
+    const validated = validateAction(parsed)
+    if (validated) return validated
   } catch { /* continue */ }
 
   // Strategy 2: truncated after a comma or colon — remove trailing garbage and close
@@ -209,7 +278,8 @@ function repairJSON(text: string): AgentAction | null {
             fixed = fixed.slice(0, lastCompleteValue + 1) + '}'
             try {
               const parsed = JSON.parse(fixed)
-              if (parsed.type) return parsed as AgentAction
+              const validated = validateAction(parsed)
+              if (validated) return validated
             } catch { /* continue */ }
           }
         }
@@ -287,8 +357,8 @@ export async function askAgent(params: AskParams): Promise<AgentAction> {
       }
 
       const action = repairJSON(text)
-      if (!action || !action.type) {
-        console.warn('[agent] unparseable response:', text.slice(0, 200))
+      if (!action) {
+        console.warn('[agent] unparseable response, raw text:', text)
         return fallbackAction(params)
       }
       console.log('[agent]', params.agentName, action.type, action.thought)
