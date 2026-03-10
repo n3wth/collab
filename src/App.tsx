@@ -292,35 +292,41 @@ function App() {
   return (
     <div className="shell">
       <div className="top-bar">
-        <span className="top-bar-title">n3wth/collab</span>
+        <div className="top-bar-brand">
+          <GeminiSparkle size={20} color="#4285f4" />
+          <span className="top-bar-title">Collab</span>
+        </div>
         <div className="participants">
-          <PersonAvatar name="You" size={30} />
-          <div style={{ position: 'relative' }}>
-            <AgentAvatar size={26} name="Aiden" />
-            <span className={`avatar-status ${aiden.inDoc ? 'status-working' : aiden.status !== 'idle' ? 'status-active' : ''}`} />
-          </div>
-          <PersonAvatar name="Sarah" size={30} />
-          <div style={{ position: 'relative' }}>
-            <AgentAvatar size={26} name="Nova" />
-            <span className={`avatar-status ${nova.inDoc ? 'status-working' : nova.status !== 'idle' ? 'status-active' : ''}`} />
-          </div>
+          {(['You', 'Aiden', 'Sarah', 'Nova'] as const).map(name => {
+            const isAgent = name === 'Aiden' || name === 'Nova'
+            const agentState = name === 'Aiden' ? aiden : name === 'Nova' ? nova : null
+            return (
+              <div key={name} className="participant-item">
+                {isAgent
+                  ? <AgentAvatar size={32} name={name} />
+                  : <PersonAvatar name={name} size={32} />
+                }
+                {agentState && (
+                  <span className={`avatar-status ${agentState.inDoc ? 'status-working' : agentState.status !== 'idle' ? 'status-active' : ''}`} />
+                )}
+                <span className="participant-name">{name === 'You' ? 'You' : name}</span>
+              </div>
+            )
+          })}
         </div>
       </div>
 
       <div className="main-area">
         <div className={`chat-panel ${docOpen ? 'chat-side' : 'chat-full'}`}>
-          <div className="chat-header">
-            Group Chat
-          </div>
           <div className="chat-messages">
             {messages.map(m => {
               const isAgent = m.from === 'Aiden' || m.from === 'Nova'
               const ownerLabel = m.from === 'Aiden' ? 'your agent' : m.from === 'Nova' ? 'Sarah\'s agent' : ''
               const agent = isAgent ? AGENTS[m.from] : null
               return (
-                <div key={m.id} className="msg">
+                <div key={m.id} className={`msg ${isAgent ? 'msg-agent' : 'msg-human'}`} data-agent={isAgent ? m.from.toLowerCase() : undefined}>
                   <div className="msg-avatar">
-                    <MessageAvatar from={m.from} size={28} />
+                    <MessageAvatar from={m.from} size={32} />
                   </div>
                   <div className="msg-body">
                     <div className="msg-header">
