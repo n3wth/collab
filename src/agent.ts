@@ -1,3 +1,22 @@
+export class AgentError extends Error {
+  readonly code: 'rate_limit' | 'api_error' | 'parse_error' | 'network_error'
+  readonly status: number | undefined
+  readonly retryable: boolean
+
+  constructor(
+    message: string,
+    code: 'rate_limit' | 'api_error' | 'parse_error' | 'network_error',
+    status?: number,
+    retryable = false,
+  ) {
+    super(message)
+    this.name = 'AgentError'
+    this.code = code
+    this.status = status
+    this.retryable = retryable
+  }
+}
+
 // All API calls go through the server-side proxy to avoid exposing API keys in the client bundle.
 const API_URL = '/api/gemini'
 
@@ -316,7 +335,7 @@ function repairJSON(raw: string): AgentAction | null {
 
 export async function askAgent(params: AskParams): Promise<AgentAction> {
   const ready = await rateLimiter.waitForSlot()
-  if (!ready) return fallbackAction(params)
+  if (!ready) throw new AgentError('Rate limiter disposed', 'rate_limit')
 
   for (let attempt = 0; attempt <= rateLimiter.maxRetries; attempt++) {
     try {
@@ -357,8 +376,7 @@ export async function askAgent(params: AskParams): Promise<AgentAction> {
           await rateLimiter.waitForSlot()
           continue
         }
-        console.error('[agent] rate limit exhausted, using fallback')
-        return fallbackAction(params)
+        throw new AgentError('Rate limit exhausted after retries', 'rate_limit', 429)
       }
 
       if (!res.ok) {
@@ -369,7 +387,11 @@ export async function askAgent(params: AskParams): Promise<AgentAction> {
           await rateLimiter.waitForSlot()
           continue
         }
-        return fallbackAction(params)
+        throw new AgentError(
+          `API error ${res.status}: ${errText.slice(0, 200)}`,
+          'api_error',
+          res.status,
+        )
       }
 
       rateLimiter.onSuccess()
@@ -377,14 +399,15 @@ export async function askAgent(params: AskParams): Promise<AgentAction> {
       const data = await res.json()
       const text = data.candidates?.[0]?.content?.parts?.[0]?.text
       if (!text) {
-        console.warn('[agent] no text in response', JSON.stringify(data).slice(0, 200))
-        return fallbackAction(params)
+        const detail = JSON.stringify(data).slice(0, 200)
+        console.warn('[agent] no text in response', detail)
+        throw new AgentError(`Empty response from API: ${detail}`, 'api_error')
       }
 
       const action = repairJSON(text)
-      if (!action) {
-        console.warn('[agent] unparseable response, raw text:', text)
-        return fallbackAction(params)
+      if (!action || !action.type) {
+        console.warn('[agent] unparseable response:', text.slice(0, 200))
+        throw new AgentError(`Unparseable response: ${text.slice(0, 100)}`, 'parse_error')
       }
       console.log('[agent]', params.agentName, action.type, action.thought)
       if (action.thought) {
@@ -392,6 +415,7 @@ export async function askAgent(params: AskParams): Promise<AgentAction> {
       }
       return action
     } catch (err) {
+      if (err instanceof AgentError) throw err
       console.error('[agent] catch error:', err)
       if (err instanceof TypeError && (err as TypeError).message === 'Failed to fetch') {
         console.error(
@@ -404,11 +428,16 @@ export async function askAgent(params: AskParams): Promise<AgentAction> {
         await rateLimiter.waitForSlot()
         continue
       }
-      return fallbackAction(params)
+      throw new AgentError(
+        `Network error: ${err instanceof Error ? err.message : String(err)}`,
+        'network_error',
+        undefined,
+        true,
+      )
     }
   }
 
-  return fallbackAction(params)
+  throw new AgentError('All retry attempts exhausted', 'api_error')
 }
 
 export function disposeRateLimiter() {
@@ -417,13 +446,4 @@ export function disposeRateLimiter() {
 
 export function resetRateLimiter() {
   rateLimiter.reset()
-}
-
-function fallbackAction(params: AskParams): AgentAction {
-  return {
-    type: 'read',
-    highlightText: params.docText.split('\n').filter(l => l.trim())[0]?.slice(0, 30) || 'document',
-    thought: 'Reviewing...',
-    shouldContinue: false,
-  }
 }
