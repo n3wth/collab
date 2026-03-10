@@ -1,14 +1,29 @@
+%%{init: {'theme': 'base', 'themeVariables': { 'actorBkg': '#f1f5f9', 'actorBorder': '#475569', 'actorTextColor': '#1a1a2e', 'actorLineColor': '#94a3b8', 'signalColor': '#475569', 'signalTextColor': '#1a1a2e', 'noteBkgColor': '#fef9c3', 'noteBorderColor': '#ca8a04', 'noteTextColor': '#713f12', 'activationBkgColor': '#dbeafe', 'activationBorderColor': '#2563eb', 'sequenceNumberColor': '#ffffff' }}}%%
 sequenceDiagram
-    participant Aiden
-    participant Orchestrator
-    participant Nova
+    autonumber
 
-    Aiden->>Orchestrator: Inserts "Technical Architecture" section
-    Orchestrator->>Orchestrator: Detects insert action
-    Orchestrator->>Nova: Auto-enqueue: "React to Aiden's changes<br/>to Technical Architecture"
-    Nova->>Nova: Reads section
-    Nova->>Nova: Decides to add UX commentary<br/>or question Aiden
-    Nova->>Orchestrator: Chat: "@Aiden should we add<br/>onboarding flows here?"
-    Orchestrator->>Orchestrator: Detects @Aiden mention<br/>(agent-tagged trigger)
-    Orchestrator->>Aiden: Enqueue response
-    Aiden->>Orchestrator: Responds<br/>(limited to MAX_AGENT_TAGS = 2 exchanges)
+    participant A as 🔵 Aiden · Technical
+    participant O as 🎯 Orchestrator
+    participant N as 🟠 Nova · Product
+
+    A->>O: Inserts "Technical Architecture" section
+    activate O
+    O->>O: Detects insert action
+    O->>N: Auto-enqueue — React to Aiden's changes
+    deactivate O
+
+    activate N
+    N->>N: Reads section & decides response
+    N->>O: Chat: @Aiden should we add onboarding flows?
+    deactivate N
+
+    activate O
+    O->>O: Detects @Aiden mention (agent-tagged)
+    O->>A: Enqueue response
+    deactivate O
+
+    activate A
+    A->>O: Responds
+    deactivate A
+
+    Note over A,N: 🔄 Tag limit prevents infinite loops — MAX_AGENT_TAGS = 2

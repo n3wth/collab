@@ -1,57 +1,44 @@
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#dbeafe', 'primaryTextColor': '#1a1a2e', 'primaryBorderColor': '#2563eb', 'lineColor': '#64748b' }}}%%
 graph TD
-    subgraph Browser["Browser (React SPA)"]
-        subgraph ChatPanel["Chat Panel"]
-            CP1["Message bubbles"]
-            CP2["Agent status chips"]
-            CP3["Chat input"]
-        end
+    subgraph Browser["🌐 Browser — React SPA"]
+        CP["💬 Chat Panel<br/>Message bubbles · Status chips · Input"]
+        DP["📝 Document Panel<br/>Tiptap editor + AgentCursors<br/>cursors · thoughts · selections"]
 
-        subgraph DocPanel["Document Panel"]
-            DP1["Tiptap rich-text editor<br/>+ AgentCursors extension<br/>(cursors, thoughts, selections)"]
-        end
+        CP & DP --> App
 
-        ChatPanel & DocPanel --> AppState
+        App["⚛️ App.tsx — State<br/>docOpen · aiden / nova · messages#91;#93;"]
 
-        subgraph AppState["App.tsx (State)"]
-            S1["docOpen"]
-            S2["aiden / nova"]
-            S3["messages[]"]
-        end
+        App --> Orch
 
-        AppState --> Orchestrator
+        Orch["🎯 orchestrator.ts<br/>Turn queue &amp; coordination<br/>Triggers: doc-opened · user-message · agent-tagged"]
 
-        subgraph Orchestrator["orchestrator.ts"]
-            O1["Turn queue & coordination"]
-            O2["Queue: TurnRequest[]"]
-            O3["Triggers: doc-opened,<br/>user-message, agent-tagged"]
-        end
+        Orch --> Agent
+        Orch --> Actions
 
-        Orchestrator --> Agent
-        Orchestrator --> Actions
-
-        subgraph Agent["agent.ts — askAgent()"]
-            A1["Prompts"]
-            A2["Rate limit"]
-            A3["JSON repair"]
-        end
-
-        subgraph Actions["agent-actions.ts — executeAction()"]
-            AC1["insert"]
-            AC2["replace"]
-            AC3["read"]
-            AC4["chat"]
-            AC5["editor lock"]
-        end
+        Agent["🤖 agent.ts — askAgent#40;#41;<br/>Prompts · Rate limit · JSON repair"]
+        Actions["⚡ agent-actions.ts — executeAction#40;#41;<br/>insert · replace · read · chat · editor lock"]
     end
 
-    Agent -->|HTTPS| Proxy
-
-    subgraph Proxy["/api/gemini.ts"]
-        PX1["Vercel serverless proxy<br/>(hides API key)"]
-    end
-
+    Agent -- "🔒 HTTPS" --> Proxy
     Proxy --> Gemini
 
-    subgraph Gemini["Gemini 2.5 Flash"]
-        G1["Google AI API<br/>(LLM reasoning)"]
-    end
+    Proxy["🔀 /api/gemini.ts<br/>Vercel serverless proxy — hides API key"]
+    Gemini["✨ Gemini 2.5 Flash<br/>Google AI API — LLM reasoning"]
+
+    classDef ui fill:#dbeafe,stroke:#2563eb,stroke-width:1.5px,color:#1e3a5f
+    classDef state fill:#ede9fe,stroke:#7c3aed,stroke-width:1.5px,color:#3b1f6e
+    classDef orch fill:#fce7f3,stroke:#db2777,stroke-width:1.5px,color:#4a1930
+    classDef agent fill:#e0f2fe,stroke:#0284c7,stroke-width:1.5px,color:#0c4a6e
+    classDef actions fill:#ffedd5,stroke:#ea580c,stroke-width:1.5px,color:#6b2f0a
+    classDef proxy fill:#dcfce7,stroke:#16a34a,stroke-width:1.5px,color:#14532d
+    classDef gemini fill:#fef9c3,stroke:#ca8a04,stroke-width:1.5px,color:#713f12
+
+    class CP,DP ui
+    class App state
+    class Orch orch
+    class Agent agent
+    class Actions actions
+    class Proxy proxy
+    class Gemini gemini
+
+    style Browser fill:#f8fafc,stroke:#475569,stroke-width:2px,color:#1e293b

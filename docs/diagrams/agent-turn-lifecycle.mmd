@@ -1,35 +1,50 @@
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#dbeafe', 'primaryTextColor': '#1a1a2e', 'primaryBorderColor': '#2563eb', 'lineColor': '#64748b' }}}%%
 flowchart TD
-    A["User sends message"] --> B["App.tsx"]
-    B --> C["Orchestrator"]
-    C --> D{"Detect trigger type"}
+    A(["👤 User sends message"]):::input --> B["⚛️ App.tsx"]:::state
+    B --> C["🎯 Orchestrator"]:::orch
+    C --> D{"🔍 Detect trigger type"}:::decision
 
-    D -->|doc-opened| E["Enqueue both agents<br/>with initial instructions"]
-    D -->|user-message| F["Clear queue, detect<br/>@mention and enqueue<br/>relevant agent"]
-    D -->|agent-tagged| G["Limited back-and-forth<br/>(max 2 tags)"]
+    D -- "📂 doc-opened" --> E["Enqueue both agents<br/>with initial instructions"]:::trigger
+    D -- "💬 user-message" --> F["Clear queue, detect @mention<br/>and enqueue relevant agent"]:::trigger
+    D -- "🏷️ agent-tagged" --> G["Limited back-and-forth<br/>max 2 tags"]:::trigger
 
-    E --> H["processQueue()"]
+    E --> H["⚙️ processQueue#40;#41;"]:::process
     F --> H
     G --> H
 
-    H --> I["askAgent(params)"]
-    I --> J["Build prompt:<br/>• Persona injection<br/>• Doc text (≤2000 chars)<br/>• Chat history (last 6)<br/>• Recent changes context"]
-    J --> K["POST /api/gemini"]
-    K --> L["Gemini 2.5 Flash"]
-    L --> M["Parse JSON response<br/>(with repair on truncation)"]
+    H --> I["🤖 askAgent#40;params#41;"]:::agent
+    I --> J["📋 Build prompt<br/>• Persona injection<br/>• Doc text ≤ 2 000 chars<br/>• Chat history — last 6<br/>• Recent changes context"]:::agent
+    J --> K["📡 POST /api/gemini"]:::api
+    K --> L["✨ Gemini 2.5 Flash"]:::gemini
+    L --> M["🔧 Parse JSON response<br/>with repair on truncation"]:::process
 
-    M -->|insert| N["Acquire lock<br/>Insert at end/heading<br/>char-by-char"]
-    M -->|replace| O["Acquire lock<br/>Find & replace<br/>char-by-char"]
-    M -->|read| P["Highlight text<br/>Show thought bubble<br/>(3.5 seconds)"]
+    M -- "📝 insert" --> N["🔒 Acquire lock<br/>Insert at end / heading<br/>char-by-char"]:::action
+    M -- "✏️ replace" --> O["🔒 Acquire lock<br/>Find &amp; replace<br/>char-by-char"]:::action
+    M -- "👁️ read" --> P["Highlight text<br/>Show thought bubble<br/>3.5 s"]:::action
 
-    N --> Q["Turn complete"]
+    N --> Q(["✅ Turn complete"]):::done
     O --> Q
     P --> Q
 
-    Q --> R{"Was doc edited?"}
-    R -->|Yes| S["Enqueue other<br/>agent to react"]
-    R -->|No| T["Continue queue"]
+    Q --> R{"📝 Was doc edited?"}:::decision
+    R -- "Yes" --> S["📨 Enqueue other<br/>agent to react"]:::trigger
+    R -- "No" --> T["Continue queue"]:::process
 
-    S --> U{"Autonomous turn cap?<br/>(max 3 per agent/session)"}
+    S --> U{"🔢 Autonomous turn cap?<br/>max 3 per agent / session"}:::decision
     T --> U
-    U -->|Yes| V["Stop auto turns"]
-    U -->|No| W["Next turn"]
+    U -- "Yes" --> V["🛑 Stop auto turns"]:::stop
+    U -- "No" --> W["▶️ Next turn"]:::next
+
+    classDef input fill:#dbeafe,stroke:#2563eb,stroke-width:2px,color:#1e3a5f
+    classDef state fill:#ede9fe,stroke:#7c3aed,stroke-width:1.5px,color:#3b1f6e
+    classDef orch fill:#fce7f3,stroke:#db2777,stroke-width:1.5px,color:#4a1930
+    classDef decision fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#78350f
+    classDef trigger fill:#e0e7ff,stroke:#4f46e5,stroke-width:1.5px,color:#312e81
+    classDef process fill:#f1f5f9,stroke:#64748b,stroke-width:1.5px,color:#334155
+    classDef agent fill:#e0f2fe,stroke:#0284c7,stroke-width:1.5px,color:#0c4a6e
+    classDef api fill:#dcfce7,stroke:#16a34a,stroke-width:1.5px,color:#14532d
+    classDef gemini fill:#fef9c3,stroke:#ca8a04,stroke-width:1.5px,color:#713f12
+    classDef action fill:#ffedd5,stroke:#ea580c,stroke-width:1.5px,color:#6b2f0a
+    classDef done fill:#dcfce7,stroke:#16a34a,stroke-width:2px,color:#14532d
+    classDef stop fill:#fee2e2,stroke:#dc2626,stroke-width:1.5px,color:#7f1d1d
+    classDef next fill:#dcfce7,stroke:#16a34a,stroke-width:1.5px,color:#14532d

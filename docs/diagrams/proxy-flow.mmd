@@ -1,10 +1,15 @@
+%%{init: {'theme': 'base', 'themeVariables': { 'actorBkg': '#f1f5f9', 'actorBorder': '#475569', 'actorTextColor': '#1a1a2e', 'actorLineColor': '#94a3b8', 'signalColor': '#475569', 'signalTextColor': '#1a1a2e', 'noteBkgColor': '#dcfce7', 'noteBorderColor': '#16a34a', 'noteTextColor': '#14532d', 'activationBkgColor': '#e0f2fe', 'activationBorderColor': '#0284c7', 'sequenceNumberColor': '#ffffff' }}}%%
 sequenceDiagram
-    participant Browser
-    participant Vercel as Vercel Function<br/>(api/gemini.ts)
-    participant Gemini as Gemini API
+    autonumber
 
-    Browser->>Vercel: POST /api/gemini
-    Note over Vercel: Reads process.env.GEMINI_API_KEY
-    Vercel->>Gemini: POST (with API key)
-    Gemini-->>Vercel: Response
-    Vercel-->>Browser: JSON response
+    participant B as 🌐 Browser
+    participant V as 🔀 Vercel Function<br/>(api/gemini.ts)
+    participant G as ✨ Gemini API
+
+    B->>+V: POST /api/gemini
+    Note over V: 🔑 Reads process.env.GEMINI_API_KEY
+    V->>+G: POST with API key
+    G-->>-V: Response
+    V-->>-B: JSON response
+
+    Note over B,G: 🔒 API key never exposed to the browser

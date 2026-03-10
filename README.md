@@ -47,63 +47,50 @@ Both agents are powered by **Google Gemini 2.5 Flash** and coordinate their turn
 <!-- Diagram source: docs/diagrams/high-level-component-map.mmd -->
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#dbeafe', 'primaryTextColor': '#1a1a2e', 'primaryBorderColor': '#2563eb', 'lineColor': '#64748b' }}}%%
 graph TD
-    subgraph Browser["Browser (React SPA)"]
-        subgraph ChatPanel["Chat Panel"]
-            CP1["Message bubbles"]
-            CP2["Agent status chips"]
-            CP3["Chat input"]
-        end
+    subgraph Browser["🌐 Browser — React SPA"]
+        CP["💬 Chat Panel<br/>Message bubbles · Status chips · Input"]
+        DP["📝 Document Panel<br/>Tiptap editor + AgentCursors<br/>cursors · thoughts · selections"]
 
-        subgraph DocPanel["Document Panel"]
-            DP1["Tiptap rich-text editor<br/>+ AgentCursors extension<br/>(cursors, thoughts, selections)"]
-        end
+        CP & DP --> App
 
-        ChatPanel & DocPanel --> AppState
+        App["⚛️ App.tsx — State<br/>docOpen · aiden / nova · messages#91;#93;"]
 
-        subgraph AppState["App.tsx (State)"]
-            S1["docOpen"]
-            S2["aiden / nova"]
-            S3["messages[]"]
-        end
+        App --> Orch
 
-        AppState --> Orchestrator
+        Orch["🎯 orchestrator.ts<br/>Turn queue &amp; coordination<br/>Triggers: doc-opened · user-message · agent-tagged"]
 
-        subgraph Orchestrator["orchestrator.ts"]
-            O1["Turn queue & coordination"]
-            O2["Queue: TurnRequest[]"]
-            O3["Triggers: doc-opened,<br/>user-message, agent-tagged"]
-        end
+        Orch --> Agent
+        Orch --> Actions
 
-        Orchestrator --> Agent
-        Orchestrator --> Actions
-
-        subgraph Agent["agent.ts — askAgent()"]
-            A1["Prompts"]
-            A2["Rate limit"]
-            A3["JSON repair"]
-        end
-
-        subgraph Actions["agent-actions.ts — executeAction()"]
-            AC1["insert"]
-            AC2["replace"]
-            AC3["read"]
-            AC4["chat"]
-            AC5["editor lock"]
-        end
+        Agent["🤖 agent.ts — askAgent#40;#41;<br/>Prompts · Rate limit · JSON repair"]
+        Actions["⚡ agent-actions.ts — executeAction#40;#41;<br/>insert · replace · read · chat · editor lock"]
     end
 
-    Agent -->|HTTPS| Proxy
-
-    subgraph Proxy["/api/gemini.ts"]
-        PX1["Vercel serverless proxy<br/>(hides API key)"]
-    end
-
+    Agent -- "🔒 HTTPS" --> Proxy
     Proxy --> Gemini
 
-    subgraph Gemini["Gemini 2.5 Flash"]
-        G1["Google AI API<br/>(LLM reasoning)"]
-    end
+    Proxy["🔀 /api/gemini.ts<br/>Vercel serverless proxy — hides API key"]
+    Gemini["✨ Gemini 2.5 Flash<br/>Google AI API — LLM reasoning"]
+
+    classDef ui fill:#dbeafe,stroke:#2563eb,stroke-width:1.5px,color:#1e3a5f
+    classDef state fill:#ede9fe,stroke:#7c3aed,stroke-width:1.5px,color:#3b1f6e
+    classDef orch fill:#fce7f3,stroke:#db2777,stroke-width:1.5px,color:#4a1930
+    classDef agent fill:#e0f2fe,stroke:#0284c7,stroke-width:1.5px,color:#0c4a6e
+    classDef actions fill:#ffedd5,stroke:#ea580c,stroke-width:1.5px,color:#6b2f0a
+    classDef proxy fill:#dcfce7,stroke:#16a34a,stroke-width:1.5px,color:#14532d
+    classDef gemini fill:#fef9c3,stroke:#ca8a04,stroke-width:1.5px,color:#713f12
+
+    class CP,DP ui
+    class App state
+    class Orch orch
+    class Agent agent
+    class Actions actions
+    class Proxy proxy
+    class Gemini gemini
+
+    style Browser fill:#f8fafc,stroke:#475569,stroke-width:2px,color:#1e293b
 ```
 
 ### Module Responsibilities
@@ -126,41 +113,56 @@ graph TD
 <!-- Diagram source: docs/diagrams/agent-turn-lifecycle.mmd -->
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#dbeafe', 'primaryTextColor': '#1a1a2e', 'primaryBorderColor': '#2563eb', 'lineColor': '#64748b' }}}%%
 flowchart TD
-    A["User sends message"] --> B["App.tsx"]
-    B --> C["Orchestrator"]
-    C --> D{"Detect trigger type"}
+    A(["👤 User sends message"]):::input --> B["⚛️ App.tsx"]:::state
+    B --> C["🎯 Orchestrator"]:::orch
+    C --> D{"🔍 Detect trigger type"}:::decision
 
-    D -->|doc-opened| E["Enqueue both agents<br/>with initial instructions"]
-    D -->|user-message| F["Clear queue, detect<br/>@mention and enqueue<br/>relevant agent"]
-    D -->|agent-tagged| G["Limited back-and-forth<br/>(max 2 tags)"]
+    D -- "📂 doc-opened" --> E["Enqueue both agents<br/>with initial instructions"]:::trigger
+    D -- "💬 user-message" --> F["Clear queue, detect @mention<br/>and enqueue relevant agent"]:::trigger
+    D -- "🏷️ agent-tagged" --> G["Limited back-and-forth<br/>max 2 tags"]:::trigger
 
-    E --> H["processQueue()"]
+    E --> H["⚙️ processQueue#40;#41;"]:::process
     F --> H
     G --> H
 
-    H --> I["askAgent(params)"]
-    I --> J["Build prompt:<br/>• Persona injection<br/>• Doc text (≤2000 chars)<br/>• Chat history (last 6)<br/>• Recent changes context"]
-    J --> K["POST /api/gemini"]
-    K --> L["Gemini 2.5 Flash"]
-    L --> M["Parse JSON response<br/>(with repair on truncation)"]
+    H --> I["🤖 askAgent#40;params#41;"]:::agent
+    I --> J["📋 Build prompt<br/>• Persona injection<br/>• Doc text ≤ 2 000 chars<br/>• Chat history — last 6<br/>• Recent changes context"]:::agent
+    J --> K["📡 POST /api/gemini"]:::api
+    K --> L["✨ Gemini 2.5 Flash"]:::gemini
+    L --> M["🔧 Parse JSON response<br/>with repair on truncation"]:::process
 
-    M -->|insert| N["Acquire lock<br/>Insert at end/heading<br/>char-by-char"]
-    M -->|replace| O["Acquire lock<br/>Find & replace<br/>char-by-char"]
-    M -->|read| P["Highlight text<br/>Show thought bubble<br/>(3.5 seconds)"]
+    M -- "📝 insert" --> N["🔒 Acquire lock<br/>Insert at end / heading<br/>char-by-char"]:::action
+    M -- "✏️ replace" --> O["🔒 Acquire lock<br/>Find &amp; replace<br/>char-by-char"]:::action
+    M -- "👁️ read" --> P["Highlight text<br/>Show thought bubble<br/>3.5 s"]:::action
 
-    N --> Q["Turn complete"]
+    N --> Q(["✅ Turn complete"]):::done
     O --> Q
     P --> Q
 
-    Q --> R{"Was doc edited?"}
-    R -->|Yes| S["Enqueue other<br/>agent to react"]
-    R -->|No| T["Continue queue"]
+    Q --> R{"📝 Was doc edited?"}:::decision
+    R -- "Yes" --> S["📨 Enqueue other<br/>agent to react"]:::trigger
+    R -- "No" --> T["Continue queue"]:::process
 
-    S --> U{"Autonomous turn cap?<br/>(max 3 per agent/session)"}
+    S --> U{"🔢 Autonomous turn cap?<br/>max 3 per agent / session"}:::decision
     T --> U
-    U -->|Yes| V["Stop auto turns"]
-    U -->|No| W["Next turn"]
+    U -- "Yes" --> V["🛑 Stop auto turns"]:::stop
+    U -- "No" --> W["▶️ Next turn"]:::next
+
+    classDef input fill:#dbeafe,stroke:#2563eb,stroke-width:2px,color:#1e3a5f
+    classDef state fill:#ede9fe,stroke:#7c3aed,stroke-width:1.5px,color:#3b1f6e
+    classDef orch fill:#fce7f3,stroke:#db2777,stroke-width:1.5px,color:#4a1930
+    classDef decision fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#78350f
+    classDef trigger fill:#e0e7ff,stroke:#4f46e5,stroke-width:1.5px,color:#312e81
+    classDef process fill:#f1f5f9,stroke:#64748b,stroke-width:1.5px,color:#334155
+    classDef agent fill:#e0f2fe,stroke:#0284c7,stroke-width:1.5px,color:#0c4a6e
+    classDef api fill:#dcfce7,stroke:#16a34a,stroke-width:1.5px,color:#14532d
+    classDef gemini fill:#fef9c3,stroke:#ca8a04,stroke-width:1.5px,color:#713f12
+    classDef action fill:#ffedd5,stroke:#ea580c,stroke-width:1.5px,color:#6b2f0a
+    classDef done fill:#dcfce7,stroke:#16a34a,stroke-width:2px,color:#14532d
+    classDef stop fill:#fee2e2,stroke:#dc2626,stroke-width:1.5px,color:#7f1d1d
+    classDef next fill:#dcfce7,stroke:#16a34a,stroke-width:1.5px,color:#14532d
 ```
 
 ### Editor Action Types
@@ -177,20 +179,35 @@ flowchart TD
 <!-- Diagram source: docs/diagrams/agent-to-agent-collaboration.mmd -->
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': { 'actorBkg': '#f1f5f9', 'actorBorder': '#475569', 'actorTextColor': '#1a1a2e', 'actorLineColor': '#94a3b8', 'signalColor': '#475569', 'signalTextColor': '#1a1a2e', 'noteBkgColor': '#fef9c3', 'noteBorderColor': '#ca8a04', 'noteTextColor': '#713f12', 'activationBkgColor': '#dbeafe', 'activationBorderColor': '#2563eb', 'sequenceNumberColor': '#ffffff' }}}%%
 sequenceDiagram
-    participant Aiden
-    participant Orchestrator
-    participant Nova
+    autonumber
 
-    Aiden->>Orchestrator: Inserts "Technical Architecture" section
-    Orchestrator->>Orchestrator: Detects insert action
-    Orchestrator->>Nova: Auto-enqueue: "React to Aiden's changes<br/>to Technical Architecture"
-    Nova->>Nova: Reads section
-    Nova->>Nova: Decides to add UX commentary<br/>or question Aiden
-    Nova->>Orchestrator: Chat: "@Aiden should we add<br/>onboarding flows here?"
-    Orchestrator->>Orchestrator: Detects @Aiden mention<br/>(agent-tagged trigger)
-    Orchestrator->>Aiden: Enqueue response
-    Aiden->>Orchestrator: Responds<br/>(limited to MAX_AGENT_TAGS = 2 exchanges)
+    participant A as 🔵 Aiden · Technical
+    participant O as 🎯 Orchestrator
+    participant N as 🟠 Nova · Product
+
+    A->>O: Inserts "Technical Architecture" section
+    activate O
+    O->>O: Detects insert action
+    O->>N: Auto-enqueue — React to Aiden's changes
+    deactivate O
+
+    activate N
+    N->>N: Reads section & decides response
+    N->>O: Chat: @Aiden should we add onboarding flows?
+    deactivate N
+
+    activate O
+    O->>O: Detects @Aiden mention (agent-tagged)
+    O->>A: Enqueue response
+    deactivate O
+
+    activate A
+    A->>O: Responds
+    deactivate A
+
+    Note over A,N: 🔄 Tag limit prevents infinite loops — MAX_AGENT_TAGS = 2
 ```
 
 ### Rate Limiting & Reliability
@@ -198,14 +215,22 @@ sequenceDiagram
 <!-- Diagram source: docs/diagrams/rate-limiting.mmd -->
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#f1f5f9', 'primaryTextColor': '#1a1a2e', 'primaryBorderColor': '#475569', 'lineColor': '#64748b' }}}%%
 flowchart LR
-    subgraph rateLimiter["rateLimiter"]
+    subgraph rl["⏱️ Rate Limiter"]
         direction TB
-        A["minIntervalMs: 7000"]
-        B["maxRetries: 3"]
-        C["Backoff sequence on 429:<br/>5s → 10s → 20s → 40s → 60s"]
-        D["After 3 consecutive errors:<br/>30-second cool-down"]
+        A["🔄 Min interval — 7 000 ms between calls"]:::config
+        B["🔁 Max retries — 3 attempts per request"]:::config
+        C["📈 Backoff on 429:<br/>5 s → 10 s → 20 s → 40 s → 60 s"]:::warn
+        D["🛑 3 consecutive errors → 30 s cool-down"]:::error
+        A ~~~ B ~~~ C ~~~ D
     end
+
+    classDef config fill:#e0f2fe,stroke:#0284c7,stroke-width:1.5px,color:#0c4a6e
+    classDef warn fill:#fef3c7,stroke:#d97706,stroke-width:1.5px,color:#78350f
+    classDef error fill:#fee2e2,stroke:#dc2626,stroke-width:1.5px,color:#7f1d1d
+
+    style rl fill:#f8fafc,stroke:#475569,stroke-width:2px,color:#1e293b
 ```
 
 The 7-second minimum interval keeps usage safely below the free-tier limit of ~10 RPM.
@@ -359,16 +384,21 @@ The client in production will call `/api/gemini` (the serverless proxy) instead 
 <!-- Diagram source: docs/diagrams/proxy-flow.mmd -->
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': { 'actorBkg': '#f1f5f9', 'actorBorder': '#475569', 'actorTextColor': '#1a1a2e', 'actorLineColor': '#94a3b8', 'signalColor': '#475569', 'signalTextColor': '#1a1a2e', 'noteBkgColor': '#dcfce7', 'noteBorderColor': '#16a34a', 'noteTextColor': '#14532d', 'activationBkgColor': '#e0f2fe', 'activationBorderColor': '#0284c7', 'sequenceNumberColor': '#ffffff' }}}%%
 sequenceDiagram
-    participant Browser
-    participant Vercel as Vercel Function<br/>(api/gemini.ts)
-    participant Gemini as Gemini API
+    autonumber
 
-    Browser->>Vercel: POST /api/gemini
-    Note over Vercel: Reads process.env.GEMINI_API_KEY
-    Vercel->>Gemini: POST (with API key)
-    Gemini-->>Vercel: Response
-    Vercel-->>Browser: JSON response
+    participant B as 🌐 Browser
+    participant V as 🔀 Vercel Function<br/>(api/gemini.ts)
+    participant G as ✨ Gemini API
+
+    B->>+V: POST /api/gemini
+    Note over V: 🔑 Reads process.env.GEMINI_API_KEY
+    V->>+G: POST with API key
+    G-->>-V: Response
+    V-->>-B: JSON response
+
+    Note over B,G: 🔒 API key never exposed to the browser
 ```
 
 ---
