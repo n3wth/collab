@@ -172,6 +172,7 @@
   transition: background 0.2s var(--ease-standard);
   animation: msgFadeIn 0.4s var(--ease-decelerate) forwards;
   position: relative;
+  flex-shrink: 0;
 }
 
 @keyframes msgFadeIn {
