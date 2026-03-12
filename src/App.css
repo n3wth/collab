@@ -359,7 +359,11 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
-  justify-content: flex-end;
+}
+
+/* Push messages to bottom when they don't fill the container */
+.chat-messages .msg:first-child {
+  margin-top: auto;
 }
 
 /* Messages */
