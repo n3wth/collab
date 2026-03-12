@@ -357,15 +357,14 @@
   background: var(--surface-1);
 }
 
+/* Elevate entire message when agent avatar hover card is showing */
+.msg:has(.msg-avatar-agent:hover) {
+  z-index: 9999;
+}
+
 .msg-avatar {
   flex-shrink: 0;
   margin-top: 3px;
-  position: relative;
-  z-index: 1;
-}
-
-.msg-avatar-agent:hover {
-  z-index: 9999;
 }
 
 .msg-body {
