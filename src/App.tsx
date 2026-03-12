@@ -66,6 +66,44 @@ function AgentStatusBlob({ name, status, inDoc }: {
   return <BlobAvatar name={name} size={20} state={status} />
 }
 
+function AgentHoverCard({ name, agentState }: { name: string, agentState: AgentState | null }) {
+  return (
+    <div className="agent-hover-card">
+      <div className="agent-hover-card-header">
+        <BlobAvatar name={name} size={28} state={agentState?.status} />
+        <div>
+          <div className="agent-hover-card-name">{name}</div>
+          <span className="agent-hover-card-model">gemini-2.5-flash</span>
+        </div>
+      </div>
+      <div className="agent-hover-card-desc">
+        {name === 'Aiden'
+          ? 'Technical architecture and engineering. Writes specs, system design, and implementation details.'
+          : 'Product strategy and user research. Identifies gaps, frames adoption risks, and grounds ideas in user needs.'}
+      </div>
+      <div className="agent-hover-card-section">
+        <div className="agent-hover-card-section-label">Tools</div>
+        <div className="agent-hover-card-tools">
+          <span className="agent-tool-tag">read</span>
+          <span className="agent-tool-tag">insert</span>
+          <span className="agent-tool-tag">replace</span>
+          <span className="agent-tool-tag">chat</span>
+        </div>
+      </div>
+      <div className="agent-hover-card-section">
+        <div className="agent-hover-card-section-label">Owner</div>
+        <div className="agent-hover-card-owner">{name === 'Aiden' ? 'You' : 'Sarah'}</div>
+      </div>
+      <div className="agent-hover-card-divider" />
+      <div className="agent-hover-card-status">
+        <span className={`agent-hover-card-dot ${agentState?.status !== 'idle' ? 'active' : ''}`} />
+        {agentState?.status === 'idle' ? 'Idle' : agentState?.thought || agentState?.status}
+        {agentState?.inDoc && <span className="agent-hover-card-location">In document</span>}
+      </div>
+    </div>
+  )
+}
+
 function ReasoningChain({ steps }: { steps: string[] }) {
   const [expanded, setExpanded] = useState(false)
   return (
@@ -116,17 +154,20 @@ const FormatMentions = memo(({ text }: { text: string }) => {
 })
 
 
-const ChatMessage = memo(({ m, sameSender, docOpen, onOpenDoc }: {
-  m: Message, sameSender: boolean, docOpen: boolean, onOpenDoc: () => void
+const ChatMessage = memo(({ m, sameSender, docOpen, onOpenDoc, agentState }: {
+  m: Message, sameSender: boolean, docOpen: boolean, onOpenDoc: () => void, agentState?: AgentState | null
 }) => {
   const isAgent = m.from === 'Aiden' || m.from === 'Nova'
   const displayText = m.text.replace('[from doc] ', '')
   return (
     <div className={`msg ${isAgent ? 'msg-agent' : 'msg-human'} ${sameSender ? 'msg-consecutive' : ''}`} data-agent={isAgent ? m.from.toLowerCase() : undefined}>
       {!sameSender && (
-        <div className="msg-avatar">
+        <div className={`msg-avatar ${isAgent ? 'msg-avatar-agent' : ''}`}>
           {isAgent ? (
-            <BlobAvatar name={m.from} size={26} />
+            <>
+              <BlobAvatar name={m.from} size={26} />
+              <AgentHoverCard name={m.from} agentState={agentState ?? null} />
+            </>
           ) : (
             <ShapeAvatar name={m.from} size={26} />
           )}
@@ -416,22 +457,7 @@ function App() {
                   ) : (
                     <ShapeAvatar name={name} size={24} />
                   )}
-                  {isAgent && (
-                    <div className="agent-hover-card">
-                      <div className="agent-hover-card-header">
-                        <BlobAvatar name={name} size={32} state={agentState?.status} />
-                        <div>
-                          <div className="agent-hover-card-name">{name}</div>
-                          <div className="agent-hover-card-role">AI Agent</div>
-                        </div>
-                      </div>
-                      <div className="agent-hover-card-status">
-                        <span className={`agent-hover-card-dot ${agentState?.status !== 'idle' ? 'active' : ''}`} />
-                        {agentState?.status === 'idle' ? 'Idle' : agentState?.thought || agentState?.status}
-                      </div>
-                      {agentState?.inDoc && <div className="agent-hover-card-location">In document</div>}
-                    </div>
-                  )}
+                  {isAgent && <AgentHoverCard name={name} agentState={agentState} />}
                 </div>
               )
             })}
@@ -463,7 +489,7 @@ function App() {
               const prev = messages[i - 1]
               const sameSender = prev && prev.from === m.from
               return (
-                <ChatMessage key={m.id} m={m} sameSender={sameSender} docOpen={docOpen} onOpenDoc={openDocWithAgents} />
+                <ChatMessage key={m.id} m={m} sameSender={sameSender} docOpen={docOpen} onOpenDoc={openDocWithAgents} agentState={m.from === 'Aiden' ? aiden : m.from === 'Nova' ? nova : null} />
               )
             })}
             {[
