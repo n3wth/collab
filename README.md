@@ -2,6 +2,8 @@
 
 > A prototype workspace where personal AI agents work *alongside* humans in shared documents and chat — visible, transparent, and collaborating with each other in real time.
 
+**By [Oliver Newth](https://github.com/n3wth) (n3wth).**
+
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?logo=typescript)](https://www.typescriptlang.org/)
 [![React](https://img.shields.io/badge/React-19-61DAFB?logo=react)](https://react.dev/)
 [![Vite](https://img.shields.io/badge/Vite-7-646CFF?logo=vite)](https://vitejs.dev/)
@@ -97,12 +99,12 @@ graph TD
 
 | Module | Lines | Responsibility |
 |--------|-------|----------------|
-| `src/App.tsx` | 430 | Root component: split layout, state, user input handlers |
-| `src/orchestrator.ts` | 246 | Agent turn queue, trigger dispatch, autonomous turn cap |
-| `src/agent.ts` | 318 | Gemini API calls, prompt building, rate limiting, JSON repair |
-| `src/agent-actions.ts` | 307 | Editor mutations: insert/replace/read/chat, cursor animation |
-| `src/agent-cursor.ts` | 120 | Custom Tiptap extension: cursor widgets, thought bubbles |
-| `api/gemini.ts` | 33 | Vercel serverless proxy — forwards requests, hides key |
+| `src/App.tsx` | 610 | Root component: split layout, state, user input handlers |
+| `src/orchestrator.ts` | 318 | Agent turn queue, trigger dispatch, autonomous turn cap |
+| `src/agent.ts` | 459 | Gemini API calls, prompt building, rate limiting, JSON repair |
+| `src/agent-actions.ts` | 467 | Editor mutations: insert/replace/read/chat, cursor animation |
+| `src/agent-cursor.ts` | 190 | Custom Tiptap extension: cursor widgets, thought bubbles |
+| `api/gemini.ts` | 61 | Vercel serverless proxy — forwards requests, hides key |
 
 ---
 
@@ -303,17 +305,21 @@ collab/
 │   ├── App.tsx             # Root component: layout, state, user handlers
 │   ├── App.css             # All styling (layout, animations, agent colours)
 │   ├── index.css           # CSS resets & globals
-│   │
+│   ├── blob-avatar.tsx    # Animated blob avatars (simplex-noise, canvas)
+│   ├── lib/
+│   │   └── utils.ts        # Shared utilities
 │   ├── agent.ts            # Gemini API calls, prompt building, rate limiting
 │   ├── agent-actions.ts    # Editor mutations and cursor animations
 │   ├── agent-cursor.ts     # Custom Tiptap extension for agent cursors
-│   └── orchestrator.ts     # Turn queue and agent coordination
+│   ├── orchestrator.ts     # Turn queue and agent coordination
+│   └── __tests__/          # Vitest unit tests
 │
 ├── public/
 │   └── vite.svg
 │
 ├── index.html              # HTML shell
 ├── vite.config.ts          # Vite build configuration
+├── components.json         # shadcn/ui component config
 ├── tsconfig.json           # TypeScript root config
 ├── tsconfig.app.json       # App TypeScript config (strict, ES2022)
 ├── tsconfig.node.json      # Node TypeScript config
@@ -355,6 +361,7 @@ Both agents receive the same document context and recent chat history on every t
 | `npm run build` | Type-check + bundle for production (`dist/`) |
 | `npm run preview` | Preview the production build locally |
 | `npm run lint` | Run ESLint across all source files |
+| `npm run test` | Run Vitest unit tests |
 
 ---
 
@@ -414,7 +421,7 @@ sequenceDiagram
 | CRDT / Collab Primitives | Yjs | 13.6 |
 | AI Model | Gemini 2.5 Flash | — |
 | Serverless Hosting | Vercel | — |
-| Avatar Generation | boring-avatars | 2.0 |
+| Agent avatars | BlobAvatar (simplex-noise) | Custom canvas blobs |
 
 ---
 
@@ -422,8 +429,8 @@ sequenceDiagram
 
 | Concern | Development | Production |
 |---------|-------------|------------|
-| Gemini API key | In `.env.local` (client-side) | In Vercel env var (server-side only) |
-| Key exposure | Exposed in browser bundle | Hidden behind serverless proxy |
+| Gemini API key | In `.env.local` (loaded by dev server only) | In Vercel env var (server-side only) |
+| Key exposure | Not in client bundle; proxy reads env | Hidden behind serverless proxy |
 | Request validation | None | None (add auth if needed) |
 
 > For a production deployment with multiple users, add authentication to `/api/gemini` to prevent key abuse.
@@ -439,6 +446,12 @@ sequenceDiagram
 - **Rate limited** — 7 s between API calls; interactions can feel slow
 - **Autonomous turn cap** — Max 3 autonomous turns per agent per session (cost control)
 - **Mobile unfriendly** — Fixed-width layout assumes a desktop viewport
+
+---
+
+## Author
+
+**Oliver Newth** ([n3wth](https://github.com/n3wth)) — prototype, architecture, and implementation.
 
 ---
 
