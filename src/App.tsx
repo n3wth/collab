@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import Avatar from 'boring-avatars'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
@@ -34,9 +33,11 @@ const AGENTS: Record<string, { color: string, bgColor: string }> = {
   Nova: { color: '#e37400', bgColor: '#fef7e0' },
 }
 
-const AGENT_PALETTES: Record<string, string[]> = {
-  Aiden: ['#4285f4', '#5e97f6', '#8ab4f8', '#c5dafc', '#e8f0fe'],
-  Nova: ['#e37400', '#f29900', '#fdd663', '#feefc3', '#fef7e0'],
+const AVATAR_COLORS: Record<string, string> = {
+  You: '#1a1a1a',
+  Sarah: '#7c3aed',
+  Aiden: '#4285f4',
+  Nova: '#e37400',
 }
 
 const PERSON_PHOTOS: Record<string, string> = {
@@ -44,19 +45,17 @@ const PERSON_PHOTOS: Record<string, string> = {
   Sarah: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop&crop=face',
 }
 
-function GeminiSparkle({ size = 12, color = 'currentColor' }: { size?: number, color?: string }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={{ display: 'inline-block', verticalAlign: 'middle' }}>
-      <path d="M12 2L13.5 8.5L20 10L13.5 11.5L12 18L10.5 11.5L4 10L10.5 8.5L12 2Z" fill={color} />
-      <path d="M19 14L19.75 16.25L22 17L19.75 17.75L19 20L18.25 17.75L16 17L18.25 16.25L19 14Z" fill={color} opacity="0.6" />
-    </svg>
-  )
+function getInitials(name: string) {
+  return name.charAt(0).toUpperCase()
 }
 
 function AgentAvatar({ size = 28, name = 'Aiden', className = '' }: { size?: number, name?: string, className?: string }) {
+  const color = AVATAR_COLORS[name!] || '#4285f4'
   return (
     <div className={`avatar-wrapper ${className}`} style={{ width: size, height: size }}>
-      <Avatar size={size} name={name} variant="beam" colors={AGENT_PALETTES[name] || AGENT_PALETTES.Aiden} />
+      <div className="avatar-initials" style={{ background: color, fontSize: size * 0.42 }}>
+        {getInitials(name!)}
+      </div>
     </div>
   )
 }
@@ -70,9 +69,12 @@ function PersonAvatar({ name, className = '', size = 28 }: { name: string, class
       </div>
     )
   }
+  const color = AVATAR_COLORS[name] || '#5f6368'
   return (
     <div className={`avatar-wrapper ${className}`} style={{ width: size, height: size }}>
-      <Avatar size={size} name={name} variant="marble" colors={['#e8f0fe', '#4285f4', '#34a853', '#ea4335', '#fbbc04']} />
+      <div className="avatar-initials" style={{ background: color, fontSize: size * 0.42 }}>
+        {getInitials(name)}
+      </div>
     </div>
   )
 }
@@ -92,9 +94,9 @@ function AgentStatusChip({ name, color, status, inDoc }: {
   const statusClass = status === 'reading' ? 'status-chip-reading' : status === 'thinking' ? 'status-chip-thinking' : 'status-chip-writing'
 
   return (
-    <div className={`status-chip ${statusClass}`} style={{ borderColor: color + '50', background: color + '08' }}>
+    <div className={`status-chip ${statusClass}`} style={{ borderColor: color + '40', background: color + '06' }}>
       <div className="status-chip-avatar-wrap">
-        <AgentAvatar size={20} name={name} />
+        <AgentAvatar size={18} name={name} />
         <span className="status-chip-ring" style={{ borderColor: color }} />
       </div>
       <span className="status-chip-label status-chip-label-active" style={{ color }}>
@@ -127,6 +129,16 @@ function FormatMentions({ text }: { text: string }) {
       })}
     </>
   )
+}
+
+function SidebarIcon({ type }: { type: string }) {
+  const icons: Record<string, React.ReactNode> = {
+    chat: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>,
+    doc: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>,
+    search: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
+    settings: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>,
+  }
+  return icons[type] || null
 }
 
 const STORAGE_KEYS = { doc: 'collab-doc-content', chat: 'collab-chat-messages' }
@@ -203,23 +215,19 @@ function App() {
       },
     },
     onUpdate: ({ editor: ed }) => {
-      // Save to localStorage (debounced)
       if (docSaveTimer.current) clearTimeout(docSaveTimer.current)
       docSaveTimer.current = window.setTimeout(() => {
         try { localStorage.setItem(STORAGE_KEYS.doc, ed.getHTML()) } catch { /* full */ }
       }, 2000)
-      // Detect user edits and notify agents (debounced 3s)
       if (docEditTimer.current) clearTimeout(docEditTimer.current)
       docEditTimer.current = window.setTimeout(() => {
         const currentText = ed.getText()
         const prev = lastDocSnapshot.current
         if (!prev) { lastDocSnapshot.current = currentText; return }
-        // Find what was added
         let i = 0
         while (i < prev.length && i < currentText.length && prev[i] === currentText[i]) i++
         const added = currentText.slice(i, currentText.length - (prev.length - i))
         lastDocSnapshot.current = currentText
-        // Only trigger for meaningful additions when agents are in doc
         if (added.trim().length > 15 && orchestratorRef.current) {
           orchestratorRef.current.trigger('user-message', {
             instruction: `The user just typed this in the document: "${added.trim().slice(0, 200)}". React to it — if it's an instruction, follow it. If it's content, build on it.`,
@@ -230,17 +238,14 @@ function App() {
   })
   editorRef.current = editor
 
-  // Initialize doc snapshot for edit detection
   useEffect(() => {
     if (editor) lastDocSnapshot.current = editor.getText()
   }, [editor])
 
-  // Persist chat messages (debounced via effect)
   useEffect(() => {
     try { localStorage.setItem(STORAGE_KEYS.chat, JSON.stringify(messages)) } catch { /* full */ }
   }, [messages])
 
-  // Cleanup timers
   useEffect(() => {
     return () => {
       if (docSaveTimer.current) clearTimeout(docSaveTimer.current)
@@ -277,7 +282,6 @@ function App() {
     })
   }, [])
 
-  // Create orchestrator on mount
   useEffect(() => {
     const orch = makeOrchestrator()
     orchestratorRef.current = orch
@@ -287,7 +291,6 @@ function App() {
     }
   }, [makeOrchestrator])
 
-  // Watch for agent-to-agent tagging in new messages
   const lastProcessedMsg = useRef(0)
   useEffect(() => {
     const newMsgs = messages.slice(lastProcessedMsg.current)
@@ -347,37 +350,72 @@ function App() {
     if (aiden.inDoc || nova.inDoc) {
       orchestratorRef.current?.trigger('user-message', { instruction: text })
     }
-  }, [input, aiden.inDoc, nova.inDoc, openDocWithAgents])
+  }, [input, aiden.inDoc, nova.inDoc, openDocWithAgents, makeOrchestrator])
 
   return (
     <div className="shell">
-      <div className="top-bar">
-        <div className="top-bar-brand">
-          <GeminiSparkle size={20} color="#4285f4" />
-          <span className="top-bar-title">Collab</span>
+      <div className="sidebar">
+        <div className="sidebar-brand">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+            <path d="M12 2L13.5 8.5L20 10L13.5 11.5L12 18L10.5 11.5L4 10L10.5 8.5L12 2Z" fill="#1a1a1a" />
+            <path d="M19 14L19.75 16.25L22 17L19.75 17.75L19 20L18.25 17.75L16 17L18.25 16.25L19 14Z" fill="#1a1a1a" opacity="0.5" />
+          </svg>
+          <span className="sidebar-brand-name">Collab</span>
         </div>
-        <div className="participants">
-          {(['You', 'Aiden', 'Sarah', 'Nova'] as const).map(name => {
+
+        <nav className="sidebar-nav">
+          <button className="sidebar-nav-item active">
+            <SidebarIcon type="chat" />
+            Chat
+          </button>
+          <button className="sidebar-nav-item">
+            <SidebarIcon type="doc" />
+            Documents
+          </button>
+          <button className="sidebar-nav-item">
+            <SidebarIcon type="search" />
+            Search
+          </button>
+
+          <div className="sidebar-section-label">People</div>
+        </nav>
+
+        <div className="sidebar-participants">
+          {(['You', 'Sarah', 'Aiden', 'Nova'] as const).map(name => {
             const isAgent = name === 'Aiden' || name === 'Nova'
             const agentState = name === 'Aiden' ? aiden : name === 'Nova' ? nova : null
             return (
-              <div key={name} className="participant-item">
+              <div key={name} className="sidebar-participant">
                 {isAgent
-                  ? <AgentAvatar size={32} name={name} />
-                  : <PersonAvatar name={name} size={32} />
+                  ? <AgentAvatar size={28} name={name} />
+                  : <PersonAvatar name={name} size={28} />
                 }
                 {agentState && (
                   <span className={`avatar-status ${agentState.inDoc ? 'status-working' : agentState.status !== 'idle' ? 'status-active' : ''}`} />
                 )}
-                <span className="participant-name">{name === 'You' ? 'You' : name}</span>
+                <span className="sidebar-participant-name">{name === 'You' ? 'You' : name}</span>
+                {isAgent && <span className="sidebar-participant-role">Agent</span>}
               </div>
             )
           })}
         </div>
+
+        <div style={{ flex: 1 }} />
+
+        <nav className="sidebar-nav">
+          <button className="sidebar-nav-item">
+            <SidebarIcon type="settings" />
+            Settings
+          </button>
+        </nav>
       </div>
 
       <div className="main-area">
         <div className={`chat-panel ${docOpen ? 'chat-side' : 'chat-full'}`}>
+          <div className="chat-header">
+            <span className="chat-header-title">Project Proposal</span>
+            <span className="chat-header-subtitle">4 members</span>
+          </div>
           <div className="chat-messages">
             {messages.map(m => {
               const isAgent = m.from === 'Aiden' || m.from === 'Nova'
@@ -386,12 +424,11 @@ function App() {
               return (
                 <div key={m.id} className={`msg ${isAgent ? 'msg-agent' : 'msg-human'}`} data-agent={isAgent ? m.from.toLowerCase() : undefined}>
                   <div className="msg-avatar">
-                    <MessageAvatar from={m.from} size={32} />
+                    <MessageAvatar from={m.from} size={28} />
                   </div>
                   <div className="msg-body">
                     <div className="msg-header">
                       <span className="msg-name" style={agent ? { color: agent.color } : undefined}>
-                        {agent && <GeminiSparkle size={12} color={agent.color} />}{' '}
                         {m.from}
                       </span>
                       {ownerLabel && <span className="msg-owner-tag">{ownerLabel}</span>}
@@ -403,7 +440,7 @@ function App() {
                     </div>
                     {m.showDocButton && !docOpen && (
                       <button className="doc-prompt" onClick={openDocWithAgents}>
-                        <svg className="doc-prompt-icon" width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" fill="#4285f4" opacity="0.15" stroke="#4285f4" strokeWidth="1.5" strokeLinejoin="round"/><path d="M14 2v6h6" stroke="#4285f4" strokeWidth="1.5" strokeLinejoin="round"/><path d="M8 13h8M8 17h5" stroke="#4285f4" strokeWidth="1.5" strokeLinecap="round"/></svg>
+                        <svg className="doc-prompt-icon" width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" fill="#1a1a1a" opacity="0.15" stroke="#1a1a1a" strokeWidth="1.5" strokeLinejoin="round"/><path d="M14 2v6h6" stroke="#1a1a1a" strokeWidth="1.5" strokeLinejoin="round"/><path d="M8 13h8M8 17h5" stroke="#1a1a1a" strokeWidth="1.5" strokeLinecap="round"/></svg>
                         Open doc
                       </button>
                     )}
@@ -423,7 +460,7 @@ function App() {
                   <div className="msg-body">
                     <div className="msg-header">
                       <span className="msg-name" style={{ color: AGENTS[name].color }}>
-                        <GeminiSparkle size={12} color={AGENTS[name].color} /> {name}
+                        {name}
                       </span>
                       <span className="msg-owner-tag">{label}</span>
                     </div>
@@ -458,10 +495,10 @@ function App() {
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && sendMessage()}
-              placeholder={aiden.inDoc ? 'Talk to the agents — they\'re listening' : 'Message the group...'}
+              placeholder={aiden.inDoc ? 'Talk to the agents...' : 'Message the group...'}
             />
             <button className="send-btn" onClick={sendMessage} aria-label="Send">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" fill="currentColor"/></svg>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" fill="currentColor"/></svg>
             </button>
           </div>
         </div>
