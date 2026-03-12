@@ -447,17 +447,12 @@ function App() {
         <div className="main-header">
           <span className="chat-header-title">Collab v2 Brief</span>
           <div className="header-participants">
-            {(['You', 'Sarah', 'Aiden', 'Nova'] as const).map(name => {
-              const isAgent = name === 'Aiden' || name === 'Nova'
-              const agentState = name === 'Aiden' ? aiden : name === 'Nova' ? nova : null
+            {(['Aiden', 'Nova'] as const).map(name => {
+              const agentState = name === 'Aiden' ? aiden : nova
               return (
                 <div key={name} className="header-avatar-wrap">
-                  {isAgent ? (
-                    <BlobAvatar name={name} size={24} state={agentState?.status} />
-                  ) : (
-                    <ShapeAvatar name={name} size={24} />
-                  )}
-                  {isAgent && <AgentHoverCard name={name} agentState={agentState} />}
+                  <BlobAvatar name={name} size={24} state={agentState.status} />
+                  <AgentHoverCard name={name} agentState={agentState} />
                 </div>
               )
             })}

@@ -234,7 +234,7 @@
   transform: translateX(-50%) translateY(0);
 }
 
-/* Suppress blob tooltip when inside a hover-card parent */
+/* Suppress blob tooltip when inside a hover-card parent or chat avatar */
 .header-avatar-wrap .blob-avatar-wrap::after,
 .msg-avatar-agent .blob-avatar-wrap::after {
   display: none;
