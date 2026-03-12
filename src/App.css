@@ -297,32 +297,51 @@
 }
 
 .doc-toggle-btn {
-  border: 1px solid var(--border-subtle);
   background: none;
   color: var(--text-tertiary);
   cursor: pointer;
+  border: none;
   border-radius: var(--radius-sm);
   padding: 5px 12px;
   font-size: 13px;
   font-weight: 500;
   font-family: inherit;
-  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  transition: background 0.15s ease, color 0.15s ease;
   position: relative;
-  overflow: hidden;
 }
 
+/* Rotating conic-gradient border shimmer */
+.doc-toggle-btn:not(.active)::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: conic-gradient(from var(--shimmer-angle, 0deg), transparent 0%, transparent 60%, #1a1a1a 75%, transparent 90%, transparent 100%);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: borderShimmer 3s linear infinite;
+}
+
+/* Static border for non-shimmer state */
 .doc-toggle-btn:not(.active)::after {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(90deg, transparent 0%, rgba(0,0,0,0.06) 40%, rgba(0,0,0,0.06) 60%, transparent 100%);
-  background-size: 200% 100%;
-  animation: btnShimmer 2.5s ease-in-out infinite;
+  border-radius: inherit;
+  border: 1px solid var(--border-subtle);
+  pointer-events: none;
 }
 
-@keyframes btnShimmer {
-  0% { background-position: 100% 0; }
-  100% { background-position: -100% 0; }
+@property --shimmer-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@keyframes borderShimmer {
+  to { --shimmer-angle: 360deg; }
 }
 
 .doc-toggle-btn:hover {
@@ -333,7 +352,6 @@
 .doc-toggle-btn.active {
   background: var(--text-primary);
   color: #fff;
-  border-color: var(--text-primary);
 }
 
 /* Messages area */
