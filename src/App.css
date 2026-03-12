@@ -799,25 +799,26 @@
   to { opacity: 0; transform: translateY(4px); }
 }
 
-/* Doc open button */
+/* Doc open button — matches nav button style */
 .doc-prompt {
   display: inline-flex;
   align-items: center;
-  padding: 6px 14px;
-  background: var(--text-primary);
-  border: none;
-  border-radius: var(--radius-pill);
-  color: #fff;
+  padding: 5px 12px;
+  background: none;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-tertiary);
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
   margin-top: 8px;
   font-family: inherit;
-  transition: background 0.15s ease;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
 
 .doc-prompt:hover {
-  background: #333;
+  background: var(--surface-2);
+  color: var(--text-primary);
 }
 
 /* Scrollbar */
