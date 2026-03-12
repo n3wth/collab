@@ -29,60 +29,58 @@ function uid() {
 }
 
 const AGENTS: Record<string, { color: string, bgColor: string }> = {
-  Aiden: { color: '#4285f4', bgColor: '#e8f0fe' },
-  Nova: { color: '#e37400', bgColor: '#fef7e0' },
+  Aiden: { color: '#5f6368', bgColor: '#f1f3f5' },
+  Nova: { color: '#5f6368', bgColor: '#f1f3f5' },
 }
 
-const AVATAR_COLORS: Record<string, string> = {
-  You: '#1a1a1a',
-  Sarah: '#7c3aed',
-  Aiden: '#4285f4',
-  Nova: '#e37400',
+// AI agents mirror their human's shape but as an outline
+const HUMAN_FOR_AGENT: Record<string, string> = {
+  Aiden: 'You',
+  Nova: 'Sarah',
 }
 
-const PERSON_PHOTOS: Record<string, string> = {
-  You: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=face',
-  Sarah: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop&crop=face',
-}
+function ShapeAvatar({ name, size = 28, className = '', thinking = false }: { name: string, size?: number, className?: string, thinking?: boolean }) {
+  const color = '#1a1a1a'
+  const s = size
+  const strokeW = s * 0.09
+  const isAgent = name in HUMAN_FOR_AGENT
+  const shapeName = HUMAN_FOR_AGENT[name] || name
 
-function getInitials(name: string) {
-  return name.charAt(0).toUpperCase()
-}
+  const squarePoints = `${s * 0.18},${s * 0.18} ${s * 0.82},${s * 0.18} ${s * 0.82},${s * 0.82} ${s * 0.18},${s * 0.82}`
+  const diamondPoints = `${s * 0.5},${s * 0.05} ${s * 0.95},${s * 0.5} ${s * 0.5},${s * 0.95} ${s * 0.05},${s * 0.5}`
 
-function AgentAvatar({ size = 28, name = 'Aiden', className = '' }: { size?: number, name?: string, className?: string }) {
-  const color = AVATAR_COLORS[name!] || '#4285f4'
-  return (
-    <div className={`avatar-wrapper ${className}`} style={{ width: size, height: size }}>
-      <div className="avatar-initials" style={{ background: color, fontSize: size * 0.42 }}>
-        {getInitials(name!)}
-      </div>
-    </div>
-  )
-}
-
-function PersonAvatar({ name, className = '', size = 28 }: { name: string, className?: string, size?: number }) {
-  const photo = PERSON_PHOTOS[name]
-  if (photo) {
-    return (
-      <div className={`avatar-wrapper ${className}`} style={{ width: size, height: size }}>
-        <img src={photo} alt={name} className="person-photo" style={{ width: size, height: size }} />
-      </div>
-    )
+  const points: Record<string, string> = {
+    You: squarePoints,
+    Sarah: diamondPoints,
   }
-  const color = AVATAR_COLORS[name] || '#5f6368'
+
+  const pts = points[shapeName] || points.You
+  const pad = s * 0.1
+  const outerSquarePoints = `${s * 0.18 - pad},${s * 0.18 - pad} ${s * 0.82 + pad},${s * 0.18 - pad} ${s * 0.82 + pad},${s * 0.82 + pad} ${s * 0.18 - pad},${s * 0.82 + pad}`
+  const outerDiamondPoints = `${s * 0.5},${s * 0.05 - pad} ${s * 0.95 + pad},${s * 0.5} ${s * 0.5},${s * 0.95 + pad} ${s * 0.05 - pad},${s * 0.5}`
+  const outerPts: Record<string, string> = { You: outerSquarePoints, Sarah: outerDiamondPoints }
+  const oPts = outerPts[shapeName] || outerPts.You
+  const outerSize = s + pad * 2
+
   return (
-    <div className={`avatar-wrapper ${className}`} style={{ width: size, height: size }}>
-      <div className="avatar-initials" style={{ background: color, fontSize: size * 0.42 }}>
-        {getInitials(name)}
-      </div>
+    <div className={`avatar-wrapper ${className}`} style={{ width: s, height: s }}>
+      {thinking && (
+        <svg className="thinking-border" width={outerSize} height={outerSize} viewBox={`${-pad} ${-pad} ${outerSize} ${outerSize}`} style={{ position: 'absolute', top: -pad, left: -pad }}>
+          <polygon points={oPts} fill="none" stroke={color} strokeWidth={1.5} strokeDasharray={`${s * 0.15} ${s * 0.1}`} className="thinking-border-path" />
+        </svg>
+      )}
+      <svg width={s} height={s} viewBox={`0 0 ${s} ${s}`}>
+        {isAgent ? (
+          <polygon points={pts} fill="none" stroke={color} strokeWidth={strokeW} />
+        ) : (
+          <polygon points={pts} fill={color} />
+        )}
+      </svg>
     </div>
   )
 }
 
-function MessageAvatar({ from, size = 28 }: { from: string, size?: number }) {
-  if (from === 'Aiden' || from === 'Nova') return <AgentAvatar size={size} name={from} />
-  return <PersonAvatar name={from} size={size} />
-}
+
 
 function AgentStatusChip({ name, color, status, inDoc }: {
   name: string, color: string, status: AgentState['status'], inDoc: boolean
@@ -96,7 +94,7 @@ function AgentStatusChip({ name, color, status, inDoc }: {
   return (
     <div className={`status-chip ${statusClass}`} style={{ borderColor: color + '40', background: color + '06' }}>
       <div className="status-chip-avatar-wrap">
-        <AgentAvatar size={18} name={name} />
+        <ShapeAvatar name={name} size={18} />
         <span className="status-chip-ring" style={{ borderColor: color }} />
       </div>
       <span className="status-chip-label status-chip-label-active" style={{ color }}>
@@ -106,7 +104,7 @@ function AgentStatusChip({ name, color, status, inDoc }: {
   )
 }
 
-const ALL_NAMES = [...Object.keys(AGENTS), ...Object.keys(PERSON_PHOTOS).filter(n => n !== 'You')]
+const ALL_NAMES = [...Object.keys(AGENTS), 'Sarah']
 const mentionRegex = new RegExp(`(@?(?:${ALL_NAMES.join('|')}))(?=\\s|$|[.,!?;:])`, 'gi')
 
 function FormatMentions({ text }: { text: string }) {
@@ -131,15 +129,6 @@ function FormatMentions({ text }: { text: string }) {
   )
 }
 
-function SidebarIcon({ type }: { type: string }) {
-  const icons: Record<string, React.ReactNode> = {
-    chat: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>,
-    doc: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>,
-    search: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
-    settings: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>,
-  }
-  return icons[type] || null
-}
 
 const STORAGE_KEYS = { doc: 'collab-doc-content', chat: 'collab-chat-messages' }
 
@@ -155,27 +144,32 @@ function loadSavedMessages(): Message[] | null {
   } catch { return null }
 }
 
-const INITIAL_DOC = `<h1>Project Proposal: Ambient AI Companions</h1>
-<h2>Overview</h2>
-<p>Personal AI agents that persist across contexts — chat, docs, browsing — maintaining continuity of thought and conversation. Each person has their own agent with distinct capabilities, and agents collaborate alongside humans in shared workspaces.</p>
-<h2>Key Ideas</h2>
+const INITIAL_DOC = `<h1>Collab v2 — Product Brief</h1>
+<h2>Problem</h2>
+<p>Knowledge workers spend 60% of their day context-switching between tools. Documents live in one place, conversations in another, and decisions fall through the cracks. When you need to act on something discussed in chat, you copy-paste into a doc. When a doc needs input, you ping someone in Slack. The information graph is fragmented.</p>
+<h2>Insight</h2>
+<p>The unit of collaboration isn't a document or a message — it's a decision. Every artifact is just a waypoint toward alignment. If agents can maintain continuity across these waypoints, they collapse the distance between thinking and doing.</p>
+<h2>Proposed Solution</h2>
+<p>A workspace where AI agents are first-class participants. Each person brings their own agent with persistent context. Agents join conversations, edit documents, and coordinate work — visible to everyone in real time. The agent doesn't replace the human; it extends their reach.</p>
+<h2>Architecture</h2>
 <ul>
-<li>Agent has visible presence (avatar, status, cursor in docs)</li>
-<li>Thinking is transparent, not hidden behind a loading spinner</li>
-<li>Agent follows you across tools and contexts</li>
-<li>Others in the group can see your agent working in real time</li>
-<li>Multiple agents with different expertise can work on the same artifact simultaneously</li>
+<li>CRDT-based document sync with agent cursor presence</li>
+<li>Per-agent context window with cross-session memory</li>
+<li>Turn-based coordination protocol to prevent edit conflicts</li>
+<li>Streaming action model: read → think → write, with each step visible</li>
 </ul>
-<h2>Technical Architecture</h2>
-<p>Needs detailed design: state management, cross-context persistence, real-time sync protocol.</p>
-<h2>User Experience</h2>
-<p>How do users build trust with their agent? What does onboarding look like? When should the agent proactively act vs wait?</p>
+<h2>Success Criteria</h2>
+<ul>
+<li>Time from discussion to documented decision: &lt;5 minutes</li>
+<li>Zero copy-paste between chat and docs</li>
+<li>Agent actions are auditable and reversible</li>
+<li>Users trust the agent enough to let it draft without supervision</li>
+</ul>
 <h2>Open Questions</h2>
 <ul>
-<li>How does the agent know when to speak vs listen?</li>
-<li>What does "presence" look like in a doc vs chat?</li>
-<li>How do we handle conflicting edits between agents?</li>
-<li>What's the trust-building arc for new users?</li>
+<li>How does the agent signal uncertainty vs confidence?</li>
+<li>What's the right level of autonomy for v1?</li>
+<li>How do we handle conflicting instructions from multiple users?</li>
 </ul>`
 
 function App() {
@@ -186,10 +180,10 @@ function App() {
     const saved = loadSavedMessages()
     if (saved && saved.length > 0) return saved
     return [
-      { id: uid(), from: 'You', text: 'the proposal doc needs work before Thursday — can you two jump in?', time: '2:41 PM' },
-      { id: uid(), from: 'Sarah', text: 'agreed. the open questions section is basically empty and the architecture is hand-wavy', time: '2:41 PM' },
-      { id: uid(), from: 'Aiden', text: 'I\'ll take technical architecture. Needs a real system design, not placeholders — data model, sync protocol, component boundaries.', time: '2:42 PM', showDocButton: true },
-      { id: uid(), from: 'Nova', text: 'I\'ll own the product side. The trust-building arc Sarah flagged is critical — users won\'t adopt this if the agent feels unpredictable. Let me write that up.', time: '2:42 PM' },
+      { id: uid(), from: 'You', text: 'the v2 brief needs to be ready for the board review Friday. can you two get in there and tighten it up?', time: '2:41 PM' },
+      { id: uid(), from: 'Sarah', text: 'yeah the architecture section is still too vague and we need real success metrics, not aspirational ones', time: '2:41 PM' },
+      { id: uid(), from: 'Aiden', text: 'I\'ll take architecture and the technical open questions. The sync protocol needs specifics — I\'ll spec out the CRDT approach and agent coordination model.', time: '2:42 PM', showDocButton: true },
+      { id: uid(), from: 'Nova', text: 'I\'ll sharpen the problem statement and success criteria. Sarah\'s right — "users trust the agent" isn\'t measurable. I\'ll define concrete thresholds.', time: '2:42 PM' },
     ]
   })
   const [input, setInput] = useState('')
@@ -309,11 +303,11 @@ function App() {
     setAiden({ status: 'reading', inDoc: true, thought: 'Opening the document...' })
     setNova({ status: 'reading', inDoc: true, thought: 'Joining...' })
     setMessages(m => [...m,
-      { id: uid(), from: 'Aiden', text: 'Opening it now. I\'ll start under Technical Architecture.', time: now() },
+      { id: uid(), from: 'Aiden', text: 'Opening it now. Starting with the architecture section — I\'ll add the CRDT sync spec.', time: now() },
     ])
     setTimeout(() => {
       setMessages(m => [...m,
-        { id: uid(), from: 'Nova', text: 'I\'m in too. Starting from the bottom — user experience and the open questions.', time: now() },
+        { id: uid(), from: 'Nova', text: 'I\'m in. Rewriting success criteria first, then tightening the problem statement.', time: now() },
       ])
     }, 1200)
     orchestratorRef.current?.trigger('doc-opened')
@@ -356,29 +350,8 @@ function App() {
     <div className="shell">
       <div className="sidebar">
         <div className="sidebar-brand">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-            <path d="M12 2L13.5 8.5L20 10L13.5 11.5L12 18L10.5 11.5L4 10L10.5 8.5L12 2Z" fill="#1a1a1a" />
-            <path d="M19 14L19.75 16.25L22 17L19.75 17.75L19 20L18.25 17.75L16 17L18.25 16.25L19 14Z" fill="#1a1a1a" opacity="0.5" />
-          </svg>
-          <span className="sidebar-brand-name">Collab</span>
+          <span className="sidebar-brand-name">n3wth/collab</span>
         </div>
-
-        <nav className="sidebar-nav">
-          <button className="sidebar-nav-item active">
-            <SidebarIcon type="chat" />
-            Chat
-          </button>
-          <button className="sidebar-nav-item">
-            <SidebarIcon type="doc" />
-            Documents
-          </button>
-          <button className="sidebar-nav-item">
-            <SidebarIcon type="search" />
-            Search
-          </button>
-
-          <div className="sidebar-section-label">People</div>
-        </nav>
 
         <div className="sidebar-participants">
           {(['You', 'Sarah', 'Aiden', 'Nova'] as const).map(name => {
@@ -386,13 +359,7 @@ function App() {
             const agentState = name === 'Aiden' ? aiden : name === 'Nova' ? nova : null
             return (
               <div key={name} className="sidebar-participant">
-                {isAgent
-                  ? <AgentAvatar size={28} name={name} />
-                  : <PersonAvatar name={name} size={28} />
-                }
-                {agentState && (
-                  <span className={`avatar-status ${agentState.inDoc ? 'status-working' : agentState.status !== 'idle' ? 'status-active' : ''}`} />
-                )}
+                <ShapeAvatar name={name} size={28} thinking={!!agentState && agentState.status !== 'idle'} />
                 <span className="sidebar-participant-name">{name === 'You' ? 'You' : name}</span>
                 {isAgent && <span className="sidebar-participant-role">Agent</span>}
               </div>
@@ -400,47 +367,57 @@ function App() {
           })}
         </div>
 
-        <div style={{ flex: 1 }} />
-
-        <nav className="sidebar-nav">
-          <button className="sidebar-nav-item">
-            <SidebarIcon type="settings" />
-            Settings
-          </button>
-        </nav>
       </div>
 
       <div className="main-area">
+        <div className="main-header">
+          <span className="chat-header-title">Collab v2 Brief</span>
+          <button
+            className={`doc-toggle-btn ${docOpen ? 'active' : ''}`}
+            onClick={() => {
+              if (docOpen) {
+                orchestratorRef.current?.destroy()
+                setDocOpen(false)
+                setAiden({ status: 'idle', inDoc: false })
+                setNova({ status: 'idle', inDoc: false })
+                orchestratorRef.current = makeOrchestrator()
+              } else {
+                openDocWithAgents()
+              }
+            }}
+          >
+            Doc
+          </button>
+        </div>
+        <div className="main-content">
         <div className={`chat-panel ${docOpen ? 'chat-side' : 'chat-full'}`}>
-          <div className="chat-header">
-            <span className="chat-header-title">Project Proposal</span>
-            <span className="chat-header-subtitle">4 members</span>
-          </div>
           <div className="chat-messages">
-            {messages.map(m => {
+            {messages.map((m, i) => {
               const isAgent = m.from === 'Aiden' || m.from === 'Nova'
-              const ownerLabel = m.from === 'Aiden' ? 'your agent' : m.from === 'Nova' ? 'Sarah\'s agent' : ''
-              const agent = isAgent ? AGENTS[m.from] : null
+              const prev = messages[i - 1]
+              const sameSender = prev && prev.from === m.from
+              const displayText = m.text.replace('[from doc] ', '')
               return (
-                <div key={m.id} className={`msg ${isAgent ? 'msg-agent' : 'msg-human'}`} data-agent={isAgent ? m.from.toLowerCase() : undefined}>
-                  <div className="msg-avatar">
-                    <MessageAvatar from={m.from} size={28} />
-                  </div>
-                  <div className="msg-body">
-                    <div className="msg-header">
-                      <span className="msg-name" style={agent ? { color: agent.color } : undefined}>
-                        {m.from}
-                      </span>
-                      {ownerLabel && <span className="msg-owner-tag">{ownerLabel}</span>}
-                      <span className="msg-time">{m.time}</span>
+                <div key={m.id} className={`msg ${isAgent ? 'msg-agent' : 'msg-human'} ${sameSender ? 'msg-consecutive' : ''}`} data-agent={isAgent ? m.from.toLowerCase() : undefined}>
+                  {!sameSender && (
+                    <div className="msg-avatar">
+                      <ShapeAvatar name={m.from} size={26} />
                     </div>
+                  )}
+                  <div className={`msg-body ${sameSender ? 'msg-body-consecutive' : ''}`}>
+                    {!sameSender && (
+                      <div className="msg-header">
+                        <span className="msg-name">
+                          {m.from}
+                        </span>
+                        <span className="msg-time">{m.time}</span>
+                      </div>
+                    )}
                     <div className="msg-text">
-                      {m.text.startsWith('[from doc]') && <span className="msg-remote-badge">from doc</span>}
-                      <FormatMentions text={m.text.replace('[from doc] ', '')} />
+                      <FormatMentions text={displayText} />
                     </div>
                     {m.showDocButton && !docOpen && (
                       <button className="doc-prompt" onClick={openDocWithAgents}>
-                        <svg className="doc-prompt-icon" width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" fill="#1a1a1a" opacity="0.15" stroke="#1a1a1a" strokeWidth="1.5" strokeLinejoin="round"/><path d="M14 2v6h6" stroke="#1a1a1a" strokeWidth="1.5" strokeLinejoin="round"/><path d="M8 13h8M8 17h5" stroke="#1a1a1a" strokeWidth="1.5" strokeLinecap="round"/></svg>
                         Open doc
                       </button>
                     )}
@@ -449,20 +426,19 @@ function App() {
               )
             })}
             {[
-              { state: aiden, name: 'Aiden', label: 'your agent' },
-              { state: nova, name: 'Nova', label: "Sarah's agent" },
-            ].map(({ state, name, label }) =>
+              { state: aiden, name: 'Aiden' },
+              { state: nova, name: 'Nova' },
+            ].map(({ state, name }) =>
               (state.status === 'thinking' || state.status === 'typing') && !state.inDoc ? (
                 <div key={name} className="msg">
                   <div className="msg-avatar">
-                    <AgentAvatar size={28} name={name} />
+                    <ShapeAvatar name={name} size={26} thinking />
                   </div>
                   <div className="msg-body">
                     <div className="msg-header">
-                      <span className="msg-name" style={{ color: AGENTS[name].color }}>
+                      <span className="msg-name">
                         {name}
                       </span>
-                      <span className="msg-owner-tag">{label}</span>
                     </div>
                     <div className="msg-thinking">
                       <span className="thinking-text">{state.thought || 'Thinking...'}</span>
@@ -497,41 +473,17 @@ function App() {
               onKeyDown={e => e.key === 'Enter' && sendMessage()}
               placeholder={aiden.inDoc ? 'Talk to the agents...' : 'Message the group...'}
             />
-            <button className="send-btn" onClick={sendMessage} aria-label="Send">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" fill="currentColor"/></svg>
-            </button>
           </div>
         </div>
 
         {docOpen && (
           <div className="doc-panel">
-            <div className="doc-toolbar">
-              <span className="doc-toolbar-title">Project Proposal</span>
-              <div className="doc-toolbar-collabs">
-                <span className="collab-count">4 in doc</span>
-              </div>
-              <button className="doc-reset" onClick={() => {
-                localStorage.removeItem(STORAGE_KEYS.doc)
-                localStorage.removeItem(STORAGE_KEYS.chat)
-                window.location.reload()
-              }} title="Reset document and chat">
-                Reset
-              </button>
-              <button className="doc-close" onClick={() => {
-                orchestratorRef.current?.destroy()
-                setDocOpen(false)
-                setAiden({ status: 'idle', inDoc: false })
-                setNova({ status: 'idle', inDoc: false })
-                orchestratorRef.current = makeOrchestrator()
-              }}>
-                &times;
-              </button>
-            </div>
             <div className="doc-body">
               <EditorContent editor={editor} />
             </div>
           </div>
         )}
+        </div>
       </div>
     </div>
   )

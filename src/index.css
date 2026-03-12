@@ -1,10 +1,8 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
-
 :root {
   /* Typography */
-  --font-display: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-ui: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-display: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
+  --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
+  --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
 
   /* Surfaces */
   --surface-0: #ffffff;
@@ -14,24 +12,24 @@
   --surface-dim: #f0f2f5;
 
   /* Text */
-  --text-primary: #1a1a1a;
-  --text-secondary: #5f6368;
-  --text-tertiary: #80868b;
-  --text-disabled: #b0b5b9;
+  --text-primary: #0a0a0a;
+  --text-secondary: #37352f;
+  --text-tertiary: #787774;
+  --text-disabled: #b4b4b0;
 
   /* Borders */
   --border-subtle: #e8eaed;
   --border-default: #dadce0;
 
-  /* Agent: Aiden (blue) */
-  --aiden-primary: #4285f4;
-  --aiden-secondary: #669df6;
-  --aiden-bg: #e8f0fe;
+  /* Agent: Aiden */
+  --aiden-primary: #5f6368;
+  --aiden-secondary: #80868b;
+  --aiden-bg: #f1f3f5;
 
-  /* Agent: Nova (amber) */
-  --nova-primary: #e37400;
-  --nova-secondary: #f29900;
-  --nova-bg: #fef7e0;
+  /* Agent: Nova */
+  --nova-primary: #5f6368;
+  --nova-secondary: #80868b;
+  --nova-bg: #f1f3f5;
 
   /* Accent */
   --accent: #1a1a1a;

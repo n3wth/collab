@@ -2,8 +2,8 @@ import type { Editor } from '@tiptap/react'
 import type { AgentAction } from './agent'
 
 const AGENTS: Record<string, { color: string, bgColor: string }> = {
-  Aiden: { color: '#1a73e8', bgColor: '#e8f0fe' },
-  Nova: { color: '#e37400', bgColor: '#fef7e0' },
+  Aiden: { color: '#5f6368', bgColor: '#f1f3f5' },
+  Nova: { color: '#5f6368', bgColor: '#f1f3f5' },
 }
 
 export interface ActionCallbacks {
@@ -160,29 +160,46 @@ function safeRemoveCursor(editor: Editor, name: string) {
   try { editor.commands.removeAgentCursor(name) } catch { /* skip */ }
 }
 
-// Stream-type text into the editor at a position, character by character
+// Stream-type text into the editor at a position, word by word
+// Uses a running position tracker to avoid stale offset math
 function streamTypeAt(
   editor: Editor,
   agentName: string,
-  pos: number,
+  startPos: number,
   text: string,
   timers: Record<string, number>,
   onChar?: () => void,
 ): Promise<void> {
   return new Promise(resolve => {
-    let charIdx = 0
+    // Split into small chunks (words + trailing space) for natural typing feel
+    const chunks: string[] = []
+    const words = text.split(/(\s+)/)
+    for (const w of words) {
+      if (w) chunks.push(w)
+    }
+    let chunkIdx = 0
+    let currentPos = startPos
+
     const typeNext = () => {
-      if (charIdx < text.length) {
-        const char = text[charIdx]
-        editor.commands.insertContentAt(clampPos(editor, pos + charIdx), char)
-        charIdx++
+      if (chunkIdx < chunks.length) {
+        const chunk = chunks[chunkIdx]
+        try {
+          editor.commands.insertContentAt(clampPos(editor, currentPos), chunk)
+          currentPos += chunk.length
+          chunkIdx++
+        } catch {
+          // Position invalid, skip this chunk
+          chunkIdx++
+        }
         safeCursor(editor, {
           name: agentName,
           color: AGENTS[agentName].color,
-          pos: pos + charIdx,
-        }, charIdx % 20 === 0) // scroll every 20 chars
+          pos: currentPos,
+        }, chunkIdx % 6 === 0)
         onChar?.()
-        timers[agentName] = window.setTimeout(typeNext, 18 + Math.random() * 32)
+        // Vary timing: faster for spaces, slower for content words
+        const delay = chunk.trim() ? 30 + Math.random() * 50 : 10
+        timers[agentName] = window.setTimeout(typeNext, delay)
       } else {
         resolve()
       }
@@ -191,7 +208,7 @@ function streamTypeAt(
   })
 }
 
-// Type text character by character at a position (legacy, used by replace)
+// Type text word by word at a position (used by replace)
 function typeTextAt(
   editor: Editor,
   agentName: string,
@@ -201,27 +218,13 @@ function typeTextAt(
   cb: ActionCallbacks
 ) {
   cb.onStateChange('editing')
-  let charIdx = 0
-  const typeNext = () => {
-    if (charIdx < text.length) {
-      const char = text[charIdx]
-      editor.commands.insertContentAt(clampPos(editor, pos + charIdx), char)
-      charIdx++
-      safeCursor(editor, {
-        name: agentName,
-        color: AGENTS[agentName].color,
-        pos: pos + charIdx,
-      }, charIdx % 20 === 0)
-      timers[agentName] = window.setTimeout(typeNext, 18 + Math.random() * 32)
-    } else {
-      cb.onStateChange('idle')
-      timers[agentName] = window.setTimeout(() => {
-        safeRemoveCursor(editor, agentName)
-        cb.onDone(true)
-      }, 800)
-    }
-  }
-  timers[agentName] = window.setTimeout(typeNext, 200)
+  streamTypeAt(editor, agentName, pos, text, timers).then(() => {
+    cb.onStateChange('idle')
+    timers[agentName] = window.setTimeout(() => {
+      safeRemoveCursor(editor, agentName)
+      cb.onDone(true)
+    }, 800)
+  })
 }
 
 // Execute an agent action on the editor
@@ -236,13 +239,18 @@ export function executeAgentAction(
   const needsLock = action.type === 'insert' || action.type === 'replace'
 
   if (needsLock && editorLockRef.current && editorLockRef.current !== agentName) {
-    timers[agentName] = window.setTimeout(() => {
-      if (editorLockRef.current && editorLockRef.current !== agentName) {
-        timers[agentName] = window.setTimeout(() => executeAgentAction(editor, agentName, action, editorLockRef, timers, callbacks), 500 + Math.random() * 1000)
-      } else {
-        executeAgentAction(editor, agentName, action, editorLockRef, timers, callbacks)
-      }
-    }, 1000 + Math.random() * 1500)
+    const retries = (action as { _lockRetries?: number })._lockRetries || 0
+    if (retries >= 6) {
+      // Give up after ~10s of waiting
+      console.warn(`[agent-actions] ${agentName} gave up waiting for lock held by ${editorLockRef.current}`)
+      callbacks.onDone(false)
+      return
+    }
+    (action as { _lockRetries?: number })._lockRetries = retries + 1
+    timers[agentName] = window.setTimeout(
+      () => executeAgentAction(editor, agentName, action, editorLockRef, timers, callbacks),
+      800 + Math.random() * 1200
+    )
     return
   }
   if (needsLock) editorLockRef.current = agentName
