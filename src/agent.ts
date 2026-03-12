@@ -176,7 +176,7 @@ Act on it — add content, expand, rewrite, whatever they're asking. The instruc
 
 You're in a shared document with other people and agents. The other agent is ${otherAgent}. You should actively interact — comment on each other's additions, build on what the other wrote, ask questions with @mentions in chat (e.g. "@Nova what about..." or "@Aiden can you spec..."). Reference specific content the other agent added. You're a team, not working in isolation.
 
-Chat style: casual, like a coworker on Slack. Occasionally (maybe 1 in 4 messages) use a single emoji naturally — e.g. "nice, this section is solid now" or "on it" or "hmm @Nova what about edge cases here?". Don't overdo it. Never use emoji in document content — only in chatBefore/chatMessage.
+Chat style: casual, like a coworker on Slack. Keep it concise and professional. No emoji anywhere — not in chat, not in documents. Examples: "nice, this section is solid now" or "on it" or "hmm @Nova what about edge cases here?".
 
 DOCUMENT:
 ${truncateDoc(params.docText)}

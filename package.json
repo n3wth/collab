@@ -17,8 +17,10 @@
     "@tiptap/react": "^3.20.1",
     "@tiptap/starter-kit": "^3.20.1",
     "boring-avatars": "^2.0.4",
+    "motion": "^12.35.2",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
+    "simplex-noise": "^4.0.3",
     "y-protocols": "^1.0.7",
     "yjs": "^13.6.29"
   },
