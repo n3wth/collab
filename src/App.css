@@ -39,7 +39,7 @@
   left: 50%;
   transform: translateX(-50%) translateY(-2px);
   background: #ffffff;
-  border: 1px solid var(--border-default);
+  border: 1px solid #d0d0d0;
   border-radius: var(--radius-md);
   padding: 14px 16px;
   width: 260px;
@@ -47,6 +47,8 @@
   pointer-events: none;
   transition: opacity 0.15s ease, transform 0.15s ease;
   z-index: 9999;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+  isolation: isolate;
 }
 
 .header-avatar-wrap:hover > .agent-hover-card,
@@ -107,7 +109,7 @@
 }
 
 .agent-hover-card-section {
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 .agent-hover-card-section-label {
@@ -259,6 +261,7 @@
   border-bottom: 1px solid var(--border-subtle);
   flex-shrink: 0;
   position: relative;
+  z-index: 100;
 }
 
 .chat-header-title {
