@@ -523,12 +523,13 @@ function App() {
             {mentionQuery !== null && (() => {
               const filtered = MENTION_NAMES.filter(n => n.toLowerCase().startsWith(mentionQuery.toLowerCase()))
               if (filtered.length === 0) return null
+              const safeIndex = Math.min(mentionIndex, filtered.length - 1)
               return (
                 <div className="mention-dropdown">
                   {filtered.map((n, i) => (
                     <div
                       key={n}
-                      className={`mention-option ${i === mentionIndex ? 'mention-option-active' : ''}`}
+                      className={`mention-option ${i === safeIndex ? 'mention-option-active' : ''}`}
                       onMouseDown={e => {
                         e.preventDefault()
                         const atIdx = input.lastIndexOf('@')
@@ -564,7 +565,8 @@ function App() {
                   const filtered = MENTION_NAMES.filter(n => n.toLowerCase().startsWith(mentionQuery.toLowerCase()))
                   if (e.key === 'Tab' || (e.key === 'Enter' && filtered.length > 0)) {
                     e.preventDefault()
-                    const pick = filtered[mentionIndex] || filtered[0]
+                    const safeIndex = Math.min(mentionIndex, filtered.length - 1)
+                    const pick = filtered[safeIndex] ?? filtered[0]
                     if (pick) {
                       const atIdx = input.lastIndexOf('@')
                       setInput(input.slice(0, atIdx) + '@' + pick + ' ')

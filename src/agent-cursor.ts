@@ -60,7 +60,10 @@ function createBlobCanvas(name: string, size: number): HTMLCanvasElement {
       ctx.stroke(path)
     }
 
-    requestAnimationFrame(draw)
+    // Only schedule next frame while canvas is in the DOM; stops loop when decoration is removed
+    if (canvas.isConnected) {
+      requestAnimationFrame(draw)
+    }
   }
   draw()
 
