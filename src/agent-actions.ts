@@ -368,7 +368,37 @@ export function executeAgentAction(
             }
           }
         }
-        editor.commands.insertContentAt(endPos, { type: 'bulletList', content: items })
+
+        // Check if the last non-empty block is a bulletList — append to it instead of creating a new one
+        const currentDoc = editor.state.doc
+        let lastBlockIdx = currentDoc.childCount - 1
+        while (lastBlockIdx >= 0 && currentDoc.child(lastBlockIdx).type.name === 'paragraph' && currentDoc.child(lastBlockIdx).content.size === 0) {
+          lastBlockIdx--
+        }
+        if (lastBlockIdx >= 0 && currentDoc.child(lastBlockIdx).type.name === 'bulletList') {
+          // Calculate position just before the bulletList closing tag
+          let pos = 0
+          for (let j = 0; j <= lastBlockIdx; j++) pos += currentDoc.child(j).nodeSize
+          const insertAt = pos - 1 // inside the bulletList, after the last listItem
+
+          // Build listItem nodes via the schema
+          const schema = editor.state.schema
+          const newItems = items.map((item: { type: string, content: { type: string, content?: { type: string, text: string }[] }[] }) => {
+            const textContent = item.content[0]?.content?.[0]?.text || ''
+            return schema.nodes.listItem.create(null, [
+              schema.nodes.paragraph.create(null, textContent ? [schema.text(textContent)] : [])
+            ])
+          })
+
+          // Single transaction to append all items
+          const tr = editor.view.state.tr
+          for (let i = newItems.length - 1; i >= 0; i--) {
+            tr.insert(insertAt, newItems[i])
+          }
+          try { editor.view.dispatch(tr) } catch { /* skip */ }
+        } else {
+          editor.commands.insertContentAt(endPos, { type: 'bulletList', content: items })
+        }
       } else if (op.type === 'heading') {
         editor.commands.insertContentAt(endPos, { type: 'heading', attrs: { level: op.level }, content: [{ type: 'text', text: op.text }] })
       } else {
