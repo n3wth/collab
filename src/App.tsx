@@ -13,6 +13,7 @@ interface Message {
   text: string
   time: string
   showDocButton?: boolean
+  reasoning?: string[]
 }
 
 interface AgentState {
@@ -100,6 +101,30 @@ function AgentStatusChip({ name, color, status, inDoc }: {
       <span className="status-chip-label status-chip-label-active" style={{ color }}>
         {label}
       </span>
+    </div>
+  )
+}
+
+function ReasoningChain({ steps }: { steps: string[] }) {
+  const [expanded, setExpanded] = useState(false)
+  return (
+    <div className={`reasoning-chain ${expanded ? 'expanded' : ''}`} onClick={() => setExpanded(!expanded)}>
+      <div className="reasoning-header">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`reasoning-chevron ${expanded ? 'open' : ''}`}>
+          <polyline points="9 18 15 12 9 6" />
+        </svg>
+        <span className="reasoning-label">{steps.length} steps</span>
+      </div>
+      {expanded && (
+        <div className="reasoning-steps">
+          {steps.map((step, i) => (
+            <div key={i} className="reasoning-step">
+              <span className="reasoning-step-num">{i + 1}</span>
+              <span className="reasoning-step-text">{step}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -247,6 +272,8 @@ function App() {
     }
   }, [])
 
+  const pendingReasoning = useRef<Record<string, string[]>>({})
+
   const makeOrchestrator = useCallback(() => {
     return createOrchestrator({
       getEditor: () => editorRef.current,
@@ -256,11 +283,16 @@ function App() {
         const setter = agent === 'Aiden' ? setAiden : setNova
         setter(a => ({ ...a, status, thought }))
       },
+      onAgentReasoning: (agent, reasoning) => {
+        pendingReasoning.current[agent] = reasoning
+      },
       onChatMessage: (from, text) => {
+        const reasoning = pendingReasoning.current[from]
+        if (reasoning) delete pendingReasoning.current[from]
         setMessages(m => {
           const last = m[m.length - 1]
           if (last && last.from === from && last.text === text) return m
-          return [...m, { id: uid(), from, text, time: now() }]
+          return [...m, { id: uid(), from, text, time: now(), reasoning }]
         })
       },
       onError: (_agent, error, failures) => {
@@ -412,6 +444,9 @@ function App() {
                         </span>
                         <span className="msg-time">{m.time}</span>
                       </div>
+                    )}
+                    {isAgent && m.reasoning && m.reasoning.length > 0 && (
+                      <ReasoningChain steps={m.reasoning} />
                     )}
                     <div className="msg-text">
                       <FormatMentions text={displayText} />

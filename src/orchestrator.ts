@@ -17,6 +17,7 @@ interface OrchestratorConfig {
   getMessages: () => { from: string, text: string }[]
   onAgentState: (agent: AgentName, status: 'idle' | 'thinking' | 'typing' | 'reading' | 'editing', thought?: string) => void
   onChatMessage: (from: string, text: string) => void
+  onAgentReasoning?: (agent: AgentName, reasoning: string[]) => void
   onError?: (agent: AgentName, error: AgentError, consecutiveFailures: number) => void
 }
 
@@ -110,6 +111,11 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
         otherAgentLastAction: lastActionDescription[otherAgent],
         lockHolder: editorLockRef.current,
       })
+
+      // Emit reasoning before executing action
+      if (action.reasoning && action.reasoning.length > 0) {
+        config.onAgentReasoning?.(req.agent, action.reasoning)
+      }
 
       const callbacks: ActionCallbacks = {
         onStateChange: (status, thought) => config.onAgentState(req.agent, status, thought),
