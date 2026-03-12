@@ -480,6 +480,7 @@ function App() {
         <div className="main-content">
         <div className={`chat-panel ${docOpen ? 'chat-side' : 'chat-full'}`}>
           <div className="chat-messages">
+            <div className="chat-messages-inner">
             {messages.map((m, i) => {
               const prev = messages[i - 1]
               const sameSender = prev && prev.from === m.from
@@ -510,6 +511,7 @@ function App() {
               ) : null
             )}
             <div ref={chatEndRef} />
+            </div>
           </div>
           {docOpen && (
             <div className="agent-status-bar">

@@ -359,11 +359,15 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
+  min-height: 0;
 }
 
-/* Push messages to bottom when they don't fill the container */
-.chat-messages .msg:first-child {
-  margin-top: auto;
+.chat-messages-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 100%;
+  justify-content: flex-end;
 }
 
 /* Messages */
