@@ -1,9 +1,10 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, memo } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
 import { AgentCursors } from './agent-cursor'
 import { createOrchestrator } from './orchestrator'
+import { BlobAvatar } from './blob-avatar'
 import type { Editor } from '@tiptap/react'
 import './App.css'
 
@@ -34,18 +35,9 @@ const AGENTS: Record<string, { color: string, bgColor: string }> = {
   Nova: { color: '#5f6368', bgColor: '#f1f3f5' },
 }
 
-// AI agents mirror their human's shape but as an outline
-const HUMAN_FOR_AGENT: Record<string, string> = {
-  Aiden: 'You',
-  Nova: 'Sarah',
-}
-
-function ShapeAvatar({ name, size = 28, className = '', thinking = false }: { name: string, size?: number, className?: string, thinking?: boolean }) {
+function ShapeAvatar({ name, size = 28, className = '' }: { name: string, size?: number, className?: string }) {
   const color = '#1a1a1a'
   const s = size
-  const strokeW = s * 0.09
-  const isAgent = name in HUMAN_FOR_AGENT
-  const shapeName = HUMAN_FOR_AGENT[name] || name
 
   const squarePoints = `${s * 0.18},${s * 0.18} ${s * 0.82},${s * 0.18} ${s * 0.82},${s * 0.82} ${s * 0.18},${s * 0.82}`
   const diamondPoints = `${s * 0.5},${s * 0.05} ${s * 0.95},${s * 0.5} ${s * 0.5},${s * 0.95} ${s * 0.05},${s * 0.5}`
@@ -55,52 +47,59 @@ function ShapeAvatar({ name, size = 28, className = '', thinking = false }: { na
     Sarah: diamondPoints,
   }
 
-  const pts = points[shapeName] || points.You
-  const pad = s * 0.1
-  const outerSquarePoints = `${s * 0.18 - pad},${s * 0.18 - pad} ${s * 0.82 + pad},${s * 0.18 - pad} ${s * 0.82 + pad},${s * 0.82 + pad} ${s * 0.18 - pad},${s * 0.82 + pad}`
-  const outerDiamondPoints = `${s * 0.5},${s * 0.05 - pad} ${s * 0.95 + pad},${s * 0.5} ${s * 0.5},${s * 0.95 + pad} ${s * 0.05 - pad},${s * 0.5}`
-  const outerPts: Record<string, string> = { You: outerSquarePoints, Sarah: outerDiamondPoints }
-  const oPts = outerPts[shapeName] || outerPts.You
-  const outerSize = s + pad * 2
+  const pts = points[name] || points.You
 
   return (
     <div className={`avatar-wrapper ${className}`} style={{ width: s, height: s }}>
-      {thinking && (
-        <svg className="thinking-border" width={outerSize} height={outerSize} viewBox={`${-pad} ${-pad} ${outerSize} ${outerSize}`} style={{ position: 'absolute', top: -pad, left: -pad }}>
-          <polygon points={oPts} fill="none" stroke={color} strokeWidth={1.5} strokeDasharray={`${s * 0.15} ${s * 0.1}`} className="thinking-border-path" />
-        </svg>
-      )}
       <svg width={s} height={s} viewBox={`0 0 ${s} ${s}`}>
-        {isAgent ? (
-          <polygon points={pts} fill="none" stroke={color} strokeWidth={strokeW} />
-        ) : (
-          <polygon points={pts} fill={color} />
-        )}
+        <polygon points={pts} fill={color} />
       </svg>
     </div>
   )
 }
 
 
-
-function AgentStatusChip({ name, color, status, inDoc }: {
-  name: string, color: string, status: AgentState['status'], inDoc: boolean
+function AgentStatusBlob({ name, status, inDoc }: {
+  name: string, status: AgentState['status'], inDoc: boolean
 }) {
-  const isVisible = inDoc && status !== 'idle'
-  if (!isVisible) return null
+  if (!(inDoc && status !== 'idle')) return null
+  return <BlobAvatar name={name} size={20} state={status} />
+}
 
-  const label = status === 'reading' ? 'reading' : status === 'thinking' ? 'thinking' : 'writing'
-  const statusClass = status === 'reading' ? 'status-chip-reading' : status === 'thinking' ? 'status-chip-thinking' : 'status-chip-writing'
-
+function AgentHoverCard({ name, agentState }: { name: string, agentState: AgentState | null }) {
   return (
-    <div className={`status-chip ${statusClass}`} style={{ borderColor: color + '40', background: color + '06' }}>
-      <div className="status-chip-avatar-wrap">
-        <ShapeAvatar name={name} size={18} />
-        <span className="status-chip-ring" style={{ borderColor: color }} />
+    <div className="agent-hover-card">
+      <div className="agent-hover-card-header">
+        <BlobAvatar name={name} size={28} state={agentState?.status} />
+        <div>
+          <div className="agent-hover-card-name">{name}</div>
+          <span className="agent-hover-card-model">gemini-2.5-flash</span>
+        </div>
       </div>
-      <span className="status-chip-label status-chip-label-active" style={{ color }}>
-        {label}
-      </span>
+      <div className="agent-hover-card-desc">
+        {name === 'Aiden'
+          ? 'Technical architecture and engineering. Writes specs, system design, and implementation details.'
+          : 'Product strategy and user research. Identifies gaps, frames adoption risks, and grounds ideas in user needs.'}
+      </div>
+      <div className="agent-hover-card-section">
+        <div className="agent-hover-card-section-label">Tools</div>
+        <div className="agent-hover-card-tools">
+          <span className="agent-tool-tag">read</span>
+          <span className="agent-tool-tag">insert</span>
+          <span className="agent-tool-tag">replace</span>
+          <span className="agent-tool-tag">chat</span>
+        </div>
+      </div>
+      <div className="agent-hover-card-section">
+        <div className="agent-hover-card-section-label">Owner</div>
+        <div className="agent-hover-card-owner">{name === 'Aiden' ? 'You' : 'Sarah'}</div>
+      </div>
+      <div className="agent-hover-card-divider" />
+      <div className="agent-hover-card-status">
+        <span className={`agent-hover-card-dot ${agentState?.status !== 'idle' ? 'active' : ''}`} />
+        {agentState?.status === 'idle' ? 'Idle' : agentState?.thought || agentState?.status}
+        {agentState?.inDoc && <span className="agent-hover-card-location">In document</span>}
+      </div>
     </div>
   )
 }
@@ -132,7 +131,7 @@ function ReasoningChain({ steps }: { steps: string[] }) {
 const ALL_NAMES = [...Object.keys(AGENTS), 'Sarah']
 const mentionRegex = new RegExp(`(@?(?:${ALL_NAMES.join('|')}))(?=\\s|$|[.,!?;:])`, 'gi')
 
-function FormatMentions({ text }: { text: string }) {
+const FormatMentions = memo(({ text }: { text: string }) => {
   const parts = text.split(mentionRegex)
   return (
     <>
@@ -152,8 +151,48 @@ function FormatMentions({ text }: { text: string }) {
       })}
     </>
   )
-}
+})
 
+
+const ChatMessage = memo(({ m, sameSender, docOpen, onOpenDoc, agentState }: {
+  m: Message, sameSender: boolean, docOpen: boolean, onOpenDoc: () => void, agentState?: AgentState | null
+}) => {
+  const isAgent = m.from === 'Aiden' || m.from === 'Nova'
+  const displayText = m.text.replace('[from doc] ', '')
+  return (
+    <div className={`msg ${isAgent ? 'msg-agent' : 'msg-human'} ${sameSender ? 'msg-consecutive' : ''}`} data-agent={isAgent ? m.from.toLowerCase() : undefined}>
+      {!sameSender && (
+        <div className={`msg-avatar ${isAgent ? 'msg-avatar-agent' : ''}`}>
+          {isAgent ? (
+            <>
+              <BlobAvatar name={m.from} size={26} />
+              <AgentHoverCard name={m.from} agentState={agentState ?? null} />
+            </>
+          ) : (
+            <ShapeAvatar name={m.from} size={26} />
+          )}
+        </div>
+      )}
+      <div className={`msg-body ${sameSender ? 'msg-body-consecutive' : ''}`}>
+        {!sameSender && (
+          <div className="msg-header">
+            <span className="msg-name">{m.from}</span>
+            <span className="msg-time">{m.time}</span>
+          </div>
+        )}
+        {isAgent && m.reasoning && m.reasoning.length > 0 && (
+          <ReasoningChain steps={m.reasoning} />
+        )}
+        <div className="msg-text">
+          <FormatMentions text={displayText} />
+        </div>
+        {m.showDocButton && !docOpen && (
+          <button className="doc-prompt" onClick={onOpenDoc}>Open doc</button>
+        )}
+      </div>
+    </div>
+  )
+})
 
 const STORAGE_KEYS = { doc: 'collab-doc-content', chat: 'collab-chat-messages' }
 
@@ -212,6 +251,9 @@ function App() {
     ]
   })
   const [input, setInput] = useState('')
+  const [mentionQuery, setMentionQuery] = useState<string | null>(null)
+  const [mentionIndex, setMentionIndex] = useState(0)
+  const MENTION_NAMES = ['Aiden', 'Nova', 'Sarah']
   const chatEndRef = useRef<HTMLDivElement>(null)
   const messagesRef = useRef(messages)
   const orchestratorRef = useRef<ReturnType<typeof createOrchestrator> | null>(null)
@@ -378,96 +420,82 @@ function App() {
     }
   }, [input, aiden.inDoc, nova.inDoc, openDocWithAgents, makeOrchestrator])
 
+  const resetSession = useCallback(() => {
+    orchestratorRef.current?.destroy()
+    setDocOpen(false)
+    setAiden({ status: 'idle', inDoc: false })
+    setNova({ status: 'idle', inDoc: false })
+    try {
+      localStorage.removeItem(STORAGE_KEYS.doc)
+      localStorage.removeItem(STORAGE_KEYS.chat)
+    } catch { /* skip */ }
+    editor?.commands.setContent(INITIAL_DOC)
+    lastDocSnapshot.current = editor?.getText() || ''
+    setMessages([
+      { id: uid(), from: 'You', text: 'the v2 brief needs to be ready for the board review Friday. can you two get in there and tighten it up?', time: '2:41 PM' },
+      { id: uid(), from: 'Sarah', text: 'yeah the architecture section is still too vague and we need real success metrics, not aspirational ones', time: '2:41 PM' },
+      { id: uid(), from: 'Aiden', text: 'I\'ll take architecture and the technical open questions. The sync protocol needs specifics — I\'ll spec out the CRDT approach and agent coordination model.', time: '2:42 PM', showDocButton: true },
+      { id: uid(), from: 'Nova', text: 'I\'ll sharpen the problem statement and success criteria. Sarah\'s right — "users trust the agent" isn\'t measurable. I\'ll define concrete thresholds.', time: '2:42 PM' },
+    ])
+    lastProcessedMsg.current = 4
+    orchestratorRef.current = makeOrchestrator()
+  }, [editor, makeOrchestrator])
+
   return (
     <div className="shell">
-      <div className="sidebar">
-        <div className="sidebar-brand">
-          <span className="sidebar-brand-name">n3wth/collab</span>
-        </div>
-
-        <div className="sidebar-participants">
-          {(['You', 'Sarah', 'Aiden', 'Nova'] as const).map(name => {
-            const isAgent = name === 'Aiden' || name === 'Nova'
-            const agentState = name === 'Aiden' ? aiden : name === 'Nova' ? nova : null
-            return (
-              <div key={name} className="sidebar-participant">
-                <ShapeAvatar name={name} size={28} thinking={!!agentState && agentState.status !== 'idle'} />
-                <span className="sidebar-participant-name">{name === 'You' ? 'You' : name}</span>
-                {isAgent && <span className="sidebar-participant-role">Agent</span>}
-              </div>
-            )
-          })}
-        </div>
-
-      </div>
-
       <div className="main-area">
         <div className="main-header">
           <span className="chat-header-title">Collab v2 Brief</span>
-          <button
-            className={`doc-toggle-btn ${docOpen ? 'active' : ''}`}
-            onClick={() => {
-              if (docOpen) {
-                orchestratorRef.current?.destroy()
-                setDocOpen(false)
-                setAiden({ status: 'idle', inDoc: false })
-                setNova({ status: 'idle', inDoc: false })
-                orchestratorRef.current = makeOrchestrator()
-              } else {
-                openDocWithAgents()
-              }
-            }}
-          >
-            Doc
-          </button>
+          <div className="header-participants">
+            {(['Aiden', 'Nova'] as const).map(name => {
+              const agentState = name === 'Aiden' ? aiden : nova
+              return (
+                <div key={name} className="header-avatar-wrap">
+                  <BlobAvatar name={name} size={24} state={agentState.status} />
+                  <AgentHoverCard name={name} agentState={agentState} />
+                </div>
+              )
+            })}
+          </div>
+          <div className="header-buttons">
+            <button className="reset-btn" onClick={resetSession}>Reset</button>
+            <button
+              className={`doc-toggle-btn ${docOpen ? 'active' : ''}`}
+              onClick={() => {
+                if (docOpen) {
+                  orchestratorRef.current?.destroy()
+                  setDocOpen(false)
+                  setAiden({ status: 'idle', inDoc: false })
+                  setNova({ status: 'idle', inDoc: false })
+                  orchestratorRef.current = makeOrchestrator()
+                } else {
+                  openDocWithAgents()
+                }
+              }}
+            >
+              Doc
+            </button>
+          </div>
         </div>
         <div className="main-content">
         <div className={`chat-panel ${docOpen ? 'chat-side' : 'chat-full'}`}>
           <div className="chat-messages">
+            <div className="chat-messages-inner">
             {messages.map((m, i) => {
-              const isAgent = m.from === 'Aiden' || m.from === 'Nova'
               const prev = messages[i - 1]
               const sameSender = prev && prev.from === m.from
-              const displayText = m.text.replace('[from doc] ', '')
               return (
-                <div key={m.id} className={`msg ${isAgent ? 'msg-agent' : 'msg-human'} ${sameSender ? 'msg-consecutive' : ''}`} data-agent={isAgent ? m.from.toLowerCase() : undefined}>
-                  {!sameSender && (
-                    <div className="msg-avatar">
-                      <ShapeAvatar name={m.from} size={26} />
-                    </div>
-                  )}
-                  <div className={`msg-body ${sameSender ? 'msg-body-consecutive' : ''}`}>
-                    {!sameSender && (
-                      <div className="msg-header">
-                        <span className="msg-name">
-                          {m.from}
-                        </span>
-                        <span className="msg-time">{m.time}</span>
-                      </div>
-                    )}
-                    {isAgent && m.reasoning && m.reasoning.length > 0 && (
-                      <ReasoningChain steps={m.reasoning} />
-                    )}
-                    <div className="msg-text">
-                      <FormatMentions text={displayText} />
-                    </div>
-                    {m.showDocButton && !docOpen && (
-                      <button className="doc-prompt" onClick={openDocWithAgents}>
-                        Open doc
-                      </button>
-                    )}
-                  </div>
-                </div>
+                <ChatMessage key={m.id} m={m} sameSender={sameSender} docOpen={docOpen} onOpenDoc={openDocWithAgents} agentState={m.from === 'Aiden' ? aiden : m.from === 'Nova' ? nova : null} />
               )
             })}
             {[
-              { state: aiden, name: 'Aiden' },
-              { state: nova, name: 'Nova' },
+              { state: aiden, name: 'Aiden' as const },
+              { state: nova, name: 'Nova' as const },
             ].map(({ state, name }) =>
               (state.status === 'thinking' || state.status === 'typing') && !state.inDoc ? (
                 <div key={name} className="msg">
                   <div className="msg-avatar">
-                    <ShapeAvatar name={name} size={26} thinking />
+                    <BlobAvatar name={name} size={26} state={state.status} />
                   </div>
                   <div className="msg-body">
                     <div className="msg-header">
@@ -477,35 +505,90 @@ function App() {
                     </div>
                     <div className="msg-thinking">
                       <span className="thinking-text">{state.thought || 'Thinking...'}</span>
-                      <span className="typing-dots" style={{ color: AGENTS[name].color }}><span /><span /><span /></span>
                     </div>
                   </div>
                 </div>
               ) : null
             )}
             <div ref={chatEndRef} />
+            </div>
           </div>
           {docOpen && (
             <div className="agent-status-bar">
-              <AgentStatusChip
-                name="Aiden"
-                color={AGENTS.Aiden.color}
-                status={aiden.status}
-                inDoc={aiden.inDoc}
-              />
-              <AgentStatusChip
-                name="Nova"
-                color={AGENTS.Nova.color}
-                status={nova.status}
-                inDoc={nova.inDoc}
-              />
+              <AgentStatusBlob name="Aiden" status={aiden.status} inDoc={aiden.inDoc} />
+              <AgentStatusBlob name="Nova" status={nova.status} inDoc={nova.inDoc} />
             </div>
           )}
           <div className="chat-input">
+            {mentionQuery !== null && (() => {
+              const filtered = MENTION_NAMES.filter(n => n.toLowerCase().startsWith(mentionQuery.toLowerCase()))
+              if (filtered.length === 0) return null
+              return (
+                <div className="mention-dropdown">
+                  {filtered.map((n, i) => (
+                    <div
+                      key={n}
+                      className={`mention-option ${i === mentionIndex ? 'mention-option-active' : ''}`}
+                      onMouseDown={e => {
+                        e.preventDefault()
+                        const atIdx = input.lastIndexOf('@')
+                        setInput(input.slice(0, atIdx) + '@' + n + ' ')
+                        setMentionQuery(null)
+                      }}
+                    >
+                      <BlobAvatar name={n} size={16} />
+                      <span>{n}</span>
+                    </div>
+                  ))}
+                </div>
+              )
+            })()}
             <input
               value={input}
-              onChange={e => setInput(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && sendMessage()}
+              onChange={e => {
+                const val = e.target.value
+                setInput(val)
+                const atIdx = val.lastIndexOf('@')
+                if (atIdx !== -1 && (atIdx === 0 || val[atIdx - 1] === ' ')) {
+                  const query = val.slice(atIdx + 1)
+                  if (!query.includes(' ')) {
+                    setMentionQuery(query)
+                    setMentionIndex(0)
+                    return
+                  }
+                }
+                setMentionQuery(null)
+              }}
+              onKeyDown={e => {
+                if (mentionQuery !== null) {
+                  const filtered = MENTION_NAMES.filter(n => n.toLowerCase().startsWith(mentionQuery.toLowerCase()))
+                  if (e.key === 'Tab' || (e.key === 'Enter' && filtered.length > 0)) {
+                    e.preventDefault()
+                    const pick = filtered[mentionIndex] || filtered[0]
+                    if (pick) {
+                      const atIdx = input.lastIndexOf('@')
+                      setInput(input.slice(0, atIdx) + '@' + pick + ' ')
+                      setMentionQuery(null)
+                    }
+                    return
+                  }
+                  if (e.key === 'ArrowDown') {
+                    e.preventDefault()
+                    setMentionIndex(i => Math.min(i + 1, filtered.length - 1))
+                    return
+                  }
+                  if (e.key === 'ArrowUp') {
+                    e.preventDefault()
+                    setMentionIndex(i => Math.max(i - 1, 0))
+                    return
+                  }
+                  if (e.key === 'Escape') {
+                    setMentionQuery(null)
+                    return
+                  }
+                }
+                if (e.key === 'Enter') sendMessage()
+              }}
               placeholder={aiden.inDoc ? 'Talk to the agents...' : 'Message the group...'}
             />
           </div>

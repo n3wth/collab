@@ -119,21 +119,28 @@ function clampPos(editor: Editor, pos: number): number {
   return Math.max(0, Math.min(pos, editor.state.doc.content.size))
 }
 
-// Scroll the editor view so a position is visible
+// Scroll the editor so the cursor position is visible.
+// Debounced to avoid competing scroll calls.
+let scrollTimer: number | null = null
 function scrollToPos(editor: Editor, pos: number) {
-  try {
-    const clamped = clampPos(editor, pos)
-    const coords = editor.view.coordsAtPos(clamped)
-    const scrollParent = editor.view.dom.closest('.doc-body')
-    if (!scrollParent || !coords) return
-    const rect = scrollParent.getBoundingClientRect()
-    const cursorY = coords.top - rect.top + scrollParent.scrollTop
-    const viewTop = scrollParent.scrollTop
-    const viewBottom = viewTop + rect.height
-    if (cursorY < viewTop + 60 || cursorY > viewBottom - 80) {
-      scrollParent.scrollTo({ top: Math.max(0, cursorY - rect.height / 3), behavior: 'smooth' })
-    }
-  } catch { /* coords can fail at doc boundaries */ }
+  if (scrollTimer) clearTimeout(scrollTimer)
+  scrollTimer = window.setTimeout(() => {
+    scrollTimer = null
+    try {
+      const clamped = clampPos(editor, pos)
+      const coords = editor.view.coordsAtPos(clamped)
+      const scrollParent = editor.view.dom.closest('.doc-body')
+      if (!scrollParent || !coords) return
+      const rect = scrollParent.getBoundingClientRect()
+      const cursorY = coords.top - rect.top + scrollParent.scrollTop
+      const viewTop = scrollParent.scrollTop
+      const viewBottom = viewTop + rect.height
+      if (cursorY < viewTop + 40 || cursorY > viewBottom - 40) {
+        // Place cursor at 40% from top — precise, minimal overshoot
+        scrollParent.scrollTo({ top: Math.max(0, cursorY - rect.height * 0.4), behavior: 'smooth' })
+      }
+    } catch { /* coords can fail at doc boundaries */ }
+  }, 100)
 }
 
 // Safe cursor helpers — catch mismatched transaction errors
@@ -160,55 +167,7 @@ function safeRemoveCursor(editor: Editor, name: string) {
   try { editor.commands.removeAgentCursor(name) } catch { /* skip */ }
 }
 
-// Stream-type text into the editor at a position, word by word
-// Uses a running position tracker to avoid stale offset math
-function streamTypeAt(
-  editor: Editor,
-  agentName: string,
-  startPos: number,
-  text: string,
-  timers: Record<string, number>,
-  onChar?: () => void,
-): Promise<void> {
-  return new Promise(resolve => {
-    // Split into small chunks (words + trailing space) for natural typing feel
-    const chunks: string[] = []
-    const words = text.split(/(\s+)/)
-    for (const w of words) {
-      if (w) chunks.push(w)
-    }
-    let chunkIdx = 0
-    let currentPos = startPos
-
-    const typeNext = () => {
-      if (chunkIdx < chunks.length) {
-        const chunk = chunks[chunkIdx]
-        try {
-          editor.commands.insertContentAt(clampPos(editor, currentPos), chunk)
-          currentPos += chunk.length
-          chunkIdx++
-        } catch {
-          // Position invalid, skip this chunk
-          chunkIdx++
-        }
-        safeCursor(editor, {
-          name: agentName,
-          color: AGENTS[agentName].color,
-          pos: currentPos,
-        }, chunkIdx % 6 === 0)
-        onChar?.()
-        // Vary timing: faster for spaces, slower for content words
-        const delay = chunk.trim() ? 30 + Math.random() * 50 : 10
-        timers[agentName] = window.setTimeout(typeNext, delay)
-      } else {
-        resolve()
-      }
-    }
-    timers[agentName] = window.setTimeout(typeNext, 50)
-  })
-}
-
-// Type text word by word at a position (used by replace)
+// Insert text at a position and place cursor at the end (used by replace)
 function typeTextAt(
   editor: Editor,
   agentName: string,
@@ -218,13 +177,22 @@ function typeTextAt(
   cb: ActionCallbacks
 ) {
   cb.onStateChange('editing')
-  streamTypeAt(editor, agentName, pos, text, timers).then(() => {
+  try {
+    const tr = editor.view.state.tr.insertText(text, clampPos(editor, pos))
+    editor.view.dispatch(tr)
+  } catch { /* best effort */ }
+  safeCursor(editor, {
+    name: agentName,
+    color: AGENTS[agentName].color,
+    pos: clampPos(editor, pos + text.length),
+  }, true)
+  timers[agentName] = window.setTimeout(() => {
     cb.onStateChange('idle')
     timers[agentName] = window.setTimeout(() => {
       safeRemoveCursor(editor, agentName)
       cb.onDone(true)
     }, 800)
-  })
+  }, 400)
 }
 
 // Execute an agent action on the editor
@@ -329,10 +297,30 @@ export function executeAgentAction(
       thought: action.thought || 'Writing...',
     }, true)
 
-    // Stream each block: insert empty node, then type text into it
-    let blockIdx = 0
-    const streamNextBlock = () => {
-      if (blockIdx >= streamBlocks.length) {
+    // Group consecutive listItem blocks into single bulletList insertions
+    // to avoid creating separate <ul> nodes with gaps between them.
+    type InsertOp = { type: 'list', items: { text: string, subItems?: string[] }[] }
+      | { type: 'heading', text: string, level: number }
+      | { type: 'paragraph', text: string }
+    const insertOps: InsertOp[] = []
+    for (const block of streamBlocks) {
+      if (block.type === 'listItem') {
+        const last = insertOps[insertOps.length - 1]
+        if (last && last.type === 'list') {
+          last.items.push({ text: block.text, subItems: block.subItems })
+        } else {
+          insertOps.push({ type: 'list', items: [{ text: block.text, subItems: block.subItems }] })
+        }
+      } else if (block.type === 'heading') {
+        insertOps.push({ type: 'heading', text: block.text, level: block.level || 2 })
+      } else {
+        insertOps.push({ type: 'paragraph', text: block.text })
+      }
+    }
+
+    let opIdx = 0
+    const streamNextOp = () => {
+      if (opIdx >= insertOps.length) {
         timers[agentName] = window.setTimeout(() => {
           safeRemoveCursor(editor, agentName)
           callbacks.onStateChange('idle')
@@ -342,72 +330,101 @@ export function executeAgentAction(
         return
       }
 
-      const block = streamBlocks[blockIdx]
-      blockIdx++
+      const op = insertOps[opIdx]
+      opIdx++
 
-      // All block types: insert empty structure, then stream-type text
-      const currentPos = Math.max(0, editor.state.doc.content.size - 1)
-
-      if (block.type === 'listItem') {
-        editor.commands.insertContentAt(currentPos, '<ul><li> </li></ul>')
-      } else if (block.type === 'heading') {
-        const tag = `h${block.level || 2}`
-        editor.commands.insertContentAt(currentPos, `<${tag}> </${tag}>`)
-      } else {
-        editor.commands.insertContentAt(currentPos, '<p> </p>')
+      // Remove trailing empty paragraphs before inserting — prevents gaps.
+      // Only remove if doc has more than one child (Tiptap always keeps at least one block).
+      const doc = editor.state.doc
+      if (doc.childCount > 1) {
+        let tr = editor.view.state.tr
+        let removed = false
+        for (let i = doc.childCount - 1; i >= 1; i--) {
+          const child = doc.child(i)
+          if (child.type.name === 'paragraph' && child.content.size === 0) {
+            let pos = 0
+            for (let j = 0; j < i; j++) pos += doc.child(j).nodeSize
+            tr = tr.delete(pos, pos + child.nodeSize)
+            removed = true
+          } else {
+            break
+          }
+        }
+        if (removed) {
+          try { editor.view.dispatch(tr) } catch { /* skip */ }
+        }
       }
 
-      // Text position inside the new node (list items have extra <ul> wrapper)
-      const textPos = currentPos + (block.type === 'listItem' ? 2 : 1)
+      const endPos = editor.state.doc.content.size
 
-      // Delete placeholder space
-      try {
-        editor.chain().deleteRange({ from: textPos, to: textPos + 1 }).run()
-      } catch { /* positions may shift */ }
+      if (op.type === 'list') {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const items: any[] = []
+        for (const item of op.items) {
+          items.push({ type: 'listItem', content: [{ type: 'paragraph', content: [{ type: 'text', text: item.text }] }] })
+          if (item.subItems) {
+            for (const sub of item.subItems) {
+              items.push({ type: 'listItem', content: [{ type: 'paragraph', content: [{ type: 'text', text: sub }] }] })
+            }
+          }
+        }
 
+        // Check if the last non-empty block is a bulletList — append to it instead of creating a new one
+        const currentDoc = editor.state.doc
+        let lastBlockIdx = currentDoc.childCount - 1
+        while (lastBlockIdx >= 0 && currentDoc.child(lastBlockIdx).type.name === 'paragraph' && currentDoc.child(lastBlockIdx).content.size === 0) {
+          lastBlockIdx--
+        }
+        if (lastBlockIdx >= 0 && currentDoc.child(lastBlockIdx).type.name === 'bulletList') {
+          // Calculate position just before the bulletList closing tag
+          let pos = 0
+          for (let j = 0; j <= lastBlockIdx; j++) pos += currentDoc.child(j).nodeSize
+          const insertAt = pos - 1 // inside the bulletList, after the last listItem
+
+          // Build listItem nodes via the schema
+          const schema = editor.state.schema
+          const newItems = items.map((item: { type: string, content: { type: string, content?: { type: string, text: string }[] }[] }) => {
+            const textContent = item.content[0]?.content?.[0]?.text || ''
+            return schema.nodes.listItem.create(null, [
+              schema.nodes.paragraph.create(null, textContent ? [schema.text(textContent)] : [])
+            ])
+          })
+
+          // Single transaction to append all items
+          const tr = editor.view.state.tr
+          for (let i = newItems.length - 1; i >= 0; i--) {
+            tr.insert(insertAt, newItems[i])
+          }
+          try { editor.view.dispatch(tr) } catch { /* skip */ }
+        } else {
+          editor.commands.insertContentAt(endPos, { type: 'bulletList', content: items })
+        }
+      } else if (op.type === 'heading') {
+        editor.commands.insertContentAt(endPos, { type: 'heading', attrs: { level: op.level }, content: [{ type: 'text', text: op.text }] })
+      } else {
+        editor.commands.insertContentAt(endPos, { type: 'paragraph', content: [{ type: 'text', text: op.text }] })
+      }
+
+      // Fade in the newly inserted node
+      const editorEl = editor.view.dom
+      const lastChild = editorEl.lastElementChild
+      if (lastChild && !lastChild.classList.contains('agent-fade-in')) {
+        lastChild.classList.add('agent-fade-in')
+      }
+
+      // Cursor at end of inserted content
+      const newEnd = clampPos(editor, editor.state.doc.content.size - 1)
       safeCursor(editor, {
         name: agentName,
         color: AGENTS[agentName].color,
-        pos: textPos,
+        pos: newEnd,
         thought: action.thought || 'Writing...',
       }, true)
 
-      // Stream-type the text content character by character
-      streamTypeAt(editor, agentName, textPos, block.text, timers).then(() => {
-        // If list item has sub-items, stream those sequentially too
-        if (block.type === 'listItem' && block.subItems && block.subItems.length > 0) {
-          let subIdx = 0
-          const streamNextSub = () => {
-            if (subIdx >= block.subItems!.length) {
-              timers[agentName] = window.setTimeout(streamNextBlock, 200 + Math.random() * 300)
-              return
-            }
-            const subText = block.subItems![subIdx]
-            subIdx++
-            const subPos = Math.max(0, editor.state.doc.content.size - 1)
-            editor.commands.insertContentAt(subPos, '<ul><li> </li></ul>')
-            const subTextPos = subPos + 2
-            try {
-              editor.chain().deleteRange({ from: subTextPos, to: subTextPos + 1 }).run()
-            } catch { /* skip */ }
-            safeCursor(editor, {
-              name: agentName,
-              color: AGENTS[agentName].color,
-              pos: subTextPos,
-              thought: action.thought || 'Writing...',
-            }, true)
-            streamTypeAt(editor, agentName, subTextPos, subText, timers).then(() => {
-              timers[agentName] = window.setTimeout(streamNextSub, 150 + Math.random() * 200)
-            })
-          }
-          timers[agentName] = window.setTimeout(streamNextSub, 150)
-        } else {
-          timers[agentName] = window.setTimeout(streamNextBlock, 200 + Math.random() * 300)
-        }
-      })
+      timers[agentName] = window.setTimeout(streamNextOp, 300 + Math.random() * 400)
     }
 
-    timers[agentName] = window.setTimeout(streamNextBlock, 600)
+    timers[agentName] = window.setTimeout(streamNextOp, 600)
 
   } else if (action.type === 'replace') {
     postChatBefore()
