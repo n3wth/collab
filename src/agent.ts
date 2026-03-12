@@ -109,6 +109,7 @@ export interface AgentAction {
   chatBefore?: string   // message sent BEFORE the action (intent)
   chatMessage?: string  // message sent AFTER the action (summary)
   thought?: string
+  reasoning?: string[]  // chain of thought steps shown transparently
   shouldContinue?: boolean
 }
 
@@ -189,27 +190,28 @@ ${taskBlock}
 Respond with a JSON object. Choose ONE action:
 
 To read/highlight a section (no edit):
-{"type":"read","highlightText":"<exact text from doc to highlight>","thought":"<what you notice about it>","shouldContinue":false}
+{"type":"read","reasoning":["<step>","<step>"],"highlightText":"<exact text from doc to highlight>","thought":"<4 words>","shouldContinue":false}
 
 To insert new content:
-{"type":"insert","position":"<end|after-heading>","content":"<text to insert — use \\n for new lines, ## for headings, - for bullets. NO ### or **bold** — only ## and plain text>","thought":"<brief thought>","chatBefore":"<what you're about to do — say this BEFORE editing>","chatMessage":"<optional summary AFTER editing>","shouldContinue":false}
+{"type":"insert","reasoning":["<step>","<step>"],"position":"<end|after-heading>","content":"<text to insert — use \\n for new lines, ## for headings, - for bullets. NO ### or **bold** — only ## and plain text>","thought":"<4 words>","chatBefore":"<what you're about to do>","chatMessage":"<optional summary>","shouldContinue":false}
 
 To replace existing text:
-{"type":"replace","searchText":"<exact text to find in doc>","replaceWith":"<replacement text>","thought":"<brief thought>","chatBefore":"<what you're about to change>","chatMessage":"<optional summary after>","shouldContinue":false}
+{"type":"replace","reasoning":["<step>","<step>"],"searchText":"<exact text to find in doc>","replaceWith":"<replacement text>","thought":"<4 words>","chatBefore":"<what you're about to change>","chatMessage":"<optional summary>","shouldContinue":false}
 
 To respond in chat only:
-{"type":"chat","chatMessage":"<your message>","shouldContinue":false}
+{"type":"chat","reasoning":["<step>","<step>"],"chatMessage":"<your message>","shouldContinue":false}
 
 Rules:
+- "reasoning" is REQUIRED — 2-3 short steps showing your thinking process. Each step MAX 8 words. Examples: ["Architecture section lacks specifics", "Need CRDT sync protocol details", "Adding data model and sync flow"]. Show what you noticed, what's missing, and what you'll do.
 - "thought" must be MAX 4 words.
 - "content" for inserts: plain text only. Use "## " for headings (NEVER ### or #). Use "- " for top-level bullets. Use "  - " (two spaces then dash) for sub-bullets. NEVER use **bold** or *italic* markdown. MAX 3-4 bullets per action.
-- "chatBefore" is REQUIRED for insert/replace — announce intent naturally. Examples: "Adding the data model under Aiden's architecture section", "Fleshing out the trust arc — @Aiden this connects to your sync protocol", "Rewriting the overview to be more specific". Be specific about WHAT and WHERE. MAX 15 words. Vary your phrasing — don't start every message with "Adding" or "Building on".
-- "chatMessage" is optional. Only include if you have something NEW to say after (e.g. a question for the other agent, a flag for the team). Don't just restate what chatBefore said. MAX 15 words.
+- "chatBefore" is REQUIRED for insert/replace — announce intent naturally. Be specific about WHAT and WHERE. MAX 15 words. Vary your phrasing.
+- "chatMessage" is optional. Only include if you have something NEW to say after. MAX 15 words.
 - "searchText" must be an EXACT substring.
 - "shouldContinue" usually false.
-- NEVER create a section heading that already exists in the document. Add content under existing headings instead.
-- When mentioning someone in chat, don't put a comma right after the name. Write "@Nova what do you think" not "@Nova, what do you think".
-- CRITICAL: Keep total JSON under 500 chars. Be terse.
+- NEVER create a section heading that already exists in the document.
+- When mentioning someone in chat, don't put a comma right after the name.
+- CRITICAL: Keep total JSON under 600 chars. Be terse.
 - Return ONLY the JSON object`
 }
 
@@ -414,9 +416,12 @@ export async function askAgent(params: AskParams): Promise<AgentAction> {
         console.warn('[agent] unparseable response:', text.slice(0, 200))
         throw new AgentError(`Unparseable response: ${text.slice(0, 100)}`, 'parse_error')
       }
-      console.log('[agent]', params.agentName, action.type, action.thought)
+      console.log('[agent]', params.agentName, action.type, action.thought, action.reasoning)
       if (action.thought) {
         action.thought = action.thought.split(/\s+/).slice(0, 4).join(' ')
+      }
+      if (action.reasoning && Array.isArray(action.reasoning)) {
+        action.reasoning = action.reasoning.slice(0, 3).map(s => String(s).slice(0, 60))
       }
       return action
     } catch (err) {
