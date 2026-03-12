@@ -38,7 +38,7 @@
   top: calc(100% + 6px);
   left: 50%;
   transform: translateX(-50%) translateY(-2px);
-  background: var(--surface-0);
+  background: #ffffff;
   border: 1px solid var(--border-default);
   border-radius: var(--radius-md);
   padding: 14px 16px;
@@ -46,7 +46,7 @@
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.15s ease, transform 0.15s ease;
-  z-index: 100;
+  z-index: 9999;
 }
 
 .header-avatar-wrap:hover > .agent-hover-card,
@@ -361,6 +361,11 @@
   flex-shrink: 0;
   margin-top: 3px;
   position: relative;
+  z-index: 1;
+}
+
+.msg-avatar-agent:hover {
+  z-index: 9999;
 }
 
 .msg-body {
