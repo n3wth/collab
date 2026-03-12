@@ -307,6 +307,22 @@
   font-weight: 500;
   font-family: inherit;
   transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.doc-toggle-btn:not(.active)::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 0%, rgba(0,0,0,0.06) 40%, rgba(0,0,0,0.06) 60%, transparent 100%);
+  background-size: 200% 100%;
+  animation: btnShimmer 2.5s ease-in-out infinite;
+}
+
+@keyframes btnShimmer {
+  0% { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
 }
 
 .doc-toggle-btn:hover {
