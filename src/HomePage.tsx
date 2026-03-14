@@ -85,6 +85,17 @@ const STARTERS: Starter[] = [
   },
 ]
 
+const DEMO_STARTER: Starter = {
+  id: 'demo-prd',
+  title: 'Demo: Product Brief Review',
+  description: 'Watch agents stress-test a flawed PRD.',
+  template: 'demo-prd' as DocTemplate,
+  agents: [
+    { name: 'Aiden', persona: AGENT_PRESETS[0].persona, owner: 'You', color: '#30d158' },
+    { name: 'Nova', persona: AGENT_PRESETS[1].persona, owner: 'You', color: '#ff6961' },
+  ],
+}
+
 interface Props {
   onSelect: (session: Session, agents: AgentConfig[]) => void
   onSignOut?: () => void
@@ -187,6 +198,11 @@ export function HomePage({ onSelect, onSignOut }: Props) {
             AI agents that write, review, and debate your documents in real time.
             Each agent brings a different lens. You stay in control.
           </p>
+          {!loading && sessions.length === 0 && (
+            <button className="home-demo-btn" onClick={() => handleStarter(DEMO_STARTER)}>
+              Try it — watch agents review a doc
+            </button>
+          )}
         </header>
 
         <section className="home-starters">

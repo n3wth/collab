@@ -37,6 +37,29 @@ export const DOC_TEMPLATES: Record<DocTemplate, { label: string, content: string
 <h2>Risks and Mitigations</h2>
 <ul><li></li></ul>`,
   },
+  'demo-prd': {
+    label: 'Demo PRD',
+    content: `<h1>TaskFlow — Product Brief</h1>
+<h2>Problem</h2>
+<p>Users are unhappy with the current experience. We have heard some complaints and think there is an opportunity to do better.</p>
+<h2>Proposed Solution</h2>
+<p>Rebuild the platform using a microservices architecture. Each feature will be its own service, communicating over REST APIs. We will use Kubernetes for orchestration and deploy to three cloud regions for redundancy.</p>
+<h2>Success Metrics</h2>
+<ul>
+<li>Users love the new product</li>
+<li>Engagement goes up</li>
+<li>Fewer complaints</li>
+</ul>
+<h2>Architecture</h2>
+<p>We will split the monolith into 12 microservices. Each team owns one service. Communication happens via REST and an event bus. We chose microservices because they are the industry standard.</p>
+<h2>Timeline</h2>
+<ul>
+<li>Q1: Design phase</li>
+<li>Q2: Build core services</li>
+<li>Q3: Migration</li>
+<li>Q4: Launch</li>
+</ul>`,
+  },
   'meeting-notes': {
     label: 'Meeting Notes',
     content: `<h1>Meeting Notes</h1>

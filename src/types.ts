@@ -1,4 +1,4 @@
-export type DocTemplate = 'blank' | 'prd' | 'tech-spec' | 'meeting-notes'
+export type DocTemplate = 'blank' | 'prd' | 'tech-spec' | 'meeting-notes' | 'demo-prd'
 
 export interface Session {
   id: string

@@ -1371,6 +1371,31 @@
   color: var(--text-primary);
 }
 
+/* Demo CTA */
+.home-demo-btn {
+  display: block;
+  margin: 24px auto 0;
+  padding: 12px 32px;
+  font-size: 15px;
+  font-weight: 600;
+  font-family: var(--font-ui);
+  color: var(--surface-0);
+  background: var(--text-primary);
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background var(--duration-fast) ease, transform var(--duration-fast) ease;
+}
+
+.home-demo-btn:hover {
+  background: var(--text-secondary);
+  transform: translateY(-1px);
+}
+
+.home-demo-btn:active {
+  transform: translateY(0);
+}
+
 /* Agent activity bar — thin colored line under header */
 .agent-activity-bar {
   height: 2px;
