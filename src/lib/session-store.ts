@@ -72,7 +72,7 @@ export async function loadDocument(
     .from('documents')
     .select('html_snapshot')
     .eq('session_id', sessionId)
-    .single()
+    .maybeSingle()
   if (error || !data) return null
   return data.html_snapshot
 }
