@@ -221,7 +221,8 @@ function Timeline({ entries }: { entries: TimelineEntry[] }) {
           style={{ background: e.color }}
           onMouseEnter={(ev) => {
             const rect = ev.currentTarget.getBoundingClientRect()
-            setHoveredTip({ text: e.tooltip, x: rect.left + rect.width / 2, y: rect.top })
+            const x = Math.max(140, Math.min(window.innerWidth - 140, rect.left + rect.width / 2))
+            setHoveredTip({ text: e.tooltip, x, y: rect.top })
           }}
           onMouseLeave={() => setHoveredTip(null)}
         />
