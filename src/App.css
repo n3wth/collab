@@ -110,7 +110,7 @@
 }
 
 .agent-hover-card-section {
-  margin-bottom: 6px;
+  margin-bottom: 10px;
 }
 
 .agent-hover-card-section-label {
@@ -119,7 +119,8 @@
   color: var(--text-tertiary);
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
+  line-height: 1;
 }
 
 .agent-hover-card-tools {
@@ -145,7 +146,7 @@
 .agent-hover-card-divider {
   height: 1px;
   background: var(--border-subtle);
-  margin: 8px 0;
+  margin: 10px 0;
 }
 
 .agent-hover-card-status {
@@ -1421,19 +1422,20 @@
 .timeline-tooltip {
   position: fixed;
   transform: translateX(-50%) translateY(calc(-100% - 8px));
-  padding: 6px 10px;
-  background: var(--text-primary);
-  color: var(--surface-0);
-  font-size: 11px;
+  padding: 8px 12px;
+  background: #ffffff;
+  color: var(--text-primary);
+  font-size: 12px;
   font-family: var(--font-ui);
   line-height: 1.4;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-default);
   white-space: normal;
   width: max-content;
   max-width: 260px;
   pointer-events: none;
   z-index: 9999;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
 }
 
 @keyframes dotAppear {
