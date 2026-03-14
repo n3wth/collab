@@ -1370,3 +1370,74 @@
 .signout-btn:hover {
   color: var(--text-primary);
 }
+
+/* Agent activity bar — thin colored line under header */
+.agent-activity-bar {
+  height: 2px;
+  display: flex;
+  gap: 0;
+  flex-shrink: 0;
+}
+
+.agent-activity-segment {
+  flex: 1;
+  height: 100%;
+  transition: background 0.5s ease, opacity 0.5s ease;
+  opacity: 0;
+}
+
+.agent-activity-segment.active-thinking {
+  opacity: 1;
+  animation: activityPulse 1.5s ease-in-out infinite;
+}
+
+.agent-activity-segment.active-typing,
+.agent-activity-segment.active-editing {
+  opacity: 1;
+  animation: activitySlide 1s ease-in-out infinite;
+}
+
+.agent-activity-segment.active-reading {
+  opacity: 0.4;
+}
+
+@keyframes activityPulse {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 1; }
+}
+
+@keyframes activitySlide {
+  0% { transform: scaleX(0.3); transform-origin: left; }
+  50% { transform: scaleX(1); }
+  100% { transform: scaleX(0.3); transform-origin: right; }
+}
+
+/* Agent message entrance — slide from left */
+.msg-agent .msg-body {
+  animation: agentMsgIn 0.5s var(--ease-out-expo) forwards;
+}
+
+@keyframes agentMsgIn {
+  from { opacity: 0; transform: translateX(-6px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+/* Blob breathing when idle */
+.blob-avatar-wrap {
+  animation: blobBreathe 4s ease-in-out infinite;
+}
+
+@keyframes blobBreathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.03); }
+}
+
+/* Session enter transition */
+.shell {
+  animation: sessionEnter 0.4s var(--ease-out-expo) forwards;
+}
+
+@keyframes sessionEnter {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}

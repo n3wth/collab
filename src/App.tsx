@@ -203,6 +203,26 @@ const ChatMessage = memo(({ m, sameSender, docOpen, onOpenDoc, agentState }: {
   )
 })
 
+function AgentActivityBar({ agents, getAgentState }: { agents: AgentConfig[], getAgentState: (name: string) => AgentState }) {
+  const hasActivity = agents.some(a => getAgentState(a.name).status !== 'idle')
+  if (!hasActivity) return null
+  return (
+    <div className="agent-activity-bar">
+      {agents.map(a => {
+        const state = getAgentState(a.name)
+        const isActive = state.status !== 'idle'
+        return (
+          <div
+            key={a.name}
+            className={`agent-activity-segment ${isActive ? `active-${state.status}` : ''}`}
+            style={{ background: isActive ? a.color : 'transparent' }}
+          />
+        )
+      })}
+    </div>
+  )
+}
+
 const EMPTY_DOC = '<h1>Untitled</h1><p></p>'
 
 function App() {
@@ -543,6 +563,7 @@ function App() {
             />
           </div>
         )}
+        <AgentActivityBar agents={activeAgents} getAgentState={getAgentState} />
         <div className="main-content">
         <div className={`chat-panel ${docOpen ? 'chat-side' : 'chat-full'}`}>
           <div className="chat-messages">
