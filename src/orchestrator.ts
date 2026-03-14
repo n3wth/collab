@@ -1,5 +1,6 @@
 import type { Editor } from '@tiptap/react'
 import { askAgent, AgentError, resetRateLimiter, type AgentAction, type AskParams } from './agent'
+import { detectObservations } from './wizard-of-oz'
 import { executeAgentAction, type ActionCallbacks } from './agent-actions'
 import { generateHeartbeat } from './heartbeat'
 
@@ -327,6 +328,19 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
 
   function fireHeartbeat() {
     if (destroyed || processing || agentNames.length === 0) return
+
+    // Wizard of Oz: scripted observations before LLM heartbeat
+    const wizardObs = detectObservations(
+      config.getDocText(),
+      config.getMessages().slice(-10),
+      agentNames,
+    )
+    for (const obs of wizardObs) {
+      scheduleTimeout(() => {
+        if (!destroyed) config.onChatMessage(obs.agent, obs.text)
+      }, obs.delay)
+    }
+
     const instruction = generateHeartbeat(
       config.getDocText(),
       config.getMessages().slice(-10),
