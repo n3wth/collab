@@ -127,6 +127,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
+  margin-bottom: 4px;
 }
 
 .agent-tool-tag {
@@ -1421,21 +1422,21 @@
 
 .timeline-tooltip {
   position: fixed;
-  transform: translateX(-50%) translateY(calc(-100% - 8px));
-  padding: 8px 12px;
+  transform: translateX(-50%) translateY(calc(-100% - 10px));
+  padding: 10px 14px;
   background: #ffffff;
-  color: var(--text-primary);
+  color: var(--text-secondary);
   font-size: 12px;
   font-family: var(--font-ui);
-  line-height: 1.4;
+  line-height: 1.5;
   border-radius: var(--radius-md);
   border: 1px solid var(--border-default);
   white-space: normal;
   width: max-content;
-  max-width: 260px;
+  max-width: 300px;
   pointer-events: none;
-  z-index: 9999;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  z-index: 99999;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12), 0 1px 4px rgba(0, 0, 0, 0.08);
 }
 
 @keyframes dotAppear {

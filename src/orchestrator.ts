@@ -222,11 +222,11 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
 
   function describeAction(agent: string, action: AgentAction): string {
     switch (action.type) {
-      case 'insert': return `${agent} inserted content: "${(action.content || '').slice(0, 60)}..."`
-      case 'replace': return `${agent} replaced "${(action.searchText || '').slice(0, 30)}" with new text`
-      case 'read': return `${agent} was reading "${(action.highlightText || '').slice(0, 40)}"`
-      case 'chat': return `${agent} sent a chat message`
-      default: return `${agent} took an action`
+      case 'insert': return `${agent} inserted: "${(action.content || '').slice(0, 120)}"`
+      case 'replace': return `${agent} replaced: "${(action.searchText || '').slice(0, 60)}"`
+      case 'read': return `${agent} read: "${(action.highlightText || '').slice(0, 80)}"`
+      case 'chat': return `${agent} sent a message`
+      default: return `${agent} acted`
     }
   }
 
