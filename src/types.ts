@@ -29,9 +29,9 @@ export interface ChatMessageRecord {
   created_at: string
 }
 
-export interface DocumentRecord {
-  id: string
-  session_id: string
-  html_snapshot: string | null
-  updated_at: string
+export interface SearchResult {
+  title: string
+  url: string
+  content: string
+  score: number
 }

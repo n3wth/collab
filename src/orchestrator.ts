@@ -29,7 +29,9 @@ interface OrchestratorConfig {
   onAgentReasoning?: (agent: AgentName, reasoning: string[]) => void
   onDocAction?: (agent: AgentName, description: string) => void
   onError?: (agent: AgentName, error: AgentError, consecutiveFailures: number) => void
+  onSearchRequest?: (agent: AgentName, query: string) => void
   agents: AgentConfig[]
+  demoMode?: boolean
 }
 
 interface OrchestratorHandle {
@@ -55,10 +57,10 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
 
   // Track total turns per agent (caps all non-user-initiated work)
   const turnCount: Record<string, number> = Object.fromEntries(config.agents.map(a => [a.name, 0]))
-  const MAX_TURNS = 4
+  const MAX_TURNS = config.demoMode ? 6 : 4
   // Track back-and-forth exchanges
   let exchangeCount = 0
-  const MAX_EXCHANGES = 4
+  const MAX_EXCHANGES = config.demoMode ? 6 : 4
   // Track pending doc-edit reaction to prevent double-triggers
   let pendingReaction: AgentName | null = null
   // Track consecutive failures per agent — pause after MAX_CONSECUTIVE_FAILURES
@@ -226,6 +228,7 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
       case 'replace': return `${agent} replaced: "${(action.searchText || '').slice(0, 60)}"`
       case 'read': return `${agent} read: "${(action.highlightText || '').slice(0, 80)}"`
       case 'chat': return `${agent} sent a message`
+      case 'search': return `${agent} searched: "${(action.query || '').slice(0, 80)}"`
       default: return `${agent} acted`
     }
   }
@@ -246,7 +249,7 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
             agent: a.name,
             trigger: 'instruction',
             instruction: `Review the doc and contribute from your area of expertise. Use your background in: ${a.persona.slice(0, 100)}`,
-          }), 2500 + i * 3500)
+          }), config.demoMode ? 1500 + i * 2500 : 2500 + i * 3500)
         })
         break
 
@@ -318,7 +321,7 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
 
   function startHeartbeat() {
     stopHeartbeat()
-    const delay = 20000 + Math.random() * 10000 // 20-30s for now, tune up later
+    const delay = config.demoMode ? 8000 + Math.random() * 4000 : 20000 + Math.random() * 10000
     heartbeatTimer = window.setTimeout(() => {
       fireHeartbeat()
       startHeartbeat()

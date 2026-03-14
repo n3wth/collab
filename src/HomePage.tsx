@@ -99,6 +99,8 @@ const DEMO_STARTER: Starter = {
 interface Props {
   onSelect: (session: Session, agents: AgentConfig[]) => void
   onSignOut?: () => void
+  demoMode?: boolean
+  onDemoConsumed?: () => void
 }
 
 type BlobState = 'idle' | 'thinking' | 'reading' | 'typing' | 'editing'
@@ -148,7 +150,7 @@ function useHeroBlobStates() {
   return states
 }
 
-export function HomePage({ onSelect, onSignOut }: Props) {
+export function HomePage({ onSelect, onSignOut, demoMode, onDemoConsumed }: Props) {
   const [sessions, setSessions] = useState<Session[]>([])
   const [loading, setLoading] = useState(true)
   const blobStates = useHeroBlobStates()
@@ -159,6 +161,14 @@ export function HomePage({ onSelect, onSignOut }: Props) {
       .catch(console.error)
       .finally(() => setLoading(false))
   }, [])
+
+  // Auto-start demo when coming from splash screen
+  useEffect(() => {
+    if (demoMode) {
+      onDemoConsumed?.()
+      handleStarter(DEMO_STARTER)
+    }
+  }, [demoMode]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleStarter = async (starter: Starter) => {
     const session = await createSession(starter.title, starter.template)
@@ -187,7 +197,7 @@ export function HomePage({ onSelect, onSignOut }: Props) {
           <div className="home-blobs">
             {AGENT_PRESETS.map((p, i) => (
               <div key={p.name} className="home-blob" style={{ animationDelay: `${i * 150}ms` }}>
-                <BlobAvatar name={p.name} size={48} state={blobStates[i]} color={p.color} />
+                <BlobAvatar name={p.name} size={64} state={blobStates[i]} color={p.color} />
                 <span className="home-blob-name">{p.name}</span>
                 <span className="home-blob-role">{AGENT_ROLES[p.name]}</span>
               </div>
@@ -198,11 +208,9 @@ export function HomePage({ onSelect, onSignOut }: Props) {
             AI agents that write, review, and debate your documents in real time.
             Each agent brings a different lens. You stay in control.
           </p>
-          {!loading && sessions.length === 0 && (
-            <button className="home-demo-btn" onClick={() => handleStarter(DEMO_STARTER)}>
-              Try it — watch agents review a doc
-            </button>
-          )}
+          <button className="home-demo-btn" onClick={() => handleStarter(DEMO_STARTER)}>
+            Try the demo
+          </button>
         </header>
 
         <section className="home-starters">

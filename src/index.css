@@ -1,25 +1,28 @@
 :root {
+  color-scheme: dark;
+
   /* Typography */
-  --font-display: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
-  --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
-  --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
+  --font-display: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
+  --font-ui: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', monospace;
 
   /* Surfaces */
-  --surface-0: #ffffff;
-  --surface-1: #f8f9fa;
-  --surface-2: #f1f3f5;
-  --surface-3: #e9ecef;
-  --surface-dim: #f0f2f5;
+  --surface-0: #0a0a0a;
+  --surface-1: #111113;
+  --surface-2: #1a1a1e;
+  --surface-3: #222226;
+  --surface-dim: #0e0e10;
 
   /* Text */
-  --text-primary: #0a0a0a;
-  --text-secondary: #37352f;
-  --text-tertiary: #787774;
-  --text-disabled: #b4b4b0;
+  --text-primary: #ededef;
+  --text-secondary: #a0a0a3;
+  --text-tertiary: #6b6b6f;
+  --text-disabled: #4a4a4e;
 
   /* Borders */
-  --border-subtle: #e8eaed;
-  --border-default: #dadce0;
+  --border-subtle: #1e1e22;
+  --border-default: #2a2a2e;
 
   /* Agent colors — n3wth palette */
   --agent-aiden: #30d158;
@@ -30,18 +33,18 @@
   /* Agent: Aiden */
   --aiden-primary: #30d158;
   --aiden-secondary: #28a745;
-  --aiden-bg: #f0faf3;
+  --aiden-bg: #0d1f12;
 
   /* Agent: Nova */
   --nova-primary: #ff6961;
   --nova-secondary: #e0524a;
-  --nova-bg: #fff5f5;
+  --nova-bg: #1f0d0d;
 
   /* Accent */
-  --accent: #1a1a1a;
-  --accent-hover: #333;
-  --accent-active: #000;
-  --accent-container: #f1f3f5;
+  --accent: #ededef;
+  --accent-hover: #c0c0c3;
+  --accent-active: #ffffff;
+  --accent-container: #1a1a1e;
 
   /* Radii */
   --radius-sm: 8px;

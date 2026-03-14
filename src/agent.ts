@@ -100,12 +100,13 @@ const rateLimiter = {
 }
 
 export interface AgentAction {
-  type: 'insert' | 'replace' | 'read' | 'chat'
+  type: 'insert' | 'replace' | 'read' | 'chat' | 'search'
   position?: 'end' | 'after-heading' | 'cursor' | string
   content?: string
   searchText?: string
   replaceWith?: string
   highlightText?: string
+  query?: string        // search query for web search action
   chatBefore?: string   // message sent BEFORE the action (intent)
   chatMessage?: string  // message sent AFTER the action (summary)
   thought?: string
@@ -220,6 +221,10 @@ To replace existing text:
 To respond in chat only:
 {"type":"chat","reasoning":["<step>","<step>"],"chatMessage":"<your message>","shouldContinue":false}
 
+To search the web for current information:
+{"type":"search","reasoning":["<step>","<step>"],"query":"<search query>","thought":"<4 words>","shouldContinue":true}
+Use search when the document discusses something that would benefit from current data, market info, competitor analysis, or technical research.
+
 Rules:
 - "reasoning" is REQUIRED — 2-3 short steps showing your thinking process. Each step MAX 8 words. Examples: ["Architecture section lacks specifics", "Need CRDT sync protocol details", "Adding data model and sync flow"]. Show what you noticed, what's missing, and what you'll do.
 - "thought" must be MAX 4 words.
@@ -235,7 +240,7 @@ Rules:
 - Return ONLY the JSON object`
 }
 
-const VALID_ACTION_TYPES = new Set(['insert', 'replace', 'read', 'chat'])
+const VALID_ACTION_TYPES = new Set(['insert', 'replace', 'read', 'chat', 'search'])
 
 // Strip markdown code fences that Gemini sometimes wraps around JSON
 function stripCodeFences(text: string): string {
@@ -290,6 +295,12 @@ function validateAction(obj: unknown): AgentAction | null {
     case 'chat':
       if (typeof record.chatMessage !== 'string' || !record.chatMessage) {
         console.warn('[agent] chat action missing chatMessage')
+        return null
+      }
+      break
+    case 'search':
+      if (typeof record.query !== 'string' || !record.query) {
+        console.warn('[agent] search action missing query')
         return null
       }
       break

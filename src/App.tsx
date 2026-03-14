@@ -6,6 +6,7 @@ import { AgentCursors } from './agent-cursor'
 import { createOrchestrator, type AgentConfig } from './orchestrator'
 import { DEFAULT_PERSONAS } from './agent'
 import { HomePage } from './HomePage'
+import { SplashScreen } from './SplashScreen'
 import { LoginPage } from './LoginPage'
 import { AgentConfigurator } from './AgentConfigurator'
 import { DOC_TEMPLATES } from './templates'
@@ -44,7 +45,7 @@ const DEFAULT_AGENT_CONFIGS: AgentConfig[] = [
 ]
 
 function ShapeAvatar({ name, size = 28, className = '' }: { name: string, size?: number, className?: string }) {
-  const color = '#1a1a1a'
+  const color = 'currentColor'
   const s = size
 
   const squarePoints = `${s * 0.18},${s * 0.18} ${s * 0.82},${s * 0.18} ${s * 0.82},${s * 0.82} ${s * 0.18},${s * 0.82}`
@@ -74,7 +75,18 @@ function AgentStatusBlob({ name, status, inDoc }: {
   return <BlobAvatar name={name} size={20} state={status} />
 }
 
-function AgentHoverCard({ name, agentState }: { name: string, agentState: AgentState | null }) {
+const AGENT_DESCRIPTIONS: Record<string, string> = {
+  Aiden: 'Technical architecture and engineering. Writes specs, system design, and implementation details.',
+  Nova: 'Product strategy and user research. Identifies gaps, frames adoption risks, and grounds ideas in user needs.',
+  Lex: 'Legal and compliance review. Flags risks, regulatory concerns, and contractual implications.',
+  Mira: 'Design and user experience. Advocates for users, evaluates usability, and proposes interface patterns.',
+}
+
+function AgentHoverCard({ name, agentState, agentConfig }: { name: string, agentState: AgentState | null, agentConfig?: AgentConfig }) {
+  const desc = AGENT_DESCRIPTIONS[name] || agentConfig?.persona?.split('.')[0]?.replace(/^You are \w+, /, '') || 'AI agent'
+  const owner = agentConfig?.owner || 'You'
+  const tools = ['read', 'insert', 'replace', 'chat', 'search']
+
   return (
     <div className="agent-hover-card">
       <div className="agent-hover-card-header">
@@ -84,23 +96,16 @@ function AgentHoverCard({ name, agentState }: { name: string, agentState: AgentS
           <span className="agent-hover-card-model">gemini-2.5-flash</span>
         </div>
       </div>
-      <div className="agent-hover-card-desc">
-        {name === 'Aiden'
-          ? 'Technical architecture and engineering. Writes specs, system design, and implementation details.'
-          : 'Product strategy and user research. Identifies gaps, frames adoption risks, and grounds ideas in user needs.'}
-      </div>
+      <div className="agent-hover-card-desc">{desc}</div>
       <div className="agent-hover-card-section">
         <div className="agent-hover-card-section-label">Tools</div>
         <div className="agent-hover-card-tools">
-          <span className="agent-tool-tag">read</span>
-          <span className="agent-tool-tag">insert</span>
-          <span className="agent-tool-tag">replace</span>
-          <span className="agent-tool-tag">chat</span>
+          {tools.map(t => <span key={t} className="agent-tool-tag">{t}</span>)}
         </div>
       </div>
       <div className="agent-hover-card-section">
         <div className="agent-hover-card-section-label">Owner</div>
-        <div className="agent-hover-card-owner">{name === 'Aiden' ? 'You' : 'Sarah'}</div>
+        <div className="agent-hover-card-owner">{owner}</div>
       </div>
       <div className="agent-hover-card-divider" />
       <div className="agent-hover-card-status">
@@ -137,19 +142,18 @@ function ReasoningChain({ steps }: { steps: string[] }) {
 }
 
 
-// Default mention regex for the static FormatMentions component
-const defaultMentionRegex = /(@?(?:Aiden|Nova|Sarah))(?=\s|$|[.,!?;:])/gi
-
-const FormatMentions = memo(({ text }: { text: string }) => {
-  const parts = text.split(defaultMentionRegex)
+const FormatMentions = memo(({ text, names }: { text: string, names?: string[] }) => {
+  const allNames = names && names.length > 0 ? [...names, 'Sarah'] : ['Aiden', 'Nova', 'Lex', 'Mira', 'Sarah']
+  const pattern = new RegExp(`(@?(?:${allNames.join('|')}))(?=\\s|$|[.,!?;:])`, 'gi')
+  const parts = text.split(pattern)
   return (
     <>
       {parts.map((part, i) => {
         const bare = part.replace(/^@/, '')
         const normalized = bare.charAt(0).toUpperCase() + bare.slice(1).toLowerCase()
-        defaultMentionRegex.lastIndex = 0
-        if (defaultMentionRegex.test(part)) {
-          defaultMentionRegex.lastIndex = 0
+        pattern.lastIndex = 0
+        if (pattern.test(part)) {
+          pattern.lastIndex = 0
           return (
             <span key={i} className="mention-tag">
               @{normalized}
@@ -260,6 +264,8 @@ const EMPTY_DOC = '<h1>Untitled</h1><p></p>'
 
 function App() {
   const { user, loading: authLoading, signOut } = useAuth()
+  const [showSplash, setShowSplash] = useState(true)
+  const [demoMode, setDemoMode] = useState(false)
   const [activeSession, setActiveSession] = useState<Session | null>(null)
   const activeSessionRef = useRef<Session | null>(null)
   const [docOpen, setDocOpen] = useState(false)
@@ -531,6 +537,16 @@ function App() {
 
   const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
 
+  if (showSplash) {
+    return <SplashScreen
+      onDismiss={() => setShowSplash(false)}
+      onDemo={() => {
+        setShowSplash(false)
+        setDemoMode(true)
+      }}
+    />
+  }
+
   if (!isLocalhost && authLoading) {
     return null
   }
@@ -540,7 +556,7 @@ function App() {
   }
 
   if (!activeSession) {
-    return <HomePage onSelect={handleSessionSelect} onSignOut={isLocalhost ? undefined : signOut} />
+    return <HomePage onSelect={handleSessionSelect} onSignOut={isLocalhost ? undefined : signOut} demoMode={demoMode} onDemoConsumed={() => setDemoMode(false)} />
   }
 
   return (
@@ -555,7 +571,7 @@ function App() {
               return (
                 <div key={agent.name} className="header-avatar-wrap">
                   <BlobAvatar name={agent.name} size={24} state={agentState.status} />
-                  <AgentHoverCard name={agent.name} agentState={agentState} />
+                  <AgentHoverCard name={agent.name} agentState={agentState} agentConfig={agent} />
                 </div>
               )
             })}

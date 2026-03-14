@@ -514,6 +514,36 @@ export function executeAgentAction(
       })
     }, 1200)
 
+  } else if (action.type === 'search') {
+    // Search action: fire a web search request
+    callbacks.onChatMessage(agentName, `[from doc] Researching: ${action.query || ''}...`)
+    callbacks.onStateChange('thinking', 'Searching...')
+
+    fetch('/api/tavily/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: action.query, maxResults: 3 }),
+    })
+      .then(res => res.ok ? res.json() : Promise.reject(new Error(`Search failed: ${res.status}`)))
+      .then(data => {
+        const results = data.results || []
+        if (results.length > 0) {
+          const formatted = results.map((r: { title: string, url: string, content: string }, i: number) =>
+            `${i + 1}. "${r.title}" - ${r.content.slice(0, 150)} (source: ${r.url})`
+          ).join('\n')
+          callbacks.onChatMessage(agentName, `Found ${results.length} results for "${action.query}":\n${formatted}`)
+        } else {
+          callbacks.onChatMessage(agentName, `No results found for "${action.query}".`)
+        }
+        callbacks.onStateChange('idle')
+        releaseLockAndDone(true)
+      })
+      .catch(() => {
+        callbacks.onChatMessage(agentName, `Search unavailable right now. Continuing without it.`)
+        callbacks.onStateChange('idle')
+        releaseLockAndDone(true)
+      })
+
   } else if (action.type === 'chat') {
     callbacks.onChatMessage(agentName, action.chatMessage || 'Got it.')
     releaseLockAndDone(true)
