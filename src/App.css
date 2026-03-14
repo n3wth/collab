@@ -1396,6 +1396,35 @@
   transform: translateY(0);
 }
 
+/* Timeline — minimalist dot strip at bottom of doc panel */
+.timeline {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 8px 16px;
+  border-top: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.timeline::-webkit-scrollbar { display: none; }
+
+.timeline-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  opacity: 0;
+  animation: dotAppear 0.3s var(--ease-out-expo) forwards;
+  cursor: default;
+}
+
+@keyframes dotAppear {
+  from { opacity: 0; transform: scale(0); }
+  to { opacity: 1; transform: scale(1); }
+}
+
 /* Agent activity bar — thin colored line under header */
 .agent-activity-bar {
   height: 2px;

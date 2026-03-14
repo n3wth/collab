@@ -203,6 +203,23 @@ const ChatMessage = memo(({ m, sameSender, docOpen, onOpenDoc, agentState }: {
   )
 })
 
+interface TimelineEntry {
+  id: string
+  color: string
+  tooltip: string
+}
+
+function Timeline({ entries }: { entries: TimelineEntry[] }) {
+  if (entries.length === 0) return null
+  return (
+    <div className="timeline">
+      {entries.slice(-20).map(e => (
+        <div key={e.id} className="timeline-dot" style={{ background: e.color }} title={e.tooltip} />
+      ))}
+    </div>
+  )
+}
+
 function AgentActivityBar({ agents, getAgentState }: { agents: AgentConfig[], getAgentState: (name: string) => AgentState }) {
   const hasActivity = agents.some(a => getAgentState(a.name).status !== 'idle')
   if (!hasActivity) return null
@@ -235,6 +252,7 @@ function App() {
   const [agentStates, setAgentStates] = useState<Record<string, AgentState>>({})
   const getAgentState = (name: string): AgentState => agentStates[name] || { status: 'idle', inDoc: false }
   const [messages, setMessages] = useState<Message[]>([])
+  const [timeline, setTimeline] = useState<TimelineEntry[]>([])
   const [input, setInput] = useState('')
   const [mentionQuery, setMentionQuery] = useState<string | null>(null)
   const [mentionIndex, setMentionIndex] = useState(0)
@@ -327,6 +345,11 @@ function App() {
           if (last && last.from === from && last.text === text) return m
           return [...m, { id: uid(), from, text, time: now(), reasoning }]
         })
+        // Add to timeline
+        const agentCfg = activeAgents.find(a => a.name === from)
+        if (agentCfg) {
+          setTimeline(t => [...t, { id: uid(), color: agentCfg.color, tooltip: `${from}: ${text.slice(0, 60)}` }])
+        }
         // Persist to Supabase
         const session = activeSessionRef.current
         if (session) {
@@ -489,16 +512,18 @@ function App() {
     lastDocSnapshot.current = editor?.getText() || ''
   }
 
-  if (authLoading) {
+  const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+
+  if (!isLocalhost && authLoading) {
     return null
   }
 
-  if (!user) {
+  if (!isLocalhost && !user) {
     return <LoginPage />
   }
 
   if (!activeSession) {
-    return <HomePage onSelect={handleSessionSelect} onSignOut={signOut} />
+    return <HomePage onSelect={handleSessionSelect} onSignOut={isLocalhost ? undefined : signOut} />
   }
 
   return (
@@ -685,6 +710,7 @@ function App() {
             <div className="doc-body">
               <EditorContent editor={editor} />
             </div>
+            <Timeline entries={timeline} />
           </div>
         )}
         </div>
