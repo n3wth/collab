@@ -1,0 +1,18 @@
+{
+  "name": "collab-ws-server",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node --loader ts-node/esm ws-server.ts",
+    "dev": "npx tsx ws-server.ts"
+  },
+  "dependencies": {
+    "ws": "^8.18.0",
+    "y-websocket": "^2.1.0",
+    "yjs": "^13.6.29"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0",
+    "@types/ws": "^8.5.0"
+  }
+}

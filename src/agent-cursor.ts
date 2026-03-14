@@ -6,7 +6,14 @@ import { createNoise3D } from 'simplex-noise'
 const cursorNoise = createNoise3D()
 const BLOB_POINTS = 6
 
-function createBlobCanvas(name: string, size: number): HTMLCanvasElement {
+const AGENT_COLORS: Record<string, string> = {
+  Aiden: '#30d158',
+  Nova: '#ff6961',
+  Lex: '#64d2ff',
+  Mira: '#ffd60a',
+}
+
+function createBlobCanvas(name: string, size: number, color?: string): HTMLCanvasElement {
   const canvas = document.createElement('canvas')
   const dpr = window.devicePixelRatio || 1
   canvas.width = size * dpr
@@ -17,6 +24,7 @@ function createBlobCanvas(name: string, size: number): HTMLCanvasElement {
   const ctx = canvas.getContext('2d')!
   ctx.scale(dpr, dpr)
 
+  const agentColor = color || AGENT_COLORS[name] || '#1a1a1a'
   const isAiden = name === 'Aiden'
   const seed = isAiden ? 1 : 2
   const cx = size / 2
@@ -52,15 +60,18 @@ function createBlobCanvas(name: string, size: number): HTMLCanvasElement {
 
     const path = new Path2D(d)
     if (isAiden) {
-      ctx.fillStyle = '#1a1a1a'
+      ctx.fillStyle = agentColor
       ctx.fill(path)
     } else {
-      ctx.strokeStyle = '#1a1a1a'
+      ctx.strokeStyle = agentColor
       ctx.lineWidth = size * 0.07
       ctx.stroke(path)
     }
 
-    requestAnimationFrame(draw)
+    // Only schedule next frame while canvas is in the DOM; stops loop when decoration is removed
+    if (canvas.isConnected) {
+      requestAnimationFrame(draw)
+    }
   }
   draw()
 
@@ -131,7 +142,7 @@ export const AgentCursors = Extension.create({
               // Cursor line widget
               const cursorEl = document.createElement('span')
               cursorEl.className = `agent-cursor-line ${cursor.fading ? 'cursor-fading' : ''}`
-              cursorEl.style.borderColor = '#1a1a1a'
+              cursorEl.style.borderColor = cursor.color
 
               // Avatar + thought container
               const container = document.createElement('span')
@@ -140,7 +151,7 @@ export const AgentCursors = Extension.create({
               const avatarWrap = document.createElement('span')
               avatarWrap.className = 'agent-cursor-avatar'
               avatarWrap.style.background = 'transparent'
-              const blobCanvas = createBlobCanvas(cursor.name, 16)
+              const blobCanvas = createBlobCanvas(cursor.name, 16, cursor.color)
               blobCanvas.style.display = 'block'
               avatarWrap.appendChild(blobCanvas)
               container.appendChild(avatarWrap)
@@ -148,7 +159,13 @@ export const AgentCursors = Extension.create({
               if (cursor.thought) {
                 const thought = document.createElement('span')
                 thought.className = 'agent-cursor-thought'
-                thought.style.background = '#1a1a1a'
+                thought.style.background = cursor.color
+                // Use dark text on light colors, white on dark
+                const r = parseInt(cursor.color.slice(1, 3), 16)
+                const g = parseInt(cursor.color.slice(3, 5), 16)
+                const b = parseInt(cursor.color.slice(5, 7), 16)
+                const lum = (r * 299 + g * 587 + b * 114) / 1000
+                thought.style.color = lum > 150 ? '#000' : '#fff'
                 thought.textContent = cursor.thought
                 container.appendChild(thought)
               }

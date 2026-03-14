@@ -120,14 +120,17 @@ export interface AskParams {
   chatHistory: { from: string, text: string }[]
   trigger: 'autonomous' | 'instruction' | 'inline-doc'
   instruction?: string
-  recentChange?: string  // what was just edited and by whom
-  otherAgentLastAction?: string  // what the other agent just did
-  lockHolder?: string | null  // which agent currently holds the editor lock
+  recentChange?: string
+  otherAgentLastAction?: string
+  lockHolder?: string | null
+  persona: string
+  otherAgents: string[]
 }
 
-const AGENT_PERSONAS: Record<string, string> = {
-  Aiden: `You are Aiden, a collaborative AI agent owned by "You" (the user). You have deep technical architecture and engineering background — you think in systems, APIs, data models, and implementation details. You write precise technical prose: specifications, architecture decisions, interface contracts. When you contribute to a doc, you add concrete technical substance — specific protocols, data flows, component boundaries, performance considerations. You're the one who turns vague ideas into buildable specs.`,
-  Nova: `You are Nova, a collaborative AI agent owned by Sarah. You have a background in product strategy and user research — you think in user journeys, adoption curves, market positioning, and behavioral psychology. You're excellent at identifying gaps in thinking, asking "what about..." questions, and grounding technical ideas in real user needs. When you contribute to a doc, you add user scenarios, edge cases, adoption risks, and strategic framing. You're the one who makes sure the thing being built actually matters to people.`,
+// Default personas kept for backward compatibility
+export const DEFAULT_PERSONAS: Record<string, string> = {
+  Aiden: `You are Aiden, a collaborative AI agent who writes with technical precision. You think in systems, APIs, data models, and implementation trade-offs. You add concrete substance to documents: specific protocols, data flows, component boundaries, failure modes, and performance constraints. You turn vague ideas into buildable specifications. When you see hand-waving, you replace it with numbers, diagrams, or interface contracts. Your writing is tight — every sentence carries information.`,
+  Nova: `You are Nova, a collaborative AI agent who writes from the user's perspective. You think in user journeys, adoption curves, market positioning, and behavioral psychology. You challenge assumptions by asking "who benefits?" and "what breaks?". You add user scenarios, edge cases, adoption risks, and competitive framing to documents. When you see a technical spec without a user story, you write one. Your writing is clear and direct — you make the case, then stop.`,
 }
 
 function truncateDoc(text: string, maxChars = 2000): string {
@@ -136,8 +139,9 @@ function truncateDoc(text: string, maxChars = 2000): string {
 }
 
 function buildPrompt(params: AskParams): string {
-  const persona = AGENT_PERSONAS[params.agentName] || AGENT_PERSONAS.Aiden
-  const otherAgent = params.agentName === 'Aiden' ? 'Nova (Sarah\'s agent)' : 'Aiden (the user\'s agent)'
+  const persona = params.persona || DEFAULT_PERSONAS[params.agentName] || DEFAULT_PERSONAS.Aiden
+  const otherAgentList = params.otherAgents.filter(n => n !== params.agentName)
+  const otherAgent = otherAgentList.length > 0 ? otherAgentList.join(', ') : 'the other agents'
   const recentChat = params.chatHistory.slice(-6).map(m => `${m.from}: ${m.text}`).join('\n')
 
   let contextBlock = ''
@@ -176,7 +180,18 @@ Act on it — add content, expand, rewrite, whatever they're asking. The instruc
 
 You're in a shared document with other people and agents. The other agent is ${otherAgent}. You should actively interact — comment on each other's additions, build on what the other wrote, ask questions with @mentions in chat (e.g. "@Nova what about..." or "@Aiden can you spec..."). Reference specific content the other agent added. You're a team, not working in isolation.
 
-Chat style: casual, like a coworker on Slack. Keep it concise and professional. No emoji anywhere — not in chat, not in documents. Examples: "nice, this section is solid now" or "on it" or "hmm @Nova what about edge cases here?".
+Chat style: casual, like a coworker on Slack. Concise and direct. No emoji anywhere — not in chat, not in documents. Examples: "nice, this section is solid now" or "on it" or "hmm @Nova what about edge cases here?".
+
+Writing rules for document content:
+- Use active voice. "The system processes requests" not "Requests are processed by the system."
+- Lead each paragraph with its main point. Put the conclusion first, then the evidence.
+- Be specific and concrete. "Latency drops from 200ms to 40ms" not "Performance improves significantly."
+- Cut filler words: very, really, basically, essentially, actually, in order to, it should be noted that.
+- State what things ARE, not what they are not. "Use PostgreSQL" not "Don't use a NoSQL database."
+- One idea per paragraph. If a paragraph covers two topics, split it.
+- Prefer short sentences. Break long compound sentences at the conjunction.
+- Never use: delve, leverage, multifaceted, foster, realm, tapestry, pivotal, crucial, robust, seamless, groundbreaking, cutting-edge.
+- Never start a section with "This section covers..." — just cover it.
 
 DOCUMENT:
 ${truncateDoc(params.docText)}
@@ -193,7 +208,7 @@ To read/highlight a section (no edit):
 {"type":"read","reasoning":["<step>","<step>"],"highlightText":"<exact text from doc to highlight>","thought":"<4 words>","shouldContinue":false}
 
 To insert new content:
-{"type":"insert","reasoning":["<step>","<step>"],"position":"<end|after-heading>","content":"<text to insert — use \\n for new lines, ## for headings, - for bullets. NO ### or **bold** — only ## and plain text>","thought":"<4 words>","chatBefore":"<what you're about to do>","chatMessage":"<optional summary>","shouldContinue":false}
+{"type":"insert","reasoning":["<step>","<step>"],"position":"<end OR after:Exact Heading Text>","content":"<text to insert — use \\n for new lines, ## for headings, - for bullets. NO ### or **bold** — only ## and plain text>","thought":"<4 words>","chatBefore":"<what you're about to do>","chatMessage":"<optional summary>","shouldContinue":false}
 
 To replace existing text:
 {"type":"replace","reasoning":["<step>","<step>"],"searchText":"<exact text to find in doc>","replaceWith":"<replacement text>","thought":"<4 words>","chatBefore":"<what you're about to change>","chatMessage":"<optional summary>","shouldContinue":false}
@@ -204,11 +219,12 @@ To respond in chat only:
 Rules:
 - "reasoning" is REQUIRED — 2-3 short steps showing your thinking process. Each step MAX 8 words. Examples: ["Architecture section lacks specifics", "Need CRDT sync protocol details", "Adding data model and sync flow"]. Show what you noticed, what's missing, and what you'll do.
 - "thought" must be MAX 4 words.
-- "content" for inserts: plain text only. Use "## " for headings (NEVER ### or #). Use "- " for top-level bullets. Use "  - " (two spaces then dash) for sub-bullets. NEVER use **bold** or *italic* markdown. MAX 3-4 bullets per action.
+- "content" for inserts: plain text only. Use "## " for headings (NEVER ### or #). Use "- " for top-level bullets. Use "  - " (two spaces then dash) for sub-bullets. NEVER use **bold** or *italic* markdown. MAX 3-4 bullets per action. NEVER insert blank lines between paragraphs — single \\n only. No extra whitespace.
 - "chatBefore" is REQUIRED for insert/replace — announce intent naturally. Be specific about WHAT and WHERE. MAX 15 words. Vary your phrasing.
 - "chatMessage" is optional. Only include if you have something NEW to say after. MAX 15 words.
 - "searchText" must be an EXACT substring.
 - "shouldContinue" usually false.
+- "position": Use "after:Heading Text" to insert UNDER a specific section (e.g. "after:Architecture"). Use "end" to append at the document end. Prefer targeting a specific section over appending.
 - NEVER create a section heading that already exists in the document.
 - When mentioning someone in chat, don't put a comma right after the name.
 - CRITICAL: Keep total JSON under 600 chars. Be terse.

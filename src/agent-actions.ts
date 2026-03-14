@@ -1,11 +1,6 @@
 import type { Editor } from '@tiptap/react'
 import type { AgentAction } from './agent'
 
-const AGENTS: Record<string, { color: string, bgColor: string }> = {
-  Aiden: { color: '#5f6368', bgColor: '#f1f3f5' },
-  Nova: { color: '#5f6368', bgColor: '#f1f3f5' },
-}
-
 export interface ActionCallbacks {
   onStateChange: (status: 'idle' | 'thinking' | 'typing' | 'reading' | 'editing', thought?: string) => void
   onChatMessage: (from: string, text: string) => void
@@ -171,6 +166,7 @@ function safeRemoveCursor(editor: Editor, name: string) {
 function typeTextAt(
   editor: Editor,
   agentName: string,
+  agentColor: string,
   pos: number,
   text: string,
   timers: Record<string, number>,
@@ -183,7 +179,7 @@ function typeTextAt(
   } catch { /* best effort */ }
   safeCursor(editor, {
     name: agentName,
-    color: AGENTS[agentName].color,
+    color: agentColor,
     pos: clampPos(editor, pos + text.length),
   }, true)
   timers[agentName] = window.setTimeout(() => {
@@ -199,6 +195,7 @@ function typeTextAt(
 export function executeAgentAction(
   editor: Editor,
   agentName: string,
+  agentColor: string,
   action: AgentAction,
   editorLockRef: { current: string | null },
   timers: Record<string, number>,
@@ -216,7 +213,7 @@ export function executeAgentAction(
     }
     (action as { _lockRetries?: number })._lockRetries = retries + 1
     timers[agentName] = window.setTimeout(
-      () => executeAgentAction(editor, agentName, action, editorLockRef, timers, callbacks),
+      () => executeAgentAction(editor, agentName, agentColor, action, editorLockRef, timers, callbacks),
       800 + Math.random() * 1200
     )
     return
@@ -246,7 +243,7 @@ export function executeAgentAction(
     callbacks.onStateChange('reading')
     safeCursor(editor, {
       name: agentName,
-      color: AGENTS[agentName].color,
+      color: agentColor,
       pos,
       selectionFrom: found?.from,
       selectionTo: found?.to,
@@ -281,7 +278,39 @@ export function executeAgentAction(
 
     // Determine insert position
     let insertPos = editor.state.doc.content.size
-    if (action.position === 'after-heading') {
+
+    if (action.position && action.position.startsWith('after:')) {
+      // Target a specific heading: "after:Architecture" or "after:Open Questions"
+      const targetHeading = action.position.slice(6).trim().toLowerCase()
+      let foundHeading = false
+      editor.state.doc.descendants((node, pos) => {
+        if (foundHeading) return false // stop after finding the target section
+        if (node.type.name === 'heading') {
+          const headingText = node.textContent.trim().toLowerCase()
+          if (headingText === targetHeading || headingText.includes(targetHeading)) {
+            // Insert after this heading's content block
+            // Walk forward to find the end of this section (next heading or doc end)
+            let sectionEnd = pos + node.nodeSize
+            let foundNext = false
+            editor.state.doc.descendants((innerNode, innerPos) => {
+              if (foundNext) return false
+              if (innerPos > pos && innerNode.type.name === 'heading') {
+                sectionEnd = innerPos
+                foundNext = true
+                return false
+              }
+              if (innerPos > pos) {
+                sectionEnd = innerPos + innerNode.nodeSize
+              }
+            })
+            insertPos = sectionEnd
+            foundHeading = true
+            return false
+          }
+        }
+      })
+    } else if (action.position === 'after-heading') {
+      // Legacy: insert after the last heading
       editor.state.doc.descendants((node, pos) => {
         if (node.type.name === 'heading') {
           insertPos = pos + node.nodeSize
@@ -292,7 +321,7 @@ export function executeAgentAction(
     callbacks.onStateChange('editing')
     safeCursor(editor, {
       name: agentName,
-      color: AGENTS[agentName].color,
+      color: agentColor,
       pos: clampPos(editor, insertPos),
       thought: action.thought || 'Writing...',
     }, true)
@@ -357,6 +386,28 @@ export function executeAgentAction(
 
       const endPos = editor.state.doc.content.size
 
+      // After inserting, clean up any empty paragraphs that ProseMirror added
+      const cleanupEmptyParagraphs = () => {
+        const d = editor.state.doc
+        const tr = editor.view.state.tr
+        let cleaned = false
+        // Walk backwards to find empty paragraphs between headings/lists
+        for (let i = d.childCount - 1; i >= 1; i--) {
+          const child = d.child(i)
+          const prev = d.child(i - 1)
+          if (child.type.name === 'paragraph' && child.content.size === 0 &&
+              (prev.type.name === 'heading' || prev.type.name === 'bulletList')) {
+            let pos = 0
+            for (let j = 0; j < i; j++) pos += d.child(j).nodeSize
+            tr.delete(pos, pos + child.nodeSize)
+            cleaned = true
+          }
+        }
+        if (cleaned) {
+          try { editor.view.dispatch(tr) } catch { /* skip */ }
+        }
+      }
+
       if (op.type === 'list') {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const items: any[] = []
@@ -405,6 +456,9 @@ export function executeAgentAction(
         editor.commands.insertContentAt(endPos, { type: 'paragraph', content: [{ type: 'text', text: op.text }] })
       }
 
+      // Clean up empty paragraphs ProseMirror inserts between blocks
+      cleanupEmptyParagraphs()
+
       // Fade in the newly inserted node
       const editorEl = editor.view.dom
       const lastChild = editorEl.lastElementChild
@@ -416,7 +470,7 @@ export function executeAgentAction(
       const newEnd = clampPos(editor, editor.state.doc.content.size - 1)
       safeCursor(editor, {
         name: agentName,
-        color: AGENTS[agentName].color,
+        color: agentColor,
         pos: newEnd,
         thought: action.thought || 'Writing...',
       }, true)
@@ -438,7 +492,7 @@ export function executeAgentAction(
     callbacks.onStateChange('editing')
     safeCursor(editor, {
       name: agentName,
-      color: AGENTS[agentName].color,
+      color: agentColor,
       pos: found.to,
       selectionFrom: found.from,
       selectionTo: found.to,
@@ -451,10 +505,10 @@ export function executeAgentAction(
         .run()
       safeCursor(editor, {
         name: agentName,
-        color: AGENTS[agentName].color,
+        color: agentColor,
         pos: found.from,
       })
-      typeTextAt(editor, agentName, found.from, action.replaceWith || '', timers, {
+      typeTextAt(editor, agentName, agentColor, found.from, action.replaceWith || '', timers, {
         ...callbacks,
         onDone: (success) => { postChatAfter(); releaseLockAndDone(success) },
       })

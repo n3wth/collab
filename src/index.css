@@ -21,15 +21,21 @@
   --border-subtle: #e8eaed;
   --border-default: #dadce0;
 
+  /* Agent colors — n3wth palette */
+  --agent-aiden: #30d158;
+  --agent-nova: #ff6961;
+  --agent-lex: #64d2ff;
+  --agent-mira: #ffd60a;
+
   /* Agent: Aiden */
-  --aiden-primary: #5f6368;
-  --aiden-secondary: #80868b;
-  --aiden-bg: #f1f3f5;
+  --aiden-primary: #30d158;
+  --aiden-secondary: #28a745;
+  --aiden-bg: #f0faf3;
 
   /* Agent: Nova */
-  --nova-primary: #5f6368;
-  --nova-secondary: #80868b;
-  --nova-bg: #f1f3f5;
+  --nova-primary: #ff6961;
+  --nova-secondary: #e0524a;
+  --nova-bg: #fff5f5;
 
   /* Accent */
   --accent: #1a1a1a;
@@ -46,11 +52,18 @@
   --radius-pill: 9999px;
   --radius-full: 50%;
 
-  /* Easing */
+  /* Easing — Vercel-style curves */
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
   --ease-decelerate: cubic-bezier(0, 0, 0, 1);
   --ease-accelerate: cubic-bezier(0.3, 0, 1, 1);
   --ease-spring: cubic-bezier(0.175, 0.885, 0.32, 1.1);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Durations */
+  --duration-fast: 150ms;
+  --duration-normal: 250ms;
+  --duration-slow: 400ms;
+  --duration-entrance: 500ms;
 
   font-family: var(--font-body);
   line-height: 1.5;
@@ -65,3 +78,12 @@ body {
 }
 
 * { box-sizing: border-box; }
+
+/* Respect motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
