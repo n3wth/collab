@@ -210,12 +210,27 @@ interface TimelineEntry {
 }
 
 function Timeline({ entries }: { entries: TimelineEntry[] }) {
+  const [hoveredTip, setHoveredTip] = useState<{ text: string, x: number, y: number } | null>(null)
   if (entries.length === 0) return null
   return (
     <div className="timeline">
       {entries.slice(-20).map(e => (
-        <div key={e.id} className="timeline-dot" style={{ background: e.color }} data-tip={e.tooltip} />
+        <div
+          key={e.id}
+          className="timeline-dot"
+          style={{ background: e.color }}
+          onMouseEnter={(ev) => {
+            const rect = ev.currentTarget.getBoundingClientRect()
+            setHoveredTip({ text: e.tooltip, x: rect.left + rect.width / 2, y: rect.top })
+          }}
+          onMouseLeave={() => setHoveredTip(null)}
+        />
       ))}
+      {hoveredTip && (
+        <div className="timeline-tooltip" style={{ left: hoveredTip.x, top: hoveredTip.y }}>
+          {hoveredTip.text}
+        </div>
+      )}
     </div>
   )
 }
@@ -711,10 +726,10 @@ function App() {
             <div className="doc-body">
               <EditorContent editor={editor} />
             </div>
-            <Timeline entries={timeline} />
           </div>
         )}
         </div>
+        {docOpen && <Timeline entries={timeline} />}
       </div>
     </div>
   )

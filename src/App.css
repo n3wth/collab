@@ -1396,19 +1396,16 @@
   transform: translateY(0);
 }
 
-/* Timeline — minimalist dot strip at bottom of doc panel */
+/* Timeline — minimalist dot strip at bottom */
 .timeline {
   display: flex;
   align-items: center;
   gap: 3px;
-  padding: 8px 16px;
+  padding: 6px 16px;
   border-top: 1px solid var(--border-subtle);
   flex-shrink: 0;
-  overflow-x: auto;
-  scrollbar-width: none;
+  background: var(--surface-0);
 }
-
-.timeline::-webkit-scrollbar { display: none; }
 
 .timeline-dot {
   width: 6px;
@@ -1421,12 +1418,9 @@
   position: relative;
 }
 
-.timeline-dot:hover::after {
-  content: attr(data-tip);
-  position: absolute;
-  bottom: calc(100% + 8px);
-  left: 50%;
-  transform: translateX(-50%);
+.timeline-tooltip {
+  position: fixed;
+  transform: translateX(-50%) translateY(calc(-100% - 8px));
   padding: 6px 10px;
   background: var(--text-primary);
   color: var(--surface-0);
@@ -1438,8 +1432,8 @@
   width: max-content;
   max-width: 260px;
   pointer-events: none;
-  z-index: 100;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  z-index: 9999;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
 }
 
 @keyframes dotAppear {
