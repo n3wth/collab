@@ -708,10 +708,10 @@ function App() {
 
         {docOpen && (
           <div className="doc-panel">
+            <Timeline entries={timeline} />
             <div className="doc-body">
               <EditorContent editor={editor} />
             </div>
-            <Timeline entries={timeline} />
           </div>
         )}
         </div>

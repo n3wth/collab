@@ -1402,7 +1402,7 @@
   align-items: center;
   gap: 3px;
   padding: 8px 16px;
-  border-top: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
   flex-shrink: 0;
   overflow-x: auto;
   scrollbar-width: none;
@@ -1424,7 +1424,7 @@
 .timeline-dot:hover::after {
   content: attr(title);
   position: absolute;
-  bottom: calc(100% + 6px);
+  top: calc(100% + 6px);
   left: 50%;
   transform: translateX(-50%);
   padding: 4px 8px;
