@@ -214,7 +214,7 @@ function Timeline({ entries }: { entries: TimelineEntry[] }) {
   return (
     <div className="timeline">
       {entries.slice(-20).map(e => (
-        <div key={e.id} className="timeline-dot" style={{ background: e.color }} title={e.tooltip} />
+        <div key={e.id} className="timeline-dot" style={{ background: e.color }} data-tip={e.tooltip} />
       ))}
     </div>
   )
@@ -708,10 +708,10 @@ function App() {
 
         {docOpen && (
           <div className="doc-panel">
-            <Timeline entries={timeline} />
             <div className="doc-body">
               <EditorContent editor={editor} />
             </div>
+            <Timeline entries={timeline} />
           </div>
         )}
         </div>
