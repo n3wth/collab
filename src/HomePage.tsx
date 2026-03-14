@@ -87,6 +87,7 @@ const STARTERS: Starter[] = [
 
 interface Props {
   onSelect: (session: Session, agents: AgentConfig[]) => void
+  onSignOut?: () => void
 }
 
 type BlobState = 'idle' | 'thinking' | 'reading' | 'typing' | 'editing'
@@ -136,7 +137,7 @@ function useHeroBlobStates() {
   return states
 }
 
-export function HomePage({ onSelect }: Props) {
+export function HomePage({ onSelect, onSignOut }: Props) {
   const [sessions, setSessions] = useState<Session[]>([])
   const [loading, setLoading] = useState(true)
   const blobStates = useHeroBlobStates()
@@ -166,6 +167,11 @@ export function HomePage({ onSelect }: Props) {
   return (
     <div className="home">
       <div className="home-inner">
+        {onSignOut && (
+          <div className="home-topbar">
+            <button className="signout-btn" onClick={onSignOut}>Sign out</button>
+          </div>
+        )}
         <header className="home-hero">
           <div className="home-blobs">
             {AGENT_PRESETS.map((p, i) => (

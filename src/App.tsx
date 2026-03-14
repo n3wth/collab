@@ -6,9 +6,11 @@ import { AgentCursors } from './agent-cursor'
 import { createOrchestrator, type AgentConfig } from './orchestrator'
 import { DEFAULT_PERSONAS } from './agent'
 import { HomePage } from './HomePage'
+import { LoginPage } from './LoginPage'
 import { AgentConfigurator } from './AgentConfigurator'
 import { DOC_TEMPLATES } from './templates'
 import { saveDocument, loadDocument, saveChatMessage, loadChatMessages } from './lib/session-store'
+import { useAuth } from './lib/auth'
 import type { Session } from './types'
 import { BlobAvatar } from './blob-avatar'
 import type { Editor } from '@tiptap/react'
@@ -204,6 +206,7 @@ const ChatMessage = memo(({ m, sameSender, docOpen, onOpenDoc, agentState }: {
 const EMPTY_DOC = '<h1>Untitled</h1><p></p>'
 
 function App() {
+  const { user, loading: authLoading, signOut } = useAuth()
   const [activeSession, setActiveSession] = useState<Session | null>(null)
   const activeSessionRef = useRef<Session | null>(null)
   const [docOpen, setDocOpen] = useState(false)
@@ -466,8 +469,16 @@ function App() {
     lastDocSnapshot.current = editor?.getText() || ''
   }
 
+  if (authLoading) {
+    return null
+  }
+
+  if (!user) {
+    return <LoginPage />
+  }
+
   if (!activeSession) {
-    return <HomePage onSelect={handleSessionSelect} />
+    return <HomePage onSelect={handleSessionSelect} onSignOut={signOut} />
   }
 
   return (
