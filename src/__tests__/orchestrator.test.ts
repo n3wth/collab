@@ -55,6 +55,10 @@ function makeConfig(overrides?: Partial<Parameters<typeof createOrchestrator>[0]
     getMessages: vi.fn(() => []),
     onAgentState: vi.fn(),
     onChatMessage: vi.fn(),
+    agents: [
+      { name: 'Aiden', persona: 'Test persona', owner: 'You', color: '#1a1a1a' },
+      { name: 'Nova', persona: 'Test persona', owner: 'Sarah', color: '#1a1a1a' },
+    ],
     ...overrides,
   }
 }

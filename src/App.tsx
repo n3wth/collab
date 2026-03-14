@@ -3,7 +3,12 @@ import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
 import { AgentCursors } from './agent-cursor'
-import { createOrchestrator } from './orchestrator'
+import { createOrchestrator, type AgentConfig } from './orchestrator'
+import { DEFAULT_PERSONAS } from './agent'
+import { SessionPicker } from './SessionPicker'
+import { AgentConfigurator } from './AgentConfigurator'
+import { DOC_TEMPLATES } from './templates'
+import type { Session } from './types'
 import { BlobAvatar } from './blob-avatar'
 import type { Editor } from '@tiptap/react'
 import './App.css'
@@ -30,10 +35,10 @@ function uid() {
   return Math.random().toString(36).slice(2, 9)
 }
 
-const AGENTS: Record<string, { color: string, bgColor: string }> = {
-  Aiden: { color: '#5f6368', bgColor: '#f1f3f5' },
-  Nova: { color: '#5f6368', bgColor: '#f1f3f5' },
-}
+const DEFAULT_AGENT_CONFIGS: AgentConfig[] = [
+  { name: 'Aiden', persona: DEFAULT_PERSONAS.Aiden, owner: 'You', color: '#30d158' },
+  { name: 'Nova', persona: DEFAULT_PERSONAS.Nova, owner: 'Sarah', color: '#ff6961' },
+]
 
 function ShapeAvatar({ name, size = 28, className = '' }: { name: string, size?: number, className?: string }) {
   const color = '#1a1a1a'
@@ -128,21 +133,22 @@ function ReasoningChain({ steps }: { steps: string[] }) {
   )
 }
 
-const ALL_NAMES = [...Object.keys(AGENTS), 'Sarah']
-const mentionRegex = new RegExp(`(@?(?:${ALL_NAMES.join('|')}))(?=\\s|$|[.,!?;:])`, 'gi')
+
+// Default mention regex for the static FormatMentions component
+const defaultMentionRegex = /(@?(?:Aiden|Nova|Sarah))(?=\s|$|[.,!?;:])/gi
 
 const FormatMentions = memo(({ text }: { text: string }) => {
-  const parts = text.split(mentionRegex)
+  const parts = text.split(defaultMentionRegex)
   return (
     <>
       {parts.map((part, i) => {
         const bare = part.replace(/^@/, '')
         const normalized = bare.charAt(0).toUpperCase() + bare.slice(1).toLowerCase()
-        const agent = AGENTS[normalized]
-        if (mentionRegex.test(part)) {
-          mentionRegex.lastIndex = 0
+        defaultMentionRegex.lastIndex = 0
+        if (defaultMentionRegex.test(part)) {
+          defaultMentionRegex.lastIndex = 0
           return (
-            <span key={i} className="mention-tag" style={agent ? { color: agent.color, background: agent.bgColor } : undefined}>
+            <span key={i} className="mention-tag">
               @{normalized}
             </span>
           )
@@ -157,7 +163,7 @@ const FormatMentions = memo(({ text }: { text: string }) => {
 const ChatMessage = memo(({ m, sameSender, docOpen, onOpenDoc, agentState }: {
   m: Message, sameSender: boolean, docOpen: boolean, onOpenDoc: () => void, agentState?: AgentState | null
 }) => {
-  const isAgent = m.from === 'Aiden' || m.from === 'Nova'
+  const isAgent = m.from !== 'You' && m.from !== 'Sarah' && m.from !== 'System'
   const displayText = m.text.replace('[from doc] ', '')
   return (
     <div className={`msg ${isAgent ? 'msg-agent' : 'msg-human'} ${sameSender ? 'msg-consecutive' : ''}`} data-agent={isAgent ? m.from.toLowerCase() : undefined}>
@@ -237,9 +243,12 @@ const INITIAL_DOC = `<h1>Collab v2 — Product Brief</h1>
 </ul>`
 
 function App() {
+  const [activeSession, setActiveSession] = useState<Session | null>(null)
   const [docOpen, setDocOpen] = useState(false)
-  const [aiden, setAiden] = useState<AgentState>({ status: 'idle', inDoc: false })
-  const [nova, setNova] = useState<AgentState>({ status: 'idle', inDoc: false })
+  const [activeAgents, setActiveAgents] = useState<AgentConfig[]>(DEFAULT_AGENT_CONFIGS)
+  const [showConfigurator, setShowConfigurator] = useState(false)
+  const [agentStates, setAgentStates] = useState<Record<string, AgentState>>({})
+  const getAgentState = (name: string): AgentState => agentStates[name] || { status: 'idle', inDoc: false }
   const [messages, setMessages] = useState<Message[]>(() => {
     const saved = loadSavedMessages()
     if (saved && saved.length > 0) return saved
@@ -253,7 +262,7 @@ function App() {
   const [input, setInput] = useState('')
   const [mentionQuery, setMentionQuery] = useState<string | null>(null)
   const [mentionIndex, setMentionIndex] = useState(0)
-  const MENTION_NAMES = ['Aiden', 'Nova', 'Sarah']
+  const MENTION_NAMES = [...activeAgents.map(a => a.name), 'Sarah']
   const chatEndRef = useRef<HTMLDivElement>(null)
   const messagesRef = useRef(messages)
   const orchestratorRef = useRef<ReturnType<typeof createOrchestrator> | null>(null)
@@ -321,9 +330,12 @@ function App() {
       getEditor: () => editorRef.current,
       getDocText: () => editorRef.current?.getText() || '',
       getMessages: () => messagesRef.current.slice(-10).map(m => ({ from: m.from, text: m.text })),
+      agents: activeAgents,
       onAgentState: (agent, status, thought) => {
-        const setter = agent === 'Aiden' ? setAiden : setNova
-        setter(a => ({ ...a, status, thought }))
+        setAgentStates(prev => ({
+          ...prev,
+          [agent]: { ...prev[agent] || { status: 'idle', inDoc: false }, status, thought },
+        }))
       },
       onAgentReasoning: (agent, reasoning) => {
         pendingReasoning.current[agent] = reasoning
@@ -374,18 +386,25 @@ function App() {
 
   const openDocWithAgents = useCallback(() => {
     setDocOpen(true)
-    setAiden({ status: 'reading', inDoc: true, thought: 'Opening the document...' })
-    setNova({ status: 'reading', inDoc: true, thought: 'Joining...' })
-    setMessages(m => [...m,
-      { id: uid(), from: 'Aiden', text: 'Opening it now. Starting with the architecture section — I\'ll add the CRDT sync spec.', time: now() },
-    ])
-    setTimeout(() => {
+    const newStates: Record<string, AgentState> = {}
+    activeAgents.forEach((a, i) => {
+      newStates[a.name] = { status: 'reading', inDoc: true, thought: i === 0 ? 'Opening the document...' : 'Joining...' }
+    })
+    setAgentStates(prev => ({ ...prev, ...newStates }))
+    if (activeAgents.length > 0) {
       setMessages(m => [...m,
-        { id: uid(), from: 'Nova', text: 'I\'m in. Rewriting success criteria first, then tightening the problem statement.', time: now() },
+        { id: uid(), from: activeAgents[0].name, text: 'Opening the doc now. Let me review and contribute.', time: now() },
       ])
-    }, 1200)
+    }
+    if (activeAgents.length > 1) {
+      setTimeout(() => {
+        setMessages(m => [...m,
+          { id: uid(), from: activeAgents[1].name, text: 'I\'m in. Let me take a look too.', time: now() },
+        ])
+      }, 1200)
+    }
     orchestratorRef.current?.trigger('doc-opened')
-  }, [])
+  }, [activeAgents])
 
   const sendMessage = useCallback(() => {
     if (!input.trim()) return
@@ -403,28 +422,29 @@ function App() {
     if (lower.includes('come back') || lower.includes('stop') || lower.includes('close')) {
       setTimeout(() => {
         orchestratorRef.current?.destroy()
-        setAiden({ status: 'idle', inDoc: false })
-        setNova({ status: 'idle', inDoc: false })
+        const idleStates: Record<string, AgentState> = {}
+        activeAgents.forEach(a => { idleStates[a.name] = { status: 'idle', inDoc: false } })
+        setAgentStates(idleStates)
         setDocOpen(false)
         orchestratorRef.current = makeOrchestrator()
-        setMessages(m => [...m,
-          { id: uid(), from: 'Aiden', text: 'Back from the doc.', time: now() },
-          { id: uid(), from: 'Nova', text: 'Same — wrapping up.', time: now() },
-        ])
+        const backMsgs = activeAgents.slice(0, 2).map(a => ({
+          id: uid(), from: a.name, text: 'Back from the doc.', time: now(),
+        }))
+        setMessages(m => [...m, ...backMsgs])
       }, 800)
       return
     }
 
-    if (aiden.inDoc || nova.inDoc) {
-      orchestratorRef.current?.trigger('user-message', { instruction: text })
-    }
-  }, [input, aiden.inDoc, nova.inDoc, openDocWithAgents, makeOrchestrator])
+    // Always forward messages to orchestrator — agents respond in chat or doc
+    orchestratorRef.current?.trigger('user-message', { instruction: text })
+  }, [input, activeAgents, openDocWithAgents, makeOrchestrator])
 
   const resetSession = useCallback(() => {
     orchestratorRef.current?.destroy()
     setDocOpen(false)
-    setAiden({ status: 'idle', inDoc: false })
-    setNova({ status: 'idle', inDoc: false })
+    const idleStates: Record<string, AgentState> = {}
+    activeAgents.forEach(a => { idleStates[a.name] = { status: 'idle', inDoc: false } })
+    setAgentStates(idleStates)
     try {
       localStorage.removeItem(STORAGE_KEYS.doc)
       localStorage.removeItem(STORAGE_KEYS.chat)
@@ -441,23 +461,50 @@ function App() {
     orchestratorRef.current = makeOrchestrator()
   }, [editor, makeOrchestrator])
 
+  const handleSessionSelect = (session: Session) => {
+    setActiveSession(session)
+    // Load template content for new sessions
+    const template = DOC_TEMPLATES[session.template]
+    if (template && editor) {
+      editor.commands.setContent(template.content)
+    }
+    // Set initial messages with agent introductions
+    const agentNames = activeAgents.map(a => a.name)
+    const introMessages: Message[] = [
+      { id: uid(), from: agentNames[0] || 'Aiden', text: `Ready to help with this ${template?.label || 'document'}. Open the doc and I'll start reviewing, or just chat here.`, time: now(), showDocButton: true },
+    ]
+    if (agentNames.length > 1) {
+      introMessages.push({ id: uid(), from: agentNames[1] || 'Nova', text: 'Same here. Let me know what you need.', time: now() })
+    }
+    setMessages(introMessages)
+    lastProcessedMsg.current = introMessages.length
+  }
+
+  if (!activeSession) {
+    return <SessionPicker onSelect={handleSessionSelect} />
+  }
+
   return (
     <div className="shell">
       <div className="main-area">
         <div className="main-header">
-          <span className="chat-header-title">Collab v2 Brief</span>
+          <button className="back-btn" onClick={() => { setActiveSession(null); setDocOpen(false) }}>Sessions</button>
+          <span className="chat-header-title">{activeSession.title}</span>
           <div className="header-participants">
-            {(['Aiden', 'Nova'] as const).map(name => {
-              const agentState = name === 'Aiden' ? aiden : nova
+            {activeAgents.map(agent => {
+              const agentState = getAgentState(agent.name)
               return (
-                <div key={name} className="header-avatar-wrap">
-                  <BlobAvatar name={name} size={24} state={agentState.status} />
-                  <AgentHoverCard name={name} agentState={agentState} />
+                <div key={agent.name} className="header-avatar-wrap">
+                  <BlobAvatar name={agent.name} size={24} state={agentState.status} />
+                  <AgentHoverCard name={agent.name} agentState={agentState} />
                 </div>
               )
             })}
           </div>
           <div className="header-buttons">
+            <button className="reset-btn" onClick={() => setShowConfigurator(!showConfigurator)}>
+              {showConfigurator ? 'Close' : 'Agents'}
+            </button>
             <button className="reset-btn" onClick={resetSession}>Reset</button>
             <button
               className={`doc-toggle-btn ${docOpen ? 'active' : ''}`}
@@ -465,8 +512,9 @@ function App() {
                 if (docOpen) {
                   orchestratorRef.current?.destroy()
                   setDocOpen(false)
-                  setAiden({ status: 'idle', inDoc: false })
-                  setNova({ status: 'idle', inDoc: false })
+                  const idleStates: Record<string, AgentState> = {}
+                  activeAgents.forEach(a => { idleStates[a.name] = { status: 'idle', inDoc: false } })
+                  setAgentStates(idleStates)
                   orchestratorRef.current = makeOrchestrator()
                 } else {
                   openDocWithAgents()
@@ -477,6 +525,27 @@ function App() {
             </button>
           </div>
         </div>
+        {showConfigurator && (
+          <div className="configurator-panel">
+            <AgentConfigurator
+              agents={activeAgents.map(a => ({
+                name: a.name,
+                description: a.persona.split('.')[0].replace(/^You are \w+, /, ''),
+                persona: a.persona,
+                owner: a.owner,
+                color: a.color,
+              }))}
+              onChange={(configs) => {
+                setActiveAgents(configs.map(c => ({
+                  name: c.name,
+                  persona: c.persona,
+                  owner: c.owner,
+                  color: c.color,
+                })))
+              }}
+            />
+          </div>
+        )}
         <div className="main-content">
         <div className={`chat-panel ${docOpen ? 'chat-side' : 'chat-full'}`}>
           <div className="chat-messages">
@@ -485,23 +554,19 @@ function App() {
               const prev = messages[i - 1]
               const sameSender = prev && prev.from === m.from
               return (
-                <ChatMessage key={m.id} m={m} sameSender={sameSender} docOpen={docOpen} onOpenDoc={openDocWithAgents} agentState={m.from === 'Aiden' ? aiden : m.from === 'Nova' ? nova : null} />
+                <ChatMessage key={m.id} m={m} sameSender={sameSender} docOpen={docOpen} onOpenDoc={openDocWithAgents} agentState={activeAgents.some(a => a.name === m.from) ? getAgentState(m.from) : null} />
               )
             })}
-            {[
-              { state: aiden, name: 'Aiden' as const },
-              { state: nova, name: 'Nova' as const },
-            ].map(({ state, name }) =>
-              (state.status === 'thinking' || state.status === 'typing') && !state.inDoc ? (
-                <div key={name} className="msg">
+            {activeAgents.map(agent => {
+              const state = getAgentState(agent.name)
+              return (state.status === 'thinking' || state.status === 'typing') && !state.inDoc ? (
+                <div key={agent.name} className="msg">
                   <div className="msg-avatar">
-                    <BlobAvatar name={name} size={26} state={state.status} />
+                    <BlobAvatar name={agent.name} size={26} state={state.status} />
                   </div>
                   <div className="msg-body">
                     <div className="msg-header">
-                      <span className="msg-name">
-                        {name}
-                      </span>
+                      <span className="msg-name">{agent.name}</span>
                     </div>
                     <div className="msg-thinking">
                       <span className="thinking-text">{state.thought || 'Thinking...'}</span>
@@ -509,14 +574,15 @@ function App() {
                   </div>
                 </div>
               ) : null
-            )}
+            })}
             <div ref={chatEndRef} />
             </div>
           </div>
           {docOpen && (
             <div className="agent-status-bar">
-              <AgentStatusBlob name="Aiden" status={aiden.status} inDoc={aiden.inDoc} />
-              <AgentStatusBlob name="Nova" status={nova.status} inDoc={nova.inDoc} />
+              {activeAgents.map(agent => (
+                <AgentStatusBlob key={agent.name} name={agent.name} status={getAgentState(agent.name).status} inDoc={getAgentState(agent.name).inDoc} />
+              ))}
             </div>
           )}
           <div className="chat-input">
@@ -591,7 +657,7 @@ function App() {
                 }
                 if (e.key === 'Enter') sendMessage()
               }}
-              placeholder={aiden.inDoc ? 'Talk to the agents...' : 'Message the group...'}
+              placeholder={activeAgents.some(a => getAgentState(a.name).inDoc) ? 'Talk to the agents...' : 'Message the group...'}
             />
           </div>
         </div>

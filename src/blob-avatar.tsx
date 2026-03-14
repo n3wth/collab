@@ -3,187 +3,205 @@ import { createNoise3D } from 'simplex-noise'
 
 type BlobState = 'idle' | 'thinking' | 'reading' | 'typing' | 'editing'
 
+const AGENT_COLORS: Record<string, string> = {
+  Aiden: '#30d158',
+  Nova: '#ff6961',
+  Lex: '#64d2ff',
+  Mira: '#ffd60a',
+}
+
 interface BlobAvatarProps {
   name: string
   size?: number
   state?: BlobState
+  color?: string
 }
 
-// Each agent gets a unique noise seed
-const SEEDS: Record<string, number> = { Aiden: 1, Nova: 2 }
+const SEEDS: Record<string, number> = { Aiden: 1, Nova: 2, Lex: 3, Mira: 4 }
 
-// Base speed multipliers per state (scaled by size — smaller = faster)
-const SPEED: Record<BlobState, number> = {
-  idle: 0.15,
-  thinking: 0.6,
-  reading: 0.3,
-  typing: 0.9,
-  editing: 0.9,
+// Speed, distortion, breath, and fill targets per state
+const STATE_CONFIG: Record<BlobState, { speed: number, distort: number, breath: number, fill: number }> = {
+  idle:     { speed: 0.18, distort: 0.05,  breath: 0.012, fill: 0 },
+  thinking: { speed: 0.55, distort: 0.11,  breath: 0.02,  fill: 0.55 },
+  reading:  { speed: 0.30, distort: 0.08,  breath: 0.018, fill: 0.35 },
+  typing:   { speed: 0.90, distort: 0.15,  breath: 0.008, fill: 1 },
+  editing:  { speed: 0.90, distort: 0.15,  breath: 0.008, fill: 1 },
 }
 
-// Distortion amount per state (subtle)
-const DISTORT: Record<BlobState, number> = {
-  idle: 0.05,
-  thinking: 0.12,
-  reading: 0.08,
-  typing: 0.16,
-  editing: 0.16,
-}
-
-// Reference size — blobs at this size move at base speed
 const REF_SIZE = 28
-
-// Number of points on the blob path
 const POINTS = 6
 
-function buildPath(cx: number, cy: number, r: number, noise3D: ReturnType<typeof createNoise3D>, t: number, distortion: number, seed: number): string {
-  const pts: [number, number][] = []
-  for (let i = 0; i < POINTS; i++) {
-    const angle = (Math.PI * 2 * i) / POINTS
-    const n = noise3D(Math.cos(angle) + seed, Math.sin(angle) + seed, t)
-    const rad = r * (1 + n * distortion)
-    pts.push([cx + Math.cos(angle) * rad, cy + Math.sin(angle) * rad])
-  }
+// Pre-compute angle constants
+const ANGLES = Array.from({ length: POINTS }, (_, i) => (Math.PI * 2 * i) / POINTS)
+const COS_ANGLES = ANGLES.map(Math.cos)
+const SIN_ANGLES = ANGLES.map(Math.sin)
 
-  // Smooth closed catmull-rom → cubic bezier
-  let d = ''
-  for (let i = 0; i < POINTS; i++) {
-    const p0 = pts[(i - 1 + POINTS) % POINTS]
-    const p1 = pts[i]
-    const p2 = pts[(i + 1) % POINTS]
-    const p3 = pts[(i + 2) % POINTS]
-
-    const cp1x = p1[0] + (p2[0] - p0[0]) / 6
-    const cp1y = p1[1] + (p2[1] - p0[1]) / 6
-    const cp2x = p2[0] - (p3[0] - p1[0]) / 6
-    const cp2y = p2[1] - (p3[1] - p1[1]) / 6
-
-    if (i === 0) d += `M${p1[0].toFixed(1)},${p1[1].toFixed(1)}`
-    d += `C${cp1x.toFixed(1)},${cp1y.toFixed(1)},${cp2x.toFixed(1)},${cp2y.toFixed(1)},${p2[0].toFixed(1)},${p2[1].toFixed(1)}`
-  }
-  d += 'Z'
-  return d
+function hexToRgb(hex: string): [number, number, number] {
+  const v = parseInt(hex.slice(1), 16)
+  return [(v >> 16) & 255, (v >> 8) & 255, v & 255]
 }
 
-export const BlobAvatar = memo(({ name, size = 28, state = 'idle' }: BlobAvatarProps) => {
+export const BlobAvatar = memo(({ name, size = 28, state = 'idle', color }: BlobAvatarProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const rafRef = useRef<number>(0)
-  const noise3DRef = useRef<ReturnType<typeof createNoise3D> | null>(null)
   const stateRef = useRef(state)
+  const fillRef = useRef(STATE_CONFIG[state].fill)
   stateRef.current = state
 
-  const seed = SEEDS[name] ?? 0
-  const isAiden = name === 'Aiden'
+  const seed = SEEDS[name] ?? (name.charCodeAt(0) % 10)
+  const agentColor = color || AGENT_COLORS[name] || '#1a1a1a'
 
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
 
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
+    const ctxOrNull = canvas.getContext('2d', { alpha: true })
+    if (!ctxOrNull) return
+    const ctx = ctxOrNull
 
-    if (!noise3DRef.current) {
-      noise3DRef.current = createNoise3D()
-    }
-    const noise3D = noise3DRef.current
+    const noise3D = createNoise3D()
+    const [cr, cg, cb] = hexToRgb(agentColor)
 
     const dpr = window.devicePixelRatio || 1
     canvas.width = size * dpr
     canvas.height = size * dpr
     ctx.scale(dpr, dpr)
 
-    let t = 0
+    let t = Math.random() * 50 // offset so blobs don't sync
     let lastFrame = 0
     const cx = size / 2
     const cy = size / 2
     const r = size * 0.34
+    const strokeW = Math.max(size * 0.06, 1.2)
+
+    // Reusable arrays to avoid GC pressure
+    const ptsX = new Float32Array(POINTS)
+    const ptsY = new Float32Array(POINTS)
+
+    function computeBlob(time: number, distort: number, breath: number) {
+      const scale = 1 + Math.sin(time * 0.8) * breath
+      for (let i = 0; i < POINTS; i++) {
+        const n = noise3D(COS_ANGLES[i] + seed, SIN_ANGLES[i] + seed, time)
+        const rad = r * scale * (1 + n * distort)
+        ptsX[i] = cx + COS_ANGLES[i] * rad
+        ptsY[i] = cy + SIN_ANGLES[i] * rad
+      }
+    }
+
+    function drawBlobPath(context: CanvasRenderingContext2D) {
+      context.beginPath()
+      for (let i = 0; i < POINTS; i++) {
+        const p0x = ptsX[(i - 1 + POINTS) % POINTS], p0y = ptsY[(i - 1 + POINTS) % POINTS]
+        const p1x = ptsX[i], p1y = ptsY[i]
+        const p2x = ptsX[(i + 1) % POINTS], p2y = ptsY[(i + 1) % POINTS]
+        const p3x = ptsX[(i + 2) % POINTS], p3y = ptsY[(i + 2) % POINTS]
+
+        const cp1x = p1x + (p2x - p0x) / 6
+        const cp1y = p1y + (p2y - p0y) / 6
+        const cp2x = p2x - (p3x - p1x) / 6
+        const cp2y = p2y - (p3y - p1y) / 6
+
+        if (i === 0) context.moveTo(p1x, p1y)
+        context.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2x, p2y)
+      }
+      context.closePath()
+    }
 
     function draw(now: number) {
       const s = stateRef.current
       const isActive = s !== 'idle'
 
-      // Idle blobs render at 4fps, active at full speed
-      const minInterval = isActive ? 0 : 250
-      if (now - lastFrame < minInterval) {
+      // Throttle idle to ~4fps
+      if (!isActive && now - lastFrame < 250) {
         rafRef.current = requestAnimationFrame(draw)
         return
       }
       const dt = lastFrame ? Math.min((now - lastFrame) / 1000, 0.05) : 0.016
       lastFrame = now
 
-      const sizeScale = REF_SIZE / size // smaller → faster
-      const speed = SPEED[s] * sizeScale
-      const distortion = DISTORT[s]
-      const isShimmer = s === 'thinking' || s === 'reading'
+      const cfg = STATE_CONFIG[s]
+      const sizeScale = REF_SIZE / size
 
-      t += dt * speed
-      ctx!.clearRect(0, 0, size, size)
+      // Smooth fill transition — rise faster than drain
+      const target = cfg.fill
+      const lerpRate = target > fillRef.current ? 3.0 : 2.0
+      fillRef.current += (target - fillRef.current) * Math.min(lerpRate * dt, 0.15)
+      // Snap to target when close
+      if (Math.abs(fillRef.current - target) < 0.005) fillRef.current = target
+      const fill = fillRef.current
 
-      const pathStr = buildPath(cx, cy, r, noise3D, t, distortion, seed)
-      const path = new Path2D(pathStr)
+      t += dt * cfg.speed * sizeScale
+      ctx.clearRect(0, 0, size, size)
 
-      if (isShimmer) {
-        // Radial shimmer: a soft light orbits around the blob
-        const shimmerSpeed = s === 'thinking' ? 0.8 : 1.2
-        const angle = (t * shimmerSpeed) % (Math.PI * 2)
-        const highlightX = cx + Math.cos(angle) * r * 0.6
-        const highlightY = cy + Math.sin(angle) * r * 0.6
+      computeBlob(t, cfg.distort, cfg.breath)
 
-        // Draw base shape
-        if (isAiden) {
-          ctx!.fillStyle = '#1a1a1a'
-          ctx!.fill(path)
-          // Overlay radial highlight
-          ctx!.save()
-          ctx!.clip(path)
-          const glow = ctx!.createRadialGradient(highlightX, highlightY, 0, highlightX, highlightY, r * 0.9)
-          glow.addColorStop(0, 'rgba(255,255,255,0.45)')
-          glow.addColorStop(0.4, 'rgba(255,255,255,0.15)')
+      // 1. Always draw outline
+      drawBlobPath(ctx)
+      ctx.strokeStyle = agentColor
+      ctx.lineWidth = strokeW
+      ctx.stroke()
+
+      // 2. Draw water fill if > 0
+      if (fill > 0.005) {
+        ctx.save()
+        drawBlobPath(ctx)
+        ctx.clip()
+
+        // Water line position — from bottom to top
+        const blobTop = cy - r * 1.15
+        const blobBottom = cy + r * 1.15
+        const waterY = blobBottom - fill * (blobBottom - blobTop)
+
+        // Wobbling water surface
+        const wobbleAmp = size * 0.035 * Math.min(fill * 2, 1)
+        const wobblePhase = t * 2.2
+
+        ctx.beginPath()
+        const left = cx - r * 1.3
+        const right = cx + r * 1.3
+
+        ctx.moveTo(left, waterY)
+        // Draw wave in steps of 2px for smooth but efficient curve
+        const step = Math.max(2, size / 20)
+        for (let x = left; x <= right; x += step) {
+          const wave = Math.sin((x / size) * 3 * Math.PI + wobblePhase) * wobbleAmp
+          ctx.lineTo(x, waterY + wave)
+        }
+        ctx.lineTo(right, waterY + Math.sin((right / size) * 3 * Math.PI + wobblePhase) * wobbleAmp)
+        ctx.lineTo(right, blobBottom + r)
+        ctx.lineTo(left, blobBottom + r)
+        ctx.closePath()
+
+        // Fill opacity scales with level
+        const alpha = 0.2 + fill * 0.8
+        ctx.fillStyle = `rgba(${cr},${cg},${cb},${alpha})`
+        ctx.fill()
+
+        // Shimmer when >40% full
+        if (fill > 0.4) {
+          const shimAngle = (t * 0.7) % (Math.PI * 2)
+          const hx = cx + Math.cos(shimAngle) * r * 0.4
+          const hy = cy + Math.sin(shimAngle) * r * 0.4
+          const glow = ctx.createRadialGradient(hx, hy, 0, hx, hy, r * 0.7)
+          glow.addColorStop(0, `rgba(255,255,255,${0.3 * fill})`)
+          glow.addColorStop(0.5, `rgba(255,255,255,${0.08 * fill})`)
           glow.addColorStop(1, 'rgba(255,255,255,0)')
-          ctx!.fillStyle = glow
-          ctx!.fill(path)
-          ctx!.restore()
-        } else {
-          // For outline: vary stroke opacity around the path using two passes
-          ctx!.strokeStyle = '#1a1a1a'
-          ctx!.lineWidth = size * 0.065
-          ctx!.stroke(path)
-          // Highlight pass
-          ctx!.save()
-          const strokeGlow = ctx!.createRadialGradient(highlightX, highlightY, 0, highlightX, highlightY, r * 0.9)
-          strokeGlow.addColorStop(0, 'rgba(255,255,255,0.7)')
-          strokeGlow.addColorStop(0.35, 'rgba(255,255,255,0.2)')
-          strokeGlow.addColorStop(1, 'rgba(255,255,255,0)')
-          ctx!.strokeStyle = strokeGlow
-          ctx!.lineWidth = size * 0.065
-          ctx!.stroke(path)
-          ctx!.restore()
+          ctx.fillStyle = glow
+          ctx.fill()
         }
-      } else {
-        if (isAiden) {
-          ctx!.fillStyle = '#1a1a1a'
-          ctx!.fill(path)
-        } else {
-          ctx!.strokeStyle = '#1a1a1a'
-          ctx!.lineWidth = size * 0.065
-          ctx!.stroke(path)
-        }
+
+        ctx.restore()
       }
 
       rafRef.current = requestAnimationFrame(draw)
     }
 
     rafRef.current = requestAnimationFrame(draw)
-
-    return () => {
-      cancelAnimationFrame(rafRef.current)
-    }
-  }, [size, seed, isAiden])
-
-  const label = state === 'idle' ? name : `${name} — ${state}`
+    return () => cancelAnimationFrame(rafRef.current)
+  }, [size, seed, agentColor])
 
   return (
-    <div className="blob-avatar-wrap" data-tooltip={label}>
+    <div className="blob-avatar-wrap" data-tooltip={state === 'idle' ? name : `${name} — ${state}`}>
       <canvas
         ref={canvasRef}
         style={{ width: size, height: size, flexShrink: 0, display: 'block' }}
@@ -191,5 +209,3 @@ export const BlobAvatar = memo(({ name, size = 28, state = 'idle' }: BlobAvatarP
     </div>
   )
 })
-
-BlobAvatar.displayName = 'BlobAvatar'

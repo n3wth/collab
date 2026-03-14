@@ -11,6 +11,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.99.1",
     "@tiptap/extension-collaboration": "^3.20.1",
     "@tiptap/extension-collaboration-caret": "^3.20.1",
     "@tiptap/extension-placeholder": "^3.20.1",
@@ -22,6 +23,7 @@
     "react-dom": "^19.2.0",
     "simplex-noise": "^4.0.3",
     "y-protocols": "^1.0.7",
+    "y-websocket": "^3.0.0",
     "yjs": "^13.6.29"
   },
   "devDependencies": {

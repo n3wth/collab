@@ -1,9 +1,17 @@
 import type { Editor } from '@tiptap/react'
 import { askAgent, AgentError, resetRateLimiter, type AgentAction, type AskParams } from './agent'
 import { executeAgentAction, type ActionCallbacks } from './agent-actions'
+import { generateHeartbeat } from './heartbeat'
 
-type AgentName = 'Aiden' | 'Nova'
-type TriggerType = 'doc-opened' | 'user-message' | 'agent-tagged' | 'turn-complete'
+type AgentName = string
+type TriggerType = 'doc-opened' | 'user-message' | 'agent-tagged' | 'turn-complete' | 'heartbeat'
+
+export interface AgentConfig {
+  name: string
+  persona: string
+  owner: string
+  color: string
+}
 
 interface TurnRequest {
   agent: AgentName
@@ -19,6 +27,7 @@ interface OrchestratorConfig {
   onChatMessage: (from: string, text: string) => void
   onAgentReasoning?: (agent: AgentName, reasoning: string[]) => void
   onError?: (agent: AgentName, error: AgentError, consecutiveFailures: number) => void
+  agents: AgentConfig[]
 }
 
 interface OrchestratorHandle {
@@ -39,8 +48,11 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
   const typingTimers: Record<string, number> = {}
   const pendingInstructions: Record<string, { trigger: AskParams['trigger'], instruction: string }> = {}
   let lastActionDescription: Record<string, string> = {}
+  const agentNames = config.agents.map(a => a.name)
+  function getAgentConfig(name: string) { return config.agents.find(a => a.name === name) }
+
   // Track total turns per agent (caps all non-user-initiated work)
-  const turnCount: Record<string, number> = { Aiden: 0, Nova: 0 }
+  const turnCount: Record<string, number> = Object.fromEntries(config.agents.map(a => [a.name, 0]))
   const MAX_TURNS = 4
   // Track back-and-forth exchanges
   let exchangeCount = 0
@@ -48,11 +60,13 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
   // Track pending doc-edit reaction to prevent double-triggers
   let pendingReaction: AgentName | null = null
   // Track consecutive failures per agent — pause after MAX_CONSECUTIVE_FAILURES
-  const consecutiveFailures: Record<string, number> = { Aiden: 0, Nova: 0 }
+  const consecutiveFailures: Record<string, number> = Object.fromEntries(config.agents.map(a => [a.name, 0]))
   const MAX_CONSECUTIVE_FAILURES = 3
   const pausedAgents = new Set<AgentName>()
   // Track ALL scheduled timeouts so we can clear them on destroy/user-message
   const scheduledTimers = new Set<number>()
+  // Heartbeat timer for proactive agent behaviors
+  let heartbeatTimer: number | null = null
 
   function scheduleTimeout(fn: () => void, ms: number): number {
     const id = window.setTimeout(() => {
@@ -99,10 +113,12 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
     config.onAgentState(req.agent, 'thinking', 'Thinking...')
 
     try {
-      const otherAgent: AgentName = req.agent === 'Aiden' ? 'Nova' : 'Aiden'
+      const agentCfg = getAgentConfig(req.agent)
+      const otherNames = agentNames.filter(n => n !== req.agent)
+      const otherAgent = otherNames[0] || req.agent
       const action = await askAgent({
         agentName: req.agent,
-        ownerName: req.agent === 'Aiden' ? 'You' : 'Sarah',
+        ownerName: agentCfg?.owner || 'You',
         docText: config.getDocText(),
         chatHistory: config.getMessages().slice(-10),
         trigger: req.trigger,
@@ -110,6 +126,8 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
         recentChange: lastActionDescription[otherAgent],
         otherAgentLastAction: lastActionDescription[otherAgent],
         lockHolder: editorLockRef.current,
+        persona: agentCfg?.persona || '',
+        otherAgents: agentNames,
       })
 
       // Emit reasoning before executing action
@@ -165,7 +183,7 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
         },
       }
 
-      executeAgentAction(editor, req.agent, action, editorLockRef, typingTimers, callbacks)
+      executeAgentAction(editor, req.agent, agentCfg?.color || '#1a1a1a', action, editorLockRef, typingTimers, callbacks)
     } catch (err) {
       if (destroyed) { processing = false; return }
       log('error', req.agent, err)
@@ -210,33 +228,31 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
 
     switch (type) {
       case 'doc-opened':
-        turnCount.Aiden = 0
-        turnCount.Nova = 0
+        for (const name of agentNames) {
+          turnCount[name] = 0
+        }
         exchangeCount = 0
         pendingReaction = null
-        scheduleTimeout(() => enqueue({
-          agent: 'Aiden',
-          trigger: 'instruction',
-          instruction: 'Review the doc and add technical depth — architecture details, system design, implementation specifics. Use your engineering expertise.',
-        }), 2500)
-        scheduleTimeout(() => enqueue({
-          agent: 'Nova',
-          trigger: 'instruction',
-          instruction: 'Review the doc and address the open questions from a product/user perspective — user scenarios, adoption risks, edge cases. Use your product strategy expertise.',
-        }), 6000)
+        startHeartbeat()
+        config.agents.forEach((a, i) => {
+          scheduleTimeout(() => enqueue({
+            agent: a.name,
+            trigger: 'instruction',
+            instruction: `Review the doc and contribute from your area of expertise. Use your background in: ${a.persona.slice(0, 100)}`,
+          }), 2500 + i * 3500)
+        })
         break
 
       case 'user-message': {
+        startHeartbeat() // reset heartbeat timer on user activity
         const instruction = payload?.instruction || ''
         const lower = instruction.toLowerCase()
-        const mentionsAiden = lower.includes('aiden') || lower.includes('@aiden')
-        const mentionsNova = lower.includes('nova') || lower.includes('@nova')
-        const mentionsBoth = !mentionsAiden && !mentionsNova
+        const mentionedAgents = agentNames.filter(n => lower.includes(n.toLowerCase()) || lower.includes('@' + n.toLowerCase()))
+        const mentionsBoth = mentionedAgents.length === 0
 
         // User messages take priority — clear everything
         queue.length = 0
-        delete pendingInstructions['Aiden']
-        delete pendingInstructions['Nova']
+        for (const name of agentNames) delete pendingInstructions[name]
         // Cancel all pending reaction timeouts
         scheduledTimers.forEach(id => clearTimeout(id))
         scheduledTimers.clear()
@@ -244,21 +260,14 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
         pendingReaction = null
         // Unpause agents on user interaction so they can retry
         pausedAgents.clear()
-        consecutiveFailures.Aiden = 0
-        consecutiveFailures.Nova = 0
+        for (const name of agentNames) consecutiveFailures[name] = 0
 
-        if (mentionsAiden || mentionsBoth) {
+        const agentsToTrigger = mentionsBoth ? agentNames : mentionedAgents
+        for (const name of agentsToTrigger) {
           if (processing) {
-            pendingInstructions['Aiden'] = { trigger: 'instruction', instruction }
+            pendingInstructions[name] = { trigger: 'instruction', instruction }
           } else {
-            enqueue({ agent: 'Aiden', trigger: 'instruction', instruction })
-          }
-        }
-        if (mentionsNova || mentionsBoth) {
-          if (processing) {
-            pendingInstructions['Nova'] = { trigger: 'instruction', instruction }
-          } else {
-            enqueue({ agent: 'Nova', trigger: 'instruction', instruction })
+            enqueue({ agent: name, trigger: 'instruction', instruction })
           }
         }
         break
@@ -288,30 +297,61 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
   }
 
   function onMessage(from: string, text: string) {
-    if (from === 'Aiden' || from === 'Nova') {
-      const other: AgentName = from === 'Aiden' ? 'Nova' : 'Aiden'
-      if (text.toLowerCase().includes('@' + other.toLowerCase())) {
-        scheduleTimeout(() => {
-          trigger('agent-tagged', { agent: other, from })
-        }, 2000 + Math.random() * 2000)
+    if (agentNames.includes(from)) {
+      const lower = text.toLowerCase()
+      for (const other of agentNames) {
+        if (other !== from && lower.includes('@' + other.toLowerCase())) {
+          scheduleTimeout(() => {
+            trigger('agent-tagged', { agent: other, from })
+          }, 2000 + Math.random() * 2000)
+        }
       }
     }
+  }
+
+  function startHeartbeat() {
+    stopHeartbeat()
+    const delay = 20000 + Math.random() * 10000 // 20-30s for now, tune up later
+    heartbeatTimer = window.setTimeout(() => {
+      fireHeartbeat()
+      startHeartbeat()
+    }, delay)
+  }
+
+  function stopHeartbeat() {
+    if (heartbeatTimer) {
+      clearTimeout(heartbeatTimer)
+      heartbeatTimer = null
+    }
+  }
+
+  function fireHeartbeat() {
+    if (destroyed || processing || agentNames.length === 0) return
+    const instruction = generateHeartbeat(
+      config.getDocText(),
+      config.getMessages().slice(-10),
+    )
+    if (!instruction) return
+    const agent = agentNames[Math.floor(Math.random() * agentNames.length)]
+    if (queue.some(q => q.agent === agent)) return
+    enqueue({ agent, trigger: 'instruction', instruction })
   }
 
   function destroy() {
     destroyed = true
     clearAllTimers()
+    stopHeartbeat()
     resetRateLimiter()
     queue.length = 0
     processing = false
     editorLockRef.current = null
-    turnCount.Aiden = 0
-    turnCount.Nova = 0
+    for (const name of agentNames) {
+      turnCount[name] = 0
+      consecutiveFailures[name] = 0
+    }
     exchangeCount = 0
     pendingReaction = null
     pausedAgents.clear()
-    consecutiveFailures.Aiden = 0
-    consecutiveFailures.Nova = 0
   }
 
   return { trigger, onMessage, destroy }
