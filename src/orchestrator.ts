@@ -27,6 +27,7 @@ interface OrchestratorConfig {
   onAgentState: (agent: AgentName, status: 'idle' | 'thinking' | 'typing' | 'reading' | 'editing', thought?: string) => void
   onChatMessage: (from: string, text: string) => void
   onAgentReasoning?: (agent: AgentName, reasoning: string[]) => void
+  onDocAction?: (agent: AgentName, description: string) => void
   onError?: (agent: AgentName, error: AgentError, consecutiveFailures: number) => void
   agents: AgentConfig[]
 }
@@ -146,6 +147,11 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
           const actionDesc = describeAction(req.agent, action)
           lastActionDescription[req.agent] = actionDesc
           turnCount[req.agent]++
+          // Fire timeline callback for doc edits
+          const didDocEdit = action.type === 'insert' || action.type === 'replace' || action.type === 'read'
+          if (didDocEdit) {
+            config.onDocAction?.(req.agent, actionDesc)
+          }
           if (pendingReaction === req.agent) pendingReaction = null
           processing = false
 

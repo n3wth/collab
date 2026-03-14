@@ -1418,6 +1418,28 @@
   opacity: 0;
   animation: dotAppear 0.3s var(--ease-out-expo) forwards;
   cursor: default;
+  position: relative;
+}
+
+.timeline-dot:hover::after {
+  content: attr(title);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 8px;
+  background: var(--text-primary);
+  color: var(--surface-0);
+  font-size: 11px;
+  font-family: var(--font-ui);
+  line-height: 1.3;
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+  z-index: 100;
 }
 
 @keyframes dotAppear {

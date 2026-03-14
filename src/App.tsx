@@ -337,6 +337,12 @@ function App() {
       onAgentReasoning: (agent, reasoning) => {
         pendingReasoning.current[agent] = reasoning
       },
+      onDocAction: (agent, description) => {
+        const agentCfg = activeAgents.find(a => a.name === agent)
+        if (agentCfg) {
+          setTimeline(t => [...t, { id: uid(), color: agentCfg.color, tooltip: description }])
+        }
+      },
       onChatMessage: (from, text) => {
         const reasoning = pendingReasoning.current[from]
         if (reasoning) delete pendingReasoning.current[from]
@@ -345,11 +351,6 @@ function App() {
           if (last && last.from === from && last.text === text) return m
           return [...m, { id: uid(), from, text, time: now(), reasoning }]
         })
-        // Add to timeline
-        const agentCfg = activeAgents.find(a => a.name === from)
-        if (agentCfg) {
-          setTimeline(t => [...t, { id: uid(), color: agentCfg.color, tooltip: `${from}: ${text.slice(0, 60)}` }])
-        }
         // Persist to Supabase
         const session = activeSessionRef.current
         if (session) {
