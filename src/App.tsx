@@ -5,9 +5,10 @@ import Placeholder from '@tiptap/extension-placeholder'
 import { AgentCursors } from './agent-cursor'
 import { createOrchestrator, type AgentConfig } from './orchestrator'
 import { DEFAULT_PERSONAS } from './agent'
-import { SessionPicker } from './SessionPicker'
+import { HomePage } from './HomePage'
 import { AgentConfigurator } from './AgentConfigurator'
 import { DOC_TEMPLATES } from './templates'
+import { saveDocument, loadDocument, saveChatMessage, loadChatMessages } from './lib/session-store'
 import type { Session } from './types'
 import { BlobAvatar } from './blob-avatar'
 import type { Editor } from '@tiptap/react'
@@ -200,65 +201,17 @@ const ChatMessage = memo(({ m, sameSender, docOpen, onOpenDoc, agentState }: {
   )
 })
 
-const STORAGE_KEYS = { doc: 'collab-doc-content', chat: 'collab-chat-messages' }
-
-function loadSavedDoc(): string | null {
-  try { return localStorage.getItem(STORAGE_KEYS.doc) } catch { return null }
-}
-
-function loadSavedMessages(): Message[] | null {
-  try {
-    const saved = localStorage.getItem(STORAGE_KEYS.chat)
-    if (!saved) return null
-    return JSON.parse(saved) as Message[]
-  } catch { return null }
-}
-
-const INITIAL_DOC = `<h1>Collab v2 — Product Brief</h1>
-<h2>Problem</h2>
-<p>Knowledge workers spend 60% of their day context-switching between tools. Documents live in one place, conversations in another, and decisions fall through the cracks. When you need to act on something discussed in chat, you copy-paste into a doc. When a doc needs input, you ping someone in Slack. The information graph is fragmented.</p>
-<h2>Insight</h2>
-<p>The unit of collaboration isn't a document or a message — it's a decision. Every artifact is just a waypoint toward alignment. If agents can maintain continuity across these waypoints, they collapse the distance between thinking and doing.</p>
-<h2>Proposed Solution</h2>
-<p>A workspace where AI agents are first-class participants. Each person brings their own agent with persistent context. Agents join conversations, edit documents, and coordinate work — visible to everyone in real time. The agent doesn't replace the human; it extends their reach.</p>
-<h2>Architecture</h2>
-<ul>
-<li>CRDT-based document sync with agent cursor presence</li>
-<li>Per-agent context window with cross-session memory</li>
-<li>Turn-based coordination protocol to prevent edit conflicts</li>
-<li>Streaming action model: read → think → write, with each step visible</li>
-</ul>
-<h2>Success Criteria</h2>
-<ul>
-<li>Time from discussion to documented decision: &lt;5 minutes</li>
-<li>Zero copy-paste between chat and docs</li>
-<li>Agent actions are auditable and reversible</li>
-<li>Users trust the agent enough to let it draft without supervision</li>
-</ul>
-<h2>Open Questions</h2>
-<ul>
-<li>How does the agent signal uncertainty vs confidence?</li>
-<li>What's the right level of autonomy for v1?</li>
-<li>How do we handle conflicting instructions from multiple users?</li>
-</ul>`
+const EMPTY_DOC = '<h1>Untitled</h1><p></p>'
 
 function App() {
   const [activeSession, setActiveSession] = useState<Session | null>(null)
+  const activeSessionRef = useRef<Session | null>(null)
   const [docOpen, setDocOpen] = useState(false)
   const [activeAgents, setActiveAgents] = useState<AgentConfig[]>(DEFAULT_AGENT_CONFIGS)
   const [showConfigurator, setShowConfigurator] = useState(false)
   const [agentStates, setAgentStates] = useState<Record<string, AgentState>>({})
   const getAgentState = (name: string): AgentState => agentStates[name] || { status: 'idle', inDoc: false }
-  const [messages, setMessages] = useState<Message[]>(() => {
-    const saved = loadSavedMessages()
-    if (saved && saved.length > 0) return saved
-    return [
-      { id: uid(), from: 'You', text: 'the v2 brief needs to be ready for the board review Friday. can you two get in there and tighten it up?', time: '2:41 PM' },
-      { id: uid(), from: 'Sarah', text: 'yeah the architecture section is still too vague and we need real success metrics, not aspirational ones', time: '2:41 PM' },
-      { id: uid(), from: 'Aiden', text: 'I\'ll take architecture and the technical open questions. The sync protocol needs specifics — I\'ll spec out the CRDT approach and agent coordination model.', time: '2:42 PM', showDocButton: true },
-      { id: uid(), from: 'Nova', text: 'I\'ll sharpen the problem statement and success criteria. Sarah\'s right — "users trust the agent" isn\'t measurable. I\'ll define concrete thresholds.', time: '2:42 PM' },
-    ]
-  })
+  const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [mentionQuery, setMentionQuery] = useState<string | null>(null)
   const [mentionIndex, setMentionIndex] = useState(0)
@@ -278,17 +231,24 @@ function App() {
       Placeholder.configure({ placeholder: 'Start writing...' }),
       AgentCursors,
     ],
-    content: loadSavedDoc() || INITIAL_DOC,
+    content: EMPTY_DOC,
     editorProps: {
       attributes: {
         class: 'doc-editor',
       },
     },
     onUpdate: ({ editor: ed }) => {
+      // Debounced save to Supabase
       if (docSaveTimer.current) clearTimeout(docSaveTimer.current)
       docSaveTimer.current = window.setTimeout(() => {
-        try { localStorage.setItem(STORAGE_KEYS.doc, ed.getHTML()) } catch { /* full */ }
+        const session = activeSessionRef.current
+        if (session) {
+          saveDocument(session.id, ed.getHTML()).catch(err =>
+            console.error('[App] saveDocument error:', err)
+          )
+        }
       }, 2000)
+      // Detect user typing in doc
       if (docEditTimer.current) clearTimeout(docEditTimer.current)
       docEditTimer.current = window.setTimeout(() => {
         const currentText = ed.getText()
@@ -311,10 +271,6 @@ function App() {
   useEffect(() => {
     if (editor) lastDocSnapshot.current = editor.getText()
   }, [editor])
-
-  useEffect(() => {
-    try { localStorage.setItem(STORAGE_KEYS.chat, JSON.stringify(messages)) } catch { /* full */ }
-  }, [messages])
 
   useEffect(() => {
     return () => {
@@ -348,6 +304,13 @@ function App() {
           if (last && last.from === from && last.text === text) return m
           return [...m, { id: uid(), from, text, time: now(), reasoning }]
         })
+        // Persist to Supabase
+        const session = activeSessionRef.current
+        if (session) {
+          saveChatMessage(session.id, { sender: from, text, reasoning }).catch(err =>
+            console.error('[App] saveChatMessage error:', err)
+          )
+        }
       },
       onError: (_agent, error, failures) => {
         if (failures >= 3) {
@@ -411,6 +374,13 @@ function App() {
     const text = input.trim()
     setMessages(m => [...m, { id: uid(), from: 'You', text, time: now() }])
     setInput('')
+    // Persist user message
+    const session = activeSessionRef.current
+    if (session) {
+      saveChatMessage(session.id, { sender: 'You', text }).catch(err =>
+        console.error('[App] saveChatMessage error:', err)
+      )
+    }
 
     const lower = text.toLowerCase()
 
@@ -445,50 +415,66 @@ function App() {
     const idleStates: Record<string, AgentState> = {}
     activeAgents.forEach(a => { idleStates[a.name] = { status: 'idle', inDoc: false } })
     setAgentStates(idleStates)
-    try {
-      localStorage.removeItem(STORAGE_KEYS.doc)
-      localStorage.removeItem(STORAGE_KEYS.chat)
-    } catch { /* skip */ }
-    editor?.commands.setContent(INITIAL_DOC)
+    const template = activeSession ? DOC_TEMPLATES[activeSession.template] : null
+    editor?.commands.setContent(template?.content || EMPTY_DOC)
     lastDocSnapshot.current = editor?.getText() || ''
-    setMessages([
-      { id: uid(), from: 'You', text: 'the v2 brief needs to be ready for the board review Friday. can you two get in there and tighten it up?', time: '2:41 PM' },
-      { id: uid(), from: 'Sarah', text: 'yeah the architecture section is still too vague and we need real success metrics, not aspirational ones', time: '2:41 PM' },
-      { id: uid(), from: 'Aiden', text: 'I\'ll take architecture and the technical open questions. The sync protocol needs specifics — I\'ll spec out the CRDT approach and agent coordination model.', time: '2:42 PM', showDocButton: true },
-      { id: uid(), from: 'Nova', text: 'I\'ll sharpen the problem statement and success criteria. Sarah\'s right — "users trust the agent" isn\'t measurable. I\'ll define concrete thresholds.', time: '2:42 PM' },
-    ])
-    lastProcessedMsg.current = 4
+    setMessages([])
+    lastProcessedMsg.current = 0
     orchestratorRef.current = makeOrchestrator()
-  }, [editor, makeOrchestrator])
+  }, [editor, makeOrchestrator, activeSession])
 
-  const handleSessionSelect = (session: Session) => {
+  const handleSessionSelect = async (session: Session, agents: AgentConfig[]) => {
     setActiveSession(session)
-    // Load template content for new sessions
-    const template = DOC_TEMPLATES[session.template]
-    if (template && editor) {
-      editor.commands.setContent(template.content)
+    activeSessionRef.current = session
+    // Apply starter agents if provided
+    if (agents.length > 0) {
+      setActiveAgents(agents)
     }
-    // Set initial messages with agent introductions
-    const agentNames = activeAgents.map(a => a.name)
-    const introMessages: Message[] = [
-      { id: uid(), from: agentNames[0] || 'Aiden', text: `Ready to help with this ${template?.label || 'document'}. Open the doc and I'll start reviewing, or just chat here.`, time: now(), showDocButton: true },
-    ]
-    if (agentNames.length > 1) {
-      introMessages.push({ id: uid(), from: agentNames[1] || 'Nova', text: 'Same here. Let me know what you need.', time: now() })
+    const currentAgents = agents.length > 0 ? agents : activeAgents
+
+    // Load existing doc + messages from Supabase
+    const [savedDoc, savedMessages] = await Promise.all([
+      loadDocument(session.id).catch(() => null),
+      loadChatMessages(session.id).catch(() => []),
+    ])
+
+    if (savedDoc && editor) {
+      // Resume existing session
+      editor.commands.setContent(savedDoc)
+      const restored: Message[] = savedMessages.map(m => ({
+        id: m.id, from: m.sender, text: m.text, time: new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), reasoning: m.reasoning || undefined,
+      }))
+      setMessages(restored)
+      lastProcessedMsg.current = restored.length
+    } else {
+      // New session — load template
+      const template = DOC_TEMPLATES[session.template]
+      if (template && editor) {
+        editor.commands.setContent(template.content)
+      }
+      // Set initial messages with agent introductions
+      const agentNames = currentAgents.map(a => a.name)
+      const introMessages: Message[] = [
+        { id: uid(), from: agentNames[0] || 'Aiden', text: `Ready to help with this ${template?.label || 'document'}. Open the doc and I'll start reviewing, or just chat here.`, time: now(), showDocButton: true },
+      ]
+      if (agentNames.length > 1) {
+        introMessages.push({ id: uid(), from: agentNames[1] || 'Nova', text: 'Same here. Let me know what you need.', time: now() })
+      }
+      setMessages(introMessages)
+      lastProcessedMsg.current = introMessages.length
     }
-    setMessages(introMessages)
-    lastProcessedMsg.current = introMessages.length
+    lastDocSnapshot.current = editor?.getText() || ''
   }
 
   if (!activeSession) {
-    return <SessionPicker onSelect={handleSessionSelect} />
+    return <HomePage onSelect={handleSessionSelect} />
   }
 
   return (
     <div className="shell">
       <div className="main-area">
         <div className="main-header">
-          <button className="back-btn" onClick={() => { setActiveSession(null); setDocOpen(false) }}>Sessions</button>
+          <button className="back-btn" onClick={() => { setActiveSession(null); activeSessionRef.current = null; setDocOpen(false) }} aria-label="Back to home">&lsaquo; Back</button>
           <span className="chat-header-title">{activeSession.title}</span>
           <div className="header-participants">
             {activeAgents.map(agent => {

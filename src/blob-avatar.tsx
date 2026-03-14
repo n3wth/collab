@@ -110,9 +110,10 @@ export const BlobAvatar = memo(({ name, size = 28, state = 'idle', color }: Blob
     function draw(now: number) {
       const s = stateRef.current
       const isActive = s !== 'idle'
+      const isTransitioning = Math.abs(fillRef.current - STATE_CONFIG[s].fill) > 0.005
 
-      // Throttle idle to ~4fps
-      if (!isActive && now - lastFrame < 250) {
+      // Throttle idle to ~4fps, but keep full fps during fill transitions
+      if (!isActive && !isTransitioning && now - lastFrame < 250) {
         rafRef.current = requestAnimationFrame(draw)
         return
       }
@@ -122,12 +123,18 @@ export const BlobAvatar = memo(({ name, size = 28, state = 'idle', color }: Blob
       const cfg = STATE_CONFIG[s]
       const sizeScale = REF_SIZE / size
 
-      // Smooth fill transition — rise faster than drain
+      // Smooth fill transition
       const target = cfg.fill
-      const lerpRate = target > fillRef.current ? 3.0 : 2.0
-      fillRef.current += (target - fillRef.current) * Math.min(lerpRate * dt, 0.15)
-      // Snap to target when close
-      if (Math.abs(fillRef.current - target) < 0.005) fillRef.current = target
+      const diff = target - fillRef.current
+      if (Math.abs(diff) < 0.003) {
+        fillRef.current = target
+      } else if (diff > 0) {
+        // Rising: exponential lerp (fast start, eases in)
+        fillRef.current += diff * Math.min(4.0 * dt, 0.15)
+      } else {
+        // Draining: constant speed (linear, smooth)
+        fillRef.current = Math.max(target, fillRef.current - 0.6 * dt)
+      }
       const fill = fillRef.current
 
       t += dt * cfg.speed * sizeScale
