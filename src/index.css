@@ -8,21 +8,21 @@
   --font-mono: 'JetBrains Mono', 'SF Mono', monospace;
 
   /* Surfaces */
-  --surface-0: #0a0a0a;
-  --surface-1: #111113;
-  --surface-2: #1a1a1e;
-  --surface-3: #222226;
-  --surface-dim: #0e0e10;
+  --surface-0: #0c0c0e;
+  --surface-1: #161618;
+  --surface-2: #1e1e22;
+  --surface-3: #28282e;
+  --surface-dim: #101012;
 
   /* Text */
-  --text-primary: #ededef;
-  --text-secondary: #a0a0a3;
-  --text-tertiary: #6b6b6f;
-  --text-disabled: #4a4a4e;
+  --text-primary: #efefef;
+  --text-secondary: #a8a8ab;
+  --text-tertiary: #77777b;
+  --text-disabled: #555558;
 
   /* Borders */
-  --border-subtle: #1e1e22;
-  --border-default: #2a2a2e;
+  --border-subtle: #2a2a2e;
+  --border-default: #3a3a3f;
 
   /* Agent colors — n3wth palette */
   --agent-aiden: #30d158;
