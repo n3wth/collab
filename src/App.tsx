@@ -10,7 +10,7 @@ import { HomePage } from './HomePage'
 import { LoginPage } from './LoginPage'
 import { AgentConfigurator } from './AgentConfigurator'
 import { DOC_TEMPLATES } from './templates'
-import { saveDocument, loadDocument, saveChatMessage, loadChatMessages } from './lib/session-store'
+import { saveDocument, loadDocument, saveChatMessage, loadChatMessages, getSession } from './lib/session-store'
 import { useAuth } from './lib/auth'
 import type { Session } from './types'
 import { BlobAvatar } from './blob-avatar'
@@ -405,6 +405,45 @@ function App() {
     }
   }, [makeOrchestrator])
 
+  // URL routing: /s/{sessionId}
+  const navigateToSession = useCallback((session: Session) => {
+    history.pushState({ sessionId: session.id }, '', `/s/${session.id}`)
+  }, [])
+
+  const navigateToHome = useCallback(() => {
+    history.pushState(null, '', '/')
+  }, [])
+
+  // Load session from URL on mount
+  useEffect(() => {
+    const match = window.location.pathname.match(/^\/s\/([a-f0-9-]+)$/)
+    if (match) {
+      const sessionId = match[1]
+      getSession(sessionId).then(session => {
+        if (session) {
+          handleSessionSelect(session, [])
+        }
+      }).catch(() => {
+        history.replaceState(null, '', '/')
+      })
+    }
+
+    const onPopState = () => {
+      const m = window.location.pathname.match(/^\/s\/([a-f0-9-]+)$/)
+      if (m) {
+        getSession(m[1]).then(session => {
+          if (session) handleSessionSelect(session, [])
+        }).catch(() => {})
+      } else {
+        setActiveSession(null)
+        activeSessionRef.current = null
+        setDocOpen(false)
+      }
+    }
+    window.addEventListener('popstate', onPopState)
+    return () => window.removeEventListener('popstate', onPopState)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   const lastProcessedMsg = useRef(0)
   useEffect(() => {
     const newMsgs = messages.slice(lastProcessedMsg.current)
@@ -497,6 +536,10 @@ function App() {
   const handleSessionSelect = async (session: Session, agents: AgentConfig[]) => {
     setActiveSession(session)
     activeSessionRef.current = session
+    // Update URL
+    if (window.location.pathname !== `/s/${session.id}`) {
+      navigateToSession(session)
+    }
     // Apply starter agents if provided
     if (agents.length > 0) {
       setActiveAgents(agents)
@@ -523,18 +566,26 @@ function App() {
       if (template && editor) {
         editor.commands.setContent(template.content)
       }
-      // Set initial messages with agent introductions
-      const agentNames = currentAgents.map(a => a.name)
-      const introMessages: Message[] = [
-        { id: uid(), from: agentNames[0] || 'Aiden', text: `Ready to help with this ${template?.label || 'document'}. Open the doc and I'll start reviewing, or just chat here.`, time: now(), showDocButton: true },
-      ]
-      if (agentNames.length > 1) {
-        introMessages.push({ id: uid(), from: agentNames[1] || 'Nova', text: 'Same here. Let me know what you need.', time: now() })
-      }
-      setMessages(introMessages)
-      lastProcessedMsg.current = introMessages.length
+      setMessages([])
+      lastProcessedMsg.current = 0
     }
     lastDocSnapshot.current = editor?.getText() || ''
+
+    // Auto-open doc immediately
+    setTimeout(() => {
+      setDocOpen(true)
+      const newStates: Record<string, AgentState> = {}
+      currentAgents.forEach((a, i) => {
+        newStates[a.name] = { status: 'reading', inDoc: true, thought: i === 0 ? 'Reading the document...' : 'Joining...' }
+      })
+      setAgentStates(prev => ({ ...prev, ...newStates }))
+      if (currentAgents.length > 0) {
+        setMessages(m => [...m,
+          { id: uid(), from: currentAgents[0].name, text: `Reviewing the doc now.`, time: now() },
+        ])
+      }
+      orchestratorRef.current?.trigger('doc-opened')
+    }, 300)
   }
 
   const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
@@ -555,7 +606,7 @@ function App() {
     <div className="shell">
       <div className="main-area">
         <div className="main-header">
-          <button className="back-btn" onClick={() => { setActiveSession(null); activeSessionRef.current = null; setDocOpen(false) }} aria-label="Back to home">&lsaquo; Back</button>
+          <button className="back-btn" onClick={() => { setActiveSession(null); activeSessionRef.current = null; setDocOpen(false); navigateToHome() }} aria-label="Back to home">&lsaquo; Back</button>
           <span className="chat-header-title">{activeSession.title}</span>
           <div className="header-participants">
             {activeAgents.map(agent => {

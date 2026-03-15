@@ -700,20 +700,6 @@
   background: var(--surface-1);
   min-width: 0;
   position: relative;
-  animation: docReveal 0.5s var(--ease-decelerate) forwards;
-}
-
-@keyframes docReveal {
-  from {
-    opacity: 0;
-    flex: 0.001;
-    transform: translateX(12px);
-  }
-  to {
-    opacity: 1;
-    flex: 1;
-    transform: translateX(0);
-  }
 }
 
 
