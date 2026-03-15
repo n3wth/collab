@@ -1,0 +1,78 @@
+/* Document activity minimap — vertical strip on doc panel right edge */
+.doc-minimap {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 8px;
+  background: var(--surface-2);
+  border-left: 1px solid var(--border-subtle);
+  z-index: 10;
+  transition: width var(--duration-fast, 150ms) ease;
+}
+
+.doc-minimap-hover,
+.doc-minimap:hover {
+  width: 12px;
+}
+
+/* Dots — agent and user indicators */
+.doc-minimap-dot {
+  position: absolute;
+  left: 50%;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full, 50%);
+  transform: translateX(-50%);
+  cursor: pointer;
+  transition: top var(--duration-normal, 250ms) var(--ease-standard, ease),
+              opacity var(--duration-normal, 250ms) ease;
+  pointer-events: auto;
+}
+
+/* Extend click target to full strip width */
+.doc-minimap-dot::before {
+  content: '';
+  position: absolute;
+  top: -4px;
+  bottom: -4px;
+  left: -8px;
+  right: -8px;
+}
+
+/* User cursor dot */
+.doc-minimap-dot-user {
+  background: var(--text-primary, #efefef);
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* Thinking state pulse */
+.doc-minimap-dot-thinking {
+  animation: minimapDotPulse 2s ease-in-out infinite;
+}
+
+@keyframes minimapDotPulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.8; }
+}
+
+/* Tooltip */
+.doc-minimap-tooltip {
+  display: none;
+  position: absolute;
+  right: calc(100% + 6px);
+  transform: translateY(-50%);
+  padding: 4px 10px;
+  background: var(--surface-1, #161618);
+  color: var(--text-secondary, #a8a8ab);
+  font-size: 11px;
+  font-weight: 500;
+  font-family: var(--font-ui);
+  line-height: 1.3;
+  border-radius: var(--radius-sm, 8px);
+  border: 1px solid var(--border-subtle, #2a2a2e);
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 11;
+}

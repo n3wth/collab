@@ -1,17 +1,12 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { BlobAvatar } from './blob-avatar'
 import { listSessions, createSession, deleteSession } from './lib/session-store'
 import { DOC_TEMPLATES } from './templates'
 import type { Session, DocTemplate } from './types'
 import type { AgentConfig } from './orchestrator'
 import { AGENT_PRESETS } from './AgentConfigurator'
+import { AwakenSequence } from './AwakenSequence'
 
-const AGENT_ROLES: Record<string, string> = {
-  Aiden: 'Engineering',
-  Nova: 'Product',
-  Lex: 'Legal',
-  Mira: 'Design',
-}
 
 interface Starter {
   id: string
@@ -55,7 +50,7 @@ const STARTERS: Starter[] = [
   {
     id: 'full-team',
     title: 'Full Team',
-    description: 'All four agents. Engineering, product, legal, and design perspectives.',
+    description: 'All four agents. Engineering, product, legal, and design.',
     template: 'prd',
     agents: AGENT_PRESETS.map(p => ({
       name: p.name,
@@ -67,7 +62,7 @@ const STARTERS: Starter[] = [
   {
     id: 'meeting-notes',
     title: 'Meeting Notes',
-    description: 'Nova captures decisions. Aiden extracts action items and next steps.',
+    description: 'Nova captures decisions. Aiden extracts action items.',
     template: 'meeting-notes',
     agents: [
       { name: 'Nova', persona: AGENT_PRESETS[1].persona, owner: 'You', color: '#ff6961' },
@@ -105,55 +100,99 @@ interface Props {
 
 type BlobState = 'idle' | 'thinking' | 'reading' | 'typing' | 'editing'
 
-// Choreographed state sequences — each agent has its own rhythm
-const CHOREO: { states: BlobState[], durations: number[] }[] = [
-  // Aiden: thinks, then types, then idles, then reads
-  { states: ['idle', 'thinking', 'typing', 'idle', 'reading', 'idle'], durations: [2200, 1800, 2400, 1600, 2000, 2000] },
-  // Nova: reads first, then thinks, types
-  { states: ['idle', 'reading', 'thinking', 'idle', 'typing', 'idle'], durations: [1400, 2000, 1600, 2200, 2600, 2200] },
-  // Lex: deliberate — long thinking, short typing
-  { states: ['idle', 'idle', 'thinking', 'thinking', 'typing', 'idle'], durations: [2600, 1200, 2400, 1400, 1800, 2600] },
-  // Mira: reactive — reads, quickly types, thinks after
-  { states: ['idle', 'reading', 'typing', 'idle', 'thinking', 'idle'], durations: [1800, 1600, 2200, 2000, 1800, 2600] },
+type Beat = {
+  duration: number
+  states: [BlobState, BlobState, BlobState, BlobState]
+  speech?: { agent: number, line: string }
+}
+
+const STORY_TIMELINES: Beat[][] = [
+  [
+    { duration: 2000, states: ['reading', 'idle', 'idle', 'idle'] },
+    { duration: 2400, states: ['thinking', 'idle', 'idle', 'idle'], speech: { agent: 0, line: 'This endpoint needs pagination.' } },
+    { duration: 2800, states: ['typing', 'reading', 'idle', 'idle'], speech: { agent: 0, line: 'Adding cursor-based pagination...' } },
+    { duration: 2200, states: ['idle', 'thinking', 'idle', 'reading'], speech: { agent: 1, line: 'Will users understand cursors?' } },
+    { duration: 2400, states: ['idle', 'idle', 'thinking', 'idle'], speech: { agent: 2, line: 'Rate limits need documenting.' } },
+    { duration: 2600, states: ['reading', 'idle', 'typing', 'thinking'], speech: { agent: 3, line: 'Simplifying the query params...' } },
+    { duration: 2400, states: ['idle', 'typing', 'idle', 'idle'], speech: { agent: 1, line: 'Default to 20 items per page.' } },
+    { duration: 2200, states: ['idle', 'idle', 'typing', 'idle'], speech: { agent: 2, line: 'Added rate limit disclosure.' } },
+    { duration: 2000, states: ['idle', 'idle', 'idle', 'thinking'], speech: { agent: 3, line: 'What if we add a loading state?' } },
+    { duration: 1800, states: ['idle', 'idle', 'idle', 'idle'] },
+  ],
+  [
+    { duration: 1800, states: ['reading', 'idle', 'idle', 'idle'] },
+    { duration: 2400, states: ['thinking', 'idle', 'idle', 'idle'], speech: { agent: 0, line: 'Token refresh is missing.' } },
+    { duration: 2800, states: ['typing', 'idle', 'idle', 'reading'], speech: { agent: 0, line: 'Adding refresh token flow...' } },
+    { duration: 2200, states: ['idle', 'thinking', 'reading', 'idle'], speech: { agent: 1, line: 'Users hate re-logging in.' } },
+    { duration: 2400, states: ['idle', 'idle', 'thinking', 'idle'], speech: { agent: 2, line: 'Tokens must expire in 24h.' } },
+    { duration: 2600, states: ['idle', 'idle', 'idle', 'typing'], speech: { agent: 3, line: 'Session indicator in the nav...' } },
+    { duration: 2400, states: ['reading', 'typing', 'idle', 'idle'], speech: { agent: 1, line: 'Silent refresh, no interruption.' } },
+    { duration: 2200, states: ['idle', 'idle', 'typing', 'idle'], speech: { agent: 2, line: 'Need consent for persistent login.' } },
+    { duration: 2000, states: ['idle', 'idle', 'idle', 'thinking'], speech: { agent: 3, line: 'Toast on session extension?' } },
+    { duration: 1800, states: ['idle', 'idle', 'idle', 'idle'] },
+  ],
+  [
+    { duration: 2000, states: ['reading', 'idle', 'idle', 'idle'] },
+    { duration: 2200, states: ['thinking', 'idle', 'idle', 'idle'], speech: { agent: 0, line: 'No retry on failed ingestion.' } },
+    { duration: 2800, states: ['typing', 'reading', 'idle', 'idle'], speech: { agent: 0, line: 'Adding exponential backoff...' } },
+    { duration: 2400, states: ['idle', 'thinking', 'idle', 'reading'], speech: { agent: 1, line: 'How do users know it failed?' } },
+    { duration: 2200, states: ['idle', 'idle', 'thinking', 'idle'], speech: { agent: 2, line: 'Data retention is 90 days max.' } },
+    { duration: 2600, states: ['idle', 'idle', 'idle', 'typing'], speech: { agent: 3, line: 'Error state needs a clear CTA...' } },
+    { duration: 2400, states: ['idle', 'typing', 'idle', 'idle'], speech: { agent: 1, line: 'Email notification on failure.' } },
+    { duration: 2200, states: ['idle', 'idle', 'typing', 'reading'], speech: { agent: 2, line: 'PII must be masked in logs.' } },
+    { duration: 2000, states: ['idle', 'idle', 'idle', 'thinking'], speech: { agent: 3, line: 'Progress bar for large imports?' } },
+    { duration: 1800, states: ['idle', 'idle', 'idle', 'idle'] },
+  ],
 ]
 
-function useHeroBlobStates() {
+function useHeroTimeline(gated: boolean) {
   const [states, setStates] = useState<BlobState[]>(['idle', 'idle', 'idle', 'idle'])
-  const timers = useRef<number[]>([])
 
   useEffect(() => {
-    function runAgent(idx: number) {
-      const choreo = CHOREO[idx]
-      let step = 0
+    if (gated) return
 
-      function tick() {
-        setStates(prev => {
-          const next = [...prev]
-          next[idx] = choreo.states[step]
-          return next
-        })
-        step = (step + 1) % choreo.states.length
-        timers.current[idx] = window.setTimeout(tick, choreo.durations[step])
+    let arcIndex = 0
+    let beatIndex = 0
+    let timer: number
+
+    function playBeat() {
+      const arc = STORY_TIMELINES[arcIndex % STORY_TIMELINES.length]
+      const beat = arc[beatIndex]
+      setStates([...beat.states])
+
+      beatIndex++
+      if (beatIndex >= arc.length) {
+        beatIndex = 0
+        arcIndex++
       }
-
-      // Stagger start
-      timers.current[idx] = window.setTimeout(tick, idx * 800)
+      timer = window.setTimeout(playBeat, beat.duration)
     }
 
-    for (let i = 0; i < 4; i++) runAgent(i)
+    timer = window.setTimeout(playBeat, 800)
+    return () => clearTimeout(timer)
+  }, [gated])
 
-    return () => {
-      timers.current.forEach(t => clearTimeout(t))
-    }
-  }, [])
+  return { states }
+}
 
-  return states
+function shouldShowAwakening(demoMode?: boolean): boolean {
+  if (typeof window === 'undefined') return false
+  if (demoMode) return false
+  if (window.innerWidth < 768) return false
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return false
+  const seen = localStorage.getItem('collab-awakening-seen')
+  if (seen) {
+    const ts = parseInt(seen, 10)
+    if (Date.now() - ts < 24 * 60 * 60 * 1000) return false
+  }
+  return true
 }
 
 export function HomePage({ onSelect, onSignOut, demoMode, onDemoConsumed }: Props) {
   const [sessions, setSessions] = useState<Session[]>([])
   const [loading, setLoading] = useState(true)
-  const blobStates = useHeroBlobStates()
+  const [awakening, setAwakening] = useState(() => shouldShowAwakening(demoMode))
+  const { states: blobStates } = useHeroTimeline(awakening)
 
   useEffect(() => {
     listSessions()
@@ -162,7 +201,6 @@ export function HomePage({ onSelect, onSignOut, demoMode, onDemoConsumed }: Prop
       .finally(() => setLoading(false))
   }, [])
 
-  // Auto-start demo when coming from splash screen
   useEffect(() => {
     if (demoMode) {
       onDemoConsumed?.()
@@ -187,45 +225,58 @@ export function HomePage({ onSelect, onSignOut, demoMode, onDemoConsumed }: Prop
 
   return (
     <div className="home">
+      {awakening && (
+        <AwakenSequence onComplete={() => setAwakening(false)} />
+      )}
       <div className="home-inner">
-        {onSignOut && (
-          <div className="home-topbar">
-            <button className="signout-btn" onClick={onSignOut}>Sign out</button>
+        <nav className="home-nav">
+          <div className="home-nav-logo">
+            <div className="home-nav-blob-wrap">
+              <BlobAvatar name="Collab" size={24} state="idle" color="#30d158" />
+            </div>
+            <span className="home-nav-wordmark">Collab</span>
           </div>
-        )}
-        <header className="home-hero">
-          <div className="home-blobs">
+          <div className="home-nav-agents">
             {AGENT_PRESETS.map((p, i) => (
-              <div key={p.name} className="home-blob" style={{ animationDelay: `${i * 150}ms` }}>
-                <BlobAvatar name={p.name} size={64} state={blobStates[i]} color={p.color} />
-                <span className="home-blob-name">{p.name}</span>
-                <span className="home-blob-role">{AGENT_ROLES[p.name]}</span>
+              <div key={p.name} className="home-nav-agent">
+                <BlobAvatar name={p.name} size={20} state={blobStates[i]} color={p.color} />
               </div>
             ))}
           </div>
-          <h1 className="home-title">Collab</h1>
+          <div className="home-nav-actions">
+            {onSignOut ? (
+              <button className="home-nav-btn" onClick={onSignOut}>Sign out</button>
+            ) : (
+              <button className="home-nav-btn" onClick={() => handleStarter(DEMO_STARTER)}>Try demo</button>
+            )}
+          </div>
+        </nav>
+
+        <header className="home-hero">
+          <div className="home-hero-glow" />
+
+          <h1 className="home-headline">
+            <span className="home-headline-main">Every draft reviewed</span>
+            <span className="home-headline-italic">by four experts.</span>
+          </h1>
           <p className="home-subtitle">
-            AI agents that write, review, and debate your documents in real time.
-            Each agent brings a different lens. You stay in control.
+            AI agents that read your docs and push back on what you missed.
           </p>
-          <button className="home-demo-btn" onClick={() => handleStarter(DEMO_STARTER)}>
-            Try the demo
-          </button>
+
         </header>
 
         <section className="home-starters">
-          <h2 className="home-section-label">Start a session</h2>
           <div className="home-starter-grid">
             {STARTERS.map((s, i) => (
               <button
                 key={s.id}
                 className="home-starter-card"
                 onClick={() => handleStarter(s)}
-                style={{ animationDelay: `${200 + i * 80}ms` }}
+                style={{ animationDelay: `${100 + i * 60}ms` }}
               >
                 <div className="home-starter-strip">
                   {s.agents.map(a => (
-                    <BlobAvatar key={a.name} name={a.name} size={22} state="idle" color={a.color} />
+                    <BlobAvatar key={a.name} name={a.name} size={20} state="idle" color={a.color} />
                   ))}
                 </div>
                 <div className="home-starter-body">
@@ -239,7 +290,7 @@ export function HomePage({ onSelect, onSignOut, demoMode, onDemoConsumed }: Prop
 
         {!loading && sessions.length > 0 && (
           <section className="home-recent">
-            <h2 className="home-section-label">Recent sessions</h2>
+            <div className="home-recent-header">Recent</div>
             <div className="home-recent-list">
               {sessions.slice(0, 5).map(s => (
                 <button
@@ -263,6 +314,16 @@ export function HomePage({ onSelect, onSignOut, demoMode, onDemoConsumed }: Prop
             </div>
           </section>
         )}
+
+        <footer className="home-footer">
+          <div className="home-footer-left">
+            <div className="home-nav-blob-wrap">
+              <BlobAvatar name="Collab" size={16} state="idle" color="#30d158" />
+            </div>
+            <span className="home-footer-brand">Collab</span>
+          </div>
+          <span className="home-footer-copy">Built by n3wth</span>
+        </footer>
       </div>
     </div>
   )

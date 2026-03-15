@@ -3,10 +3,10 @@ import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
 import { AgentCursors } from './agent-cursor'
+import { DocMinimap } from './doc-minimap'
 import { createOrchestrator, type AgentConfig } from './orchestrator'
 import { DEFAULT_PERSONAS } from './agent'
 import { HomePage } from './HomePage'
-import { SplashScreen } from './SplashScreen'
 import { LoginPage } from './LoginPage'
 import { AgentConfigurator } from './AgentConfigurator'
 import { DOC_TEMPLATES } from './templates'
@@ -264,7 +264,6 @@ const EMPTY_DOC = '<h1>Untitled</h1><p></p>'
 
 function App() {
   const { user, loading: authLoading, signOut } = useAuth()
-  const [showSplash, setShowSplash] = useState(true)
   const [demoMode, setDemoMode] = useState(false)
   const [activeSession, setActiveSession] = useState<Session | null>(null)
   const activeSessionRef = useRef<Session | null>(null)
@@ -293,6 +292,9 @@ function App() {
       StarterKit,
       Placeholder.configure({ placeholder: 'Start writing...' }),
       AgentCursors,
+      DocMinimap.configure({
+        agentColors: { Aiden: '#30d158', Nova: '#ff6961', Lex: '#64d2ff', Mira: '#ffd60a' },
+      }),
     ],
     content: EMPTY_DOC,
     editorProps: {
@@ -536,16 +538,6 @@ function App() {
   }
 
   const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-
-  if (showSplash) {
-    return <SplashScreen
-      onDismiss={() => setShowSplash(false)}
-      onDemo={() => {
-        setShowSplash(false)
-        setDemoMode(true)
-      }}
-    />
-  }
 
   if (!isLocalhost && authLoading) {
     return null
