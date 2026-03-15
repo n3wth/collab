@@ -68,12 +68,6 @@ function ShapeAvatar({ name, size = 28, className = '' }: { name: string, size?:
 }
 
 
-function AgentStatusBlob({ name, status, inDoc }: {
-  name: string, status: AgentState['status'], inDoc: boolean
-}) {
-  if (!(inDoc && status !== 'idle')) return null
-  return <BlobAvatar name={name} size={20} state={status} />
-}
 
 const AGENT_DESCRIPTIONS: Record<string, string> = {
   Aiden: 'Technical architecture and engineering. Writes specs, system design, and implementation details.',
@@ -269,7 +263,7 @@ function App() {
   const activeSessionRef = useRef<Session | null>(null)
   const [docOpen, setDocOpen] = useState(false)
   const [activeAgents, setActiveAgents] = useState<AgentConfig[]>(DEFAULT_AGENT_CONFIGS)
-  const [showConfigurator, setShowConfigurator] = useState(false)
+  const [showConfigurator] = useState(false)
   const [agentStates, setAgentStates] = useState<Record<string, AgentState>>({})
   const getAgentState = (name: string): AgentState => agentStates[name] || { status: 'idle', inDoc: false }
   const [messages, setMessages] = useState<Message[]>([])
@@ -519,20 +513,6 @@ function App() {
     orchestratorRef.current?.trigger('user-message', { instruction: text })
   }, [input, activeAgents, openDocWithAgents, makeOrchestrator])
 
-  const resetSession = useCallback(() => {
-    orchestratorRef.current?.destroy()
-    setDocOpen(false)
-    const idleStates: Record<string, AgentState> = {}
-    activeAgents.forEach(a => { idleStates[a.name] = { status: 'idle', inDoc: false } })
-    setAgentStates(idleStates)
-    const template = activeSession ? DOC_TEMPLATES[activeSession.template] : null
-    editor?.commands.setContent(template?.content || EMPTY_DOC)
-    lastDocSnapshot.current = editor?.getText() || ''
-    setMessages([])
-    lastProcessedMsg.current = 0
-    orchestratorRef.current = makeOrchestrator()
-  }, [editor, makeOrchestrator, activeSession])
-
   const handleSessionSelect = async (session: Session, agents: AgentConfig[]) => {
     setActiveSession(session)
     activeSessionRef.current = session
@@ -620,10 +600,6 @@ function App() {
             })}
           </div>
           <div className="header-buttons">
-            <button className="reset-btn" onClick={() => setShowConfigurator(!showConfigurator)}>
-              {showConfigurator ? 'Close' : 'Agents'}
-            </button>
-            <button className="reset-btn" onClick={resetSession}>Reset</button>
             <button
               className={`doc-toggle-btn ${docOpen ? 'active' : ''}`}
               onClick={() => {
@@ -669,8 +645,8 @@ function App() {
         <div className={`chat-panel ${docOpen ? 'chat-side' : 'chat-full'}`}>
           <div className="chat-messages">
             <div className="chat-messages-inner">
-            {messages.map((m, i) => {
-              const prev = messages[i - 1]
+            {messages.filter(m => !m.text.startsWith('Couldn\'t find that text')).map((m, i, arr) => {
+              const prev = arr[i - 1]
               const sameSender = prev && prev.from === m.from
               return (
                 <ChatMessage key={m.id} m={m} sameSender={sameSender} docOpen={docOpen} onOpenDoc={openDocWithAgents} agentState={activeAgents.some(a => a.name === m.from) ? getAgentState(m.from) : null} />
@@ -697,13 +673,6 @@ function App() {
             <div ref={chatEndRef} />
             </div>
           </div>
-          {docOpen && (
-            <div className="agent-status-bar">
-              {activeAgents.map(agent => (
-                <AgentStatusBlob key={agent.name} name={agent.name} status={getAgentState(agent.name).status} inDoc={getAgentState(agent.name).inDoc} />
-              ))}
-            </div>
-          )}
           <div className="chat-input">
             {mentionQuery !== null && (() => {
               const filtered = MENTION_NAMES.filter(n => n.toLowerCase().startsWith(mentionQuery.toLowerCase()))
