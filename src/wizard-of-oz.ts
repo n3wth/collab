@@ -87,5 +87,32 @@ export function detectObservations(
     })
   }
 
+  // Timeline without risk analysis warning
+  const hasTimeline = /\b(Q[1-4]|timeline|phase\s+\d|deadline)\b/i.test(plain)
+  const hasRisks = /\b(risk|mitigat|contingenc|fallback|what if)\b/i.test(plain)
+  if (hasTimeline && !hasRisks && plain.length > 300) {
+    emit({
+      agent: second,
+      type: 'chat',
+      text: 'There\'s a timeline but no risk analysis. What happens if Q2 slips?',
+      delay: 3500,
+    })
+  }
+
+  // Agents not referencing each other's work
+  const agentMessages = messages.filter(m => agentNames.includes(m.from))
+  const hasCrossRef = agentMessages.some(m => {
+    const lower = m.text.toLowerCase()
+    return agentNames.some(n => n !== m.from && lower.includes('@' + n.toLowerCase()))
+  })
+  if (agentMessages.length >= 4 && !hasCrossRef) {
+    emit({
+      agent: first,
+      type: 'chat',
+      text: `@${second} have you looked at what I added? Feels like we\'re working in parallel instead of together.`,
+      delay: 4000,
+    })
+  }
+
   return results
 }
