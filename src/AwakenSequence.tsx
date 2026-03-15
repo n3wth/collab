@@ -17,19 +17,19 @@ interface BlobPosition {
   spawnTime: number
 }
 
-// Spawn schedule — agents awaken one by one
+// Spawn schedule — agents awaken one by one (600ms stagger)
 const SPAWN_TIMES = [300, 900, 1500, 2100]
 
 // Sequence timing (narrative beats)
-const NOTICE_TIME = 2800      // blobs notice each other and start converging
-const CONVERGE_END = 4200     // blobs reach center, wordmark appears
-const WORDMARK_TIME = 4000
-const TAGLINE_TIME = 4500
-const COMPLETE_TIME = 6400
+const NOTICE_TIME = 2800      // all blobs visible, start converging to center
+const CONVERGE_END = 4200     // blobs reach center and lock to nav positions
+const WORDMARK_TIME = 4200    // "Collab" wordmark appears as blobs settle
+const TAGLINE_TIME = 4600     // tagline fades in
+const COMPLETE_TIME = 6400    // fade out and close
 
 // Physics
-const SPRING_K = 5
-const SPRING_DAMPING = 0.85
+const SPRING_K = 24
+const SPRING_DAMPING = 0.92
 
 // Blob sizes
 const BLOB_SIZE = 64

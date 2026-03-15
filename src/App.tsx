@@ -569,6 +569,15 @@ function App() {
   }
 
   const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+  const params = new URLSearchParams(window.location.search)
+
+  // Test routes for UI development
+  if (params.has('home')) {
+    return <HomePage onSelect={handleSessionSelect} onSignOut={signOut} demoMode={demoMode} onDemoConsumed={() => setDemoMode(false)} />
+  }
+  if (params.has('login')) {
+    return <LoginPage />
+  }
 
   if (!isLocalhost && authLoading) {
     return null

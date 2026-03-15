@@ -5,9 +5,6 @@ import { DOC_TEMPLATES } from './templates'
 import type { Session, DocTemplate } from './types'
 import type { AgentConfig } from './orchestrator'
 import { AGENT_PRESETS } from './AgentConfigurator'
-import { AwakenSequence } from './AwakenSequence'
-
-
 interface Starter {
   id: string
   title: string
@@ -175,24 +172,10 @@ function useHeroTimeline(gated: boolean) {
   return { states }
 }
 
-function shouldShowAwakening(demoMode?: boolean): boolean {
-  if (typeof window === 'undefined') return false
-  if (demoMode) return false
-  if (window.innerWidth < 768) return false
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return false
-  const seen = localStorage.getItem('collab-awakening-seen')
-  if (seen) {
-    const ts = parseInt(seen, 10)
-    if (Date.now() - ts < 24 * 60 * 60 * 1000) return false
-  }
-  return true
-}
-
 export function HomePage({ onSelect, onSignOut, demoMode, onDemoConsumed }: Props) {
   const [sessions, setSessions] = useState<Session[]>([])
   const [loading, setLoading] = useState(true)
-  const [awakening, setAwakening] = useState(() => shouldShowAwakening(demoMode))
-  const { states: blobStates } = useHeroTimeline(awakening)
+  const { states: blobStates } = useHeroTimeline(false)
 
   useEffect(() => {
     listSessions()
@@ -225,9 +208,6 @@ export function HomePage({ onSelect, onSignOut, demoMode, onDemoConsumed }: Prop
 
   return (
     <div className="home">
-      {awakening && (
-        <AwakenSequence onComplete={() => setAwakening(false)} />
-      )}
       <div className="home-inner">
         <nav className="home-nav">
           <div className="home-nav-logo">
