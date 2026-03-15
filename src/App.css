@@ -875,27 +875,6 @@
   color: var(--text-primary);
 }
 
-/* Scrollbar */
-.chat-messages::-webkit-scrollbar,
-.doc-body::-webkit-scrollbar {
-  width: 6px;
-}
-
-.chat-messages::-webkit-scrollbar-track,
-.doc-body::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.chat-messages::-webkit-scrollbar-thumb,
-.doc-body::-webkit-scrollbar-thumb {
-  background: transparent;
-  border-radius: 3px;
-}
-
-.chat-messages:hover::-webkit-scrollbar-thumb,
-.doc-body:hover::-webkit-scrollbar-thumb {
-  background: var(--text-disabled);
-}
 
 /* Collaboration cursor styles (human users via y-websocket) */
 .collaboration-cursor__caret {
