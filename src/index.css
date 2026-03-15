@@ -6,6 +6,7 @@
   --font-body: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
   --font-ui: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
   --font-mono: 'JetBrains Mono', 'SF Mono', monospace;
+  --font-serif: 'Instrument Serif', Georgia, serif;
 
   /* Surfaces */
   --surface-0: #0c0c0e;
