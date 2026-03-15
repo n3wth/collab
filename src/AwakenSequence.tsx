@@ -12,37 +12,34 @@ interface BlobPosition {
   vx: number
   vy: number
   opacity: number
-  scale: number
   targetX: number
   targetY: number
   spawnTime: number
 }
 
-// Spring constants
-const SPRING_K = 3.2
-const SPRING_DAMPING = 0.75
-const GRAVITY_STRENGTH = 2000
-const GRAVITY_CAP = 0.5
+// Spawn schedule — agents awaken one by one
+const SPAWN_TIMES = [300, 900, 1500, 2100]
 
-// Spawn schedule (ms)
-const SPAWN_TIMES = [400, 1400, 2400, 2600]
-
-// Sequence timing
-const GATHER_END = 3800    // blobs drift together for this long
-const TAGLINE_TIME = 4200
-const WORDMARK_TIME = 3400
+// Sequence timing (narrative beats)
+const NOTICE_TIME = 2800      // blobs notice each other and start converging
+const CONVERGE_END = 4200     // blobs reach center, wordmark appears
+const WORDMARK_TIME = 4000
+const TAGLINE_TIME = 4500
 const COMPLETE_TIME = 6400
 
+// Physics
+const SPRING_K = 5
+const SPRING_DAMPING = 0.85
+
 // Blob sizes
-const BLOB_SIZE_DRAMATIC = 80
-const BLOB_SIZE_FINAL = 64
-const GLOW_SIZE = 200
+const BLOB_SIZE = 64
+const GLOW_SIZE = 160
 
 export function AwakenSequence({ onComplete }: Props) {
   const [phase, setPhase] = useState<'awakening' | 'fading' | 'done'>('awakening')
   const [visibleBlobs, setVisibleBlobs] = useState<number[]>([])
-  const [showTagline, setShowTagline] = useState(false)
   const [showWordmark, setShowWordmark] = useState(false)
+  const [showTagline, setShowTagline] = useState(false)
 
   const containerRef = useRef<HTMLDivElement>(null)
   const blobRefs = useRef<(HTMLDivElement | null)[]>([null, null, null, null])
@@ -58,7 +55,6 @@ export function AwakenSequence({ onComplete }: Props) {
     localStorage.setItem('collab-awakening-seen', Date.now().toString())
     cancelAnimationFrame(rafRef.current)
     setPhase('fading')
-    // Fade out the overlay, then fully remove
     setTimeout(() => {
       setPhase('done')
       onComplete()
@@ -70,11 +66,10 @@ export function AwakenSequence({ onComplete }: Props) {
     if (phase !== 'awakening') return
     const handleFastForward = () => {
       setVisibleBlobs([0, 1, 2, 3])
-      setShowTagline(true)
       setShowWordmark(true)
+      setShowTagline(true)
       completeSequence()
     }
-    // Delay listener so the initial page click doesn't immediately skip
     const timer = window.setTimeout(() => {
       window.addEventListener('click', handleFastForward)
       window.addEventListener('keydown', handleFastForward)
@@ -113,30 +108,22 @@ export function AwakenSequence({ onComplete }: Props) {
     if (!container) return
     const rect = container.getBoundingClientRect()
     const cx = rect.width / 2
-    const cy = rect.height * 0.4
+    const cy = rect.height / 2
 
-    // Wide initial spread — dramatic entrance positions
-    const startOffsets = [
-      { x: -180, y: 20 },   // Aiden: far left
-      { x: 180, y: -10 },   // Nova: far right
-      { x: -40, y: -140 },  // Lex: above-left
-      { x: 60, y: 140 },    // Mira: below-right
-    ]
-
-    // Final positions: match the homepage hero flexbox layout
-    // Homepage uses gap: 24px, blob width ~64px, so center-to-center = 88px
-    const spacing = 88
-    const rowWidth = spacing * 3
-    const finalX = cx - rowWidth / 2 + idx * spacing
+    // Spawn from cardinal directions
+    const startAngles = [0, Math.PI / 2, Math.PI, (3 * Math.PI) / 2]
+    const radius = 280
+    const angle = startAngles[idx]
+    const startX = cx + Math.cos(angle) * radius
+    const startY = cy + Math.sin(angle) * radius
 
     positionsRef.current[idx] = {
-      x: cx + startOffsets[idx].x,
-      y: cy + startOffsets[idx].y,
+      x: startX,
+      y: startY,
       vx: 0,
       vy: 0,
       opacity: 0,
-      scale: 1,
-      targetX: finalX,
+      targetX: cx, // gather at center
       targetY: cy,
       spawnTime: performance.now(),
     }
@@ -146,6 +133,23 @@ export function AwakenSequence({ onComplete }: Props) {
   useEffect(() => {
     if (phase !== 'awakening') return
 
+    const container = containerRef.current
+    if (!container) return
+    const rect = container.getBoundingClientRect()
+    const cx = rect.width / 2
+    const cy = rect.height / 2
+
+    // Nav positions (top right, mirroring nav layout)
+    const getNavPosition = (idx: number) => {
+      const navY = 38
+      const navStartX = rect.width - 60
+      const spacing = 26
+      return {
+        x: navStartX - idx * spacing,
+        y: navY,
+      }
+    }
+
     function tick() {
       const now = performance.now()
       const elapsed = now - startTimeRef.current
@@ -154,65 +158,57 @@ export function AwakenSequence({ onComplete }: Props) {
       const positions = positionsRef.current
       const blobCount = positions.length
 
-      const driftingApart = elapsed > GATHER_END
-      // Smooth scale transition from dramatic to final size
-      const scaleProgress = driftingApart
-        ? Math.min(1, (elapsed - GATHER_END) / 1200)
-        : 0
-      const currentScale = 1 + (1 - scaleProgress) * ((BLOB_SIZE_DRAMATIC / BLOB_SIZE_FINAL) - 1)
-
       for (let i = 0; i < blobCount; i++) {
         const p = positions[i]
         if (!p) continue
 
-        // Fade in opacity over 800ms
+        // Fade in opacity over 600ms
         const age = now - p.spawnTime
-        p.opacity = Math.min(1, age / 800)
-        p.scale = driftingApart ? currentScale : BLOB_SIZE_DRAMATIC / BLOB_SIZE_FINAL
+        p.opacity = Math.min(1, age / 600)
 
-        if (driftingApart) {
-          // Spring toward final position
-          const dx = p.targetX - p.x
-          const dy = p.targetY - p.y
-          const ax = dx * SPRING_K - p.vx * SPRING_DAMPING * 12
-          const ay = dy * SPRING_K - p.vy * SPRING_DAMPING * 12
-          p.vx += ax * dt
-          p.vy += ay * dt
+        // Determine target based on sequence phase
+        if (elapsed < NOTICE_TIME) {
+          // Spawn phase: stay still, just fade in
+          p.targetX = p.x
+          p.targetY = p.y
+        } else if (elapsed < CONVERGE_END) {
+          // Notice & converge: move toward center
+          p.targetX = cx
+          p.targetY = cy
         } else {
-          // Gravitational pull — blobs drift toward each other
-          let fx = 0, fy = 0
-          for (let j = 0; j < blobCount; j++) {
-            if (i === j || !positions[j]) continue
-            const dx = positions[j].x - p.x
-            const dy = positions[j].y - p.y
-            const dist = Math.sqrt(dx * dx + dy * dy)
-            if (dist < 20) continue
-            const force = Math.min(GRAVITY_STRENGTH / (dist * dist), GRAVITY_CAP)
-            fx += (dx / dist) * force
-            fy += (dy / dist) * force
-          }
-          p.vx += fx * dt
-          p.vy += fy * dt
-          // Damping
-          p.vx *= 0.95
-          p.vy *= 0.95
+          // Settle: move to nav positions
+          const nav = getNavPosition(i)
+          p.targetX = nav.x
+          p.targetY = nav.y
         }
+
+        // Spring toward target
+        const dx = p.targetX - p.x
+        const dy = p.targetY - p.y
+        const ax = dx * SPRING_K - p.vx * SPRING_DAMPING
+        const ay = dy * SPRING_K - p.vy * SPRING_DAMPING
+        p.vx += ax * dt
+        p.vy += ay * dt
+
+        // Damping
+        p.vx *= 0.92
+        p.vy *= 0.92
 
         p.x += p.vx * dt
         p.y += p.vy * dt
 
-        // Apply to DOM directly for performance
-        const halfBlob = (BLOB_SIZE_FINAL * p.scale) / 2
+        // Apply to DOM
+        const halfBlob = BLOB_SIZE / 2
         const el = blobRefs.current[i]
         const glow = glowRefs.current[i]
         if (el) {
-          el.style.transform = `translate(${p.x - halfBlob}px, ${p.y - halfBlob}px) scale(${p.scale})`
+          el.style.transform = `translate(${p.x - halfBlob}px, ${p.y - halfBlob}px)`
           el.style.opacity = String(p.opacity)
         }
         if (glow) {
           const halfGlow = GLOW_SIZE / 2
           glow.style.transform = `translate(${p.x - halfGlow}px, ${p.y - halfGlow}px)`
-          glow.style.opacity = String(p.opacity * 0.2)
+          glow.style.opacity = String(p.opacity * 0.15)
         }
       }
 
@@ -230,7 +226,7 @@ export function AwakenSequence({ onComplete }: Props) {
       ref={containerRef}
       className={`awaken-backdrop ${phase === 'fading' ? 'awaken-fading' : ''}`}
     >
-      {/* Glow divs — larger for dramatic effect */}
+      {/* Glow divs */}
       {AGENT_PRESETS.map((p, i) => (
         <div
           key={`glow-${p.name}`}
@@ -253,16 +249,16 @@ export function AwakenSequence({ onComplete }: Props) {
           className={`awaken-blob ${visibleBlobs.includes(i) ? 'visible' : ''}`}
           style={{ opacity: 0 }}
         >
-          <BlobAvatar name={p.name} size={BLOB_SIZE_FINAL} state="idle" color={p.color} />
+          <BlobAvatar name={p.name} size={BLOB_SIZE} state="idle" color={p.color} />
         </div>
       ))}
 
-      {/* Wordmark — appears before blobs settle */}
+      {/* Wordmark — celebration moment when blobs converge */}
       <div className={`awaken-wordmark ${showWordmark ? 'visible' : ''}`}>
         Collab
       </div>
 
-      {/* Tagline — appears as blobs drift apart */}
+      {/* Tagline */}
       <div className={`awaken-tagline ${showTagline ? 'visible' : ''}`}>
         AI agents that co-author documents in real time.
       </div>
