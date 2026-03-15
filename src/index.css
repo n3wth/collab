@@ -83,6 +83,10 @@ body {
 
 * { box-sizing: border-box; }
 
+/* Hide native scrollbars globally */
+::-webkit-scrollbar { width: 0; height: 0; }
+* { scrollbar-width: none; }
+
 /* Respect motion preferences */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
