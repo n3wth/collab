@@ -20,7 +20,7 @@ const STARTERS: Starter[] = [
   {
     id: 'product-brief',
     title: 'Product Brief',
-    description: 'Aiden on architecture, Nova on user assumptions.',
+    description: 'Architecture review and user assumption testing.',
     template: 'prd',
     agents: [
       { name: 'Aiden', persona: AGENT_PRESETS[0].persona, owner: 'You', color: '#30d158' },
@@ -30,7 +30,7 @@ const STARTERS: Starter[] = [
   {
     id: 'tech-spec',
     title: 'Technical Spec',
-    description: 'Aiden on system design, Lex on risks and compliance.',
+    description: 'System design with compliance and risk review.',
     template: 'tech-spec',
     agents: [
       { name: 'Aiden', persona: AGENT_PRESETS[0].persona, owner: 'You', color: '#30d158' },
@@ -40,7 +40,7 @@ const STARTERS: Starter[] = [
   {
     id: 'design-review',
     title: 'Design Review',
-    description: 'Mira advocates for users. Nova grounds decisions in adoption data.',
+    description: 'UX advocacy and product-market fit analysis.',
     template: 'prd',
     agents: [
       { name: 'Mira', persona: AGENT_PRESETS[3].persona, owner: 'You', color: '#ffd60a' },
@@ -50,7 +50,7 @@ const STARTERS: Starter[] = [
   {
     id: 'full-team',
     title: 'Full Team',
-    description: 'All four agents. Engineering, product, legal, and design.',
+    description: 'Engineering, product, legal, and design perspectives.',
     template: 'prd',
     agents: AGENT_PRESETS.map(p => ({
       name: p.name,
@@ -62,7 +62,7 @@ const STARTERS: Starter[] = [
   {
     id: 'meeting-notes',
     title: 'Meeting Notes',
-    description: 'Nova captures decisions. Aiden extracts action items.',
+    description: 'Decision capture and action item extraction.',
     template: 'meeting-notes',
     agents: [
       { name: 'Nova', persona: AGENT_PRESETS[1].persona, owner: 'You', color: '#ff6961' },
@@ -72,7 +72,7 @@ const STARTERS: Starter[] = [
   {
     id: 'blank',
     title: 'Blank Canvas',
-    description: 'Start empty. Pick your own agents and template.',
+    description: 'Empty doc, your choice of agents.',
     template: 'blank',
     agents: [
       { name: 'Aiden', persona: AGENT_PRESETS[0].persona, owner: 'You', color: '#30d158' },
@@ -247,7 +247,7 @@ export function HomePage({ onSelect, onSignOut, demoMode, onDemoConsumed }: Prop
             {onSignOut ? (
               <button className="home-nav-btn" onClick={onSignOut}>Sign out</button>
             ) : (
-              <button className="home-nav-btn" onClick={() => handleStarter(DEMO_STARTER)}>Try demo</button>
+              <button className="home-nav-cta" onClick={() => handleStarter(DEMO_STARTER)}>Try demo</button>
             )}
           </div>
         </nav>
@@ -266,6 +266,7 @@ export function HomePage({ onSelect, onSignOut, demoMode, onDemoConsumed }: Prop
         </header>
 
         <section className="home-starters">
+          <div className="home-starters-label">Start a session</div>
           <div className="home-starter-grid">
             {STARTERS.map((s, i) => (
               <button
