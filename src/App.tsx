@@ -579,11 +579,7 @@ function App() {
     return <LoginPage />
   }
 
-  if (!isLocalhost && authLoading) {
-    return null
-  }
-
-  if (!isLocalhost && !user) {
+  if (!isLocalhost && (authLoading || !user)) {
     return <LoginPage />
   }
 
