@@ -256,8 +256,12 @@ function AgentActivityBar({ agents, getAgentState }: { agents: AgentConfig[], ge
 
 const EMPTY_DOC = '<h1>Untitled</h1><p></p>'
 
-function App() {
-  const { user, loading: authLoading, signOut } = useAuth()
+interface AppShellProps {
+  onSignOut?: () => Promise<void>
+  forceHome?: boolean
+}
+
+function AppShell({ onSignOut, forceHome = false }: AppShellProps) {
   const [demoMode, setDemoMode] = useState(false)
   const [activeSession, setActiveSession] = useState<Session | null>(null)
   const activeSessionRef = useRef<Session | null>(null)
@@ -568,23 +572,12 @@ function App() {
     }, 300)
   }
 
-  const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-  const params = new URLSearchParams(window.location.search)
-
-  // Test routes for UI development
-  if (params.has('home')) {
-    return <HomePage onSelect={handleSessionSelect} onSignOut={signOut} demoMode={demoMode} onDemoConsumed={() => setDemoMode(false)} />
-  }
-  if (params.has('login')) {
-    return <LoginPage />
-  }
-
-  if (!isLocalhost && (authLoading || !user)) {
-    return <LoginPage />
+  if (forceHome) {
+    return <HomePage onSelect={handleSessionSelect} onSignOut={onSignOut} demoMode={demoMode} onDemoConsumed={() => setDemoMode(false)} />
   }
 
   if (!activeSession) {
-    return <HomePage onSelect={handleSessionSelect} onSignOut={isLocalhost ? undefined : signOut} demoMode={demoMode} onDemoConsumed={() => setDemoMode(false)} />
+    return <HomePage onSelect={handleSessionSelect} onSignOut={onSignOut} demoMode={demoMode} onDemoConsumed={() => setDemoMode(false)} />
   }
 
   return (
@@ -767,6 +760,23 @@ function App() {
       </div>
     </div>
   )
+}
+
+function App() {
+  const { user, loading: authLoading, signOut } = useAuth()
+  const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+  const params = new URLSearchParams(window.location.search)
+
+  // Test routes for UI development
+  if (params.has('login')) {
+    return <LoginPage />
+  }
+
+  if (!params.has('home') && !isLocalhost && (authLoading || !user)) {
+    return <LoginPage />
+  }
+
+  return <AppShell onSignOut={isLocalhost ? undefined : signOut} forceHome={params.has('home')} />
 }
 
 export default App
