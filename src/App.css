@@ -1428,6 +1428,7 @@
   display: flex;
   justify-content: center;
   margin-top: 32px;
+  animation: headlineIn 0.8s var(--ease-out-expo) 0.45s both;
 }
 
 .login-google-btn {
@@ -1453,6 +1454,47 @@
 
 .login-google-btn:active {
   background: var(--surface-2);
+}
+
+.login-google-btn--nav {
+  padding: 7px 16px;
+  font-size: 13px;
+}
+
+/* Agent blob showcase on login page */
+.home-blobs-section {
+  display: flex;
+  justify-content: center;
+  padding: 48px 0 64px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.home-blobs {
+  display: flex;
+  gap: 40px;
+  justify-content: center;
+}
+
+.home-blob {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  opacity: 0;
+  animation: headlineIn 0.6s var(--ease-out-expo) both;
+}
+
+.home-blob-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.home-blob-role {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  letter-spacing: 0.02em;
 }
 
 /* Sign out button */
