@@ -1,5 +1,7 @@
 {
   "rewrites": [
-    { "source": "/s/:path*", "destination": "/index.html" }
+    { "source": "/s/:path*", "destination": "/index.html" },
+    { "source": "/privacy", "destination": "/index.html" },
+    { "source": "/terms", "destination": "/index.html" }
   ]
 }

@@ -1421,6 +1421,18 @@
   color: var(--text-tertiary);
 }
 
+/* Legal pages */
+.home-nav-logo-link { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+.legal-content { max-width: 600px; padding: 40px 0 60px; }
+.legal-title { font-size: 24px; font-weight: 700; color: var(--text-primary); margin: 0 0 4px; }
+.legal-date { font-size: 13px; color: var(--text-disabled); margin: 0 0 32px; }
+.legal-content h2 { font-size: 16px; font-weight: 600; color: var(--text-primary); margin: 28px 0 8px; }
+.legal-content p { font-size: 14px; color: var(--text-secondary); line-height: 1.6; margin: 0 0 12px; }
+.legal-content ul { font-size: 14px; color: var(--text-secondary); line-height: 1.6; margin: 0 0 12px; padding-left: 20px; }
+.legal-content li { margin-bottom: 4px; }
+.legal-content a { color: var(--accent); text-decoration: none; }
+.legal-content a:hover { text-decoration: underline; }
+
 @media (max-width: 720px) {
   .home-starter-grid {
     grid-template-columns: 1fr 1fr;
