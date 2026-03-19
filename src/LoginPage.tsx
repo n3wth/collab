@@ -37,8 +37,13 @@ export function LoginPage() {
         </header>
 
         <footer className="login-footer">
-          <a href="/privacy" className="login-footer-link">Privacy</a>
-          <a href="/terms" className="login-footer-link">Terms</a>
+          <div className="login-footer-left">
+            <a href="/privacy" className="login-footer-link">Privacy</a>
+            <a href="/terms" className="login-footer-link">Terms</a>
+          </div>
+          <div className="login-footer-right">
+            <span className="login-footer-credit">A project by <a href="https://n3wth.com" className="login-footer-link" target="_blank" rel="noopener noreferrer">n3wth</a></span>
+          </div>
         </footer>
       </div>
     </div>
