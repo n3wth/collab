@@ -85,6 +85,29 @@
   height: 100%;
 }
 
+.header-pause-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  border-radius: 4px;
+  margin-right: 4px;
+}
+
+.header-pause-btn:hover {
+  color: var(--text-primary);
+  background: var(--surface-2);
+}
+
+.header-pause-btn.paused {
+  color: var(--agent-aiden);
+}
+
 .header-add-agent {
   width: 20px;
   height: 20px;
@@ -2267,11 +2290,10 @@
 }
 
 .sidebar-group-label {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 500;
-  color: var(--text-disabled);
-  padding: 10px 10px 4px;
-  letter-spacing: 0.02em;
+  color: var(--text-tertiary);
+  padding: 14px 10px 5px;
 }
 
 .sidebar-doc-item {

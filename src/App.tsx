@@ -271,6 +271,7 @@ function App() {
   const [sessions, setSessions] = useState<Session[]>([])
   const [showTemplatePicker, setShowTemplatePicker] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [agentsPaused, setAgentsPaused] = useState(false)
   const [activeAgents, setActiveAgents] = useState<AgentConfig[]>(DEFAULT_AGENT_CONFIGS)
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'idle'>('idle')
   const [showConfigurator, setShowConfigurator] = useState(false)
@@ -633,6 +634,38 @@ function App() {
         <div className="header-chat-zone">
           {activeSession && (
             <>
+              <button
+                className={`header-pause-btn ${agentsPaused ? 'paused' : ''}`}
+                onClick={() => {
+                  setAgentsPaused(v => {
+                    const orch = orchestratorRef.current
+                    if (!v && orch) {
+                      // Pause: destroy and clear all activity
+                      orch.destroy()
+                      orchestratorRef.current = null
+                      setAgentStates({})
+                    } else if (v) {
+                      // Resume: recreate
+                      const newOrch = makeOrchestrator()
+                      orchestratorRef.current = newOrch
+                      newOrch.trigger('doc-opened')
+                    }
+                    return !v
+                  })
+                }}
+                title={agentsPaused ? 'Resume agents' : 'Pause agents'}
+              >
+                {agentsPaused ? (
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                    <polygon points="5,3 19,12 5,21" />
+                  </svg>
+                ) : (
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                    <rect x="4" y="3" width="6" height="18" rx="1" />
+                    <rect x="14" y="3" width="6" height="18" rx="1" />
+                  </svg>
+                )}
+              </button>
               <div className="header-participants">
                 {activeAgents.map((agent, idx) => {
                   const agentState = getAgentState(agent.name)

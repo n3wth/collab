@@ -137,11 +137,6 @@ export function Sidebar({ sessions, activeSessionId, onSelect, onNewDoc, onDelet
         </div>
       </div>
       <div className="sidebar-user" ref={menuRef}>
-        <button className="sidebar-collapse-btn" onClick={onCollapse} title="Collapse sidebar">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="15 18 9 12 15 6" />
-          </svg>
-        </button>
         {userMenuOpen && (
           <div className="sidebar-user-menu">
             <a href="/privacy" className="sidebar-user-menu-item">Privacy</a>
@@ -179,6 +174,11 @@ export function Sidebar({ sessions, activeSessionId, onSelect, onNewDoc, onDelet
             </div>
           </button>
         )}
+        <button className="sidebar-collapse-btn" onClick={onCollapse} title="Collapse sidebar">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="15 18 9 12 15 6" />
+          </svg>
+        </button>
       </div>
 
       {confirmDelete && (
