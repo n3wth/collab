@@ -89,8 +89,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  width: 28px;
+  height: 28px;
   border: none;
   background: none;
   color: var(--text-primary);
@@ -2192,25 +2192,26 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding-top: 12px;
+  justify-content: flex-end;
+  padding: 0 0 14px;
 }
 
 .sidebar-expand-btn {
-  width: 28px;
-  height: 28px;
+  width: 22px;
+  height: 22px;
   display: flex;
   align-items: center;
   justify-content: center;
   border: none;
-  background: var(--surface-2);
-  color: var(--text-secondary);
+  background: none;
+  color: var(--text-tertiary);
   cursor: pointer;
-  border-radius: 6px;
+  border-radius: 4px;
 }
 
 .sidebar-expand-btn:hover {
-  background: var(--surface-3);
   color: var(--text-primary);
+  background: var(--surface-2);
 }
 
 .sidebar-docs {

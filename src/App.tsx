@@ -656,11 +656,11 @@ function App() {
                 title={agentsPaused ? 'Resume agents' : 'Pause agents'}
               >
                 {agentsPaused ? (
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none">
                     <polygon points="5,3 19,12 5,21" />
                   </svg>
                 ) : (
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none">
                     <rect x="4" y="3" width="6" height="18" rx="1" />
                     <rect x="14" y="3" width="6" height="18" rx="1" />
                   </svg>
