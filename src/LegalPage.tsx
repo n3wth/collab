@@ -12,7 +12,7 @@ export function LegalPage({ page }: Props) {
           <div className="home-nav-logo">
             <a href="/" className="home-nav-logo-link">
               <div className="home-nav-blob-wrap">
-                <BlobAvatar name="Collab" size={24} state="idle" color="#30d158" />
+                <BlobAvatar name="Collab" size={24} state="logo" color="#30d158" />
               </div>
               <span className="home-nav-wordmark">Collab</span>
             </a>

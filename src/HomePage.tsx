@@ -212,7 +212,7 @@ export function HomePage({ onSelect, onSignOut, demoMode, onDemoConsumed }: Prop
         <nav className="home-nav">
           <div className="home-nav-logo">
             <div className="home-nav-blob-wrap">
-              <BlobAvatar name="Collab" size={24} state="idle" color="#30d158" />
+              <BlobAvatar name="Collab" size={24} state="logo" color="#30d158" />
             </div>
             <span className="home-nav-wordmark">Collab</span>
           </div>
