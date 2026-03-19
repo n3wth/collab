@@ -29,6 +29,12 @@ interface DocChange {
   removed?: string
 }
 
+interface Proposal {
+  type: 'create-doc' | 'delete-doc' | 'add-agent' | 'remove-agent'
+  description: string
+  status: 'pending' | 'approved' | 'rejected'
+}
+
 interface Message {
   id: string
   from: string
@@ -37,6 +43,7 @@ interface Message {
   showDocButton?: boolean
   reasoning?: string[]
   docChange?: DocChange
+  proposal?: Proposal
 }
 
 interface AgentState {
@@ -180,8 +187,9 @@ const FormatMentions = memo(({ text, names }: { text: string, names?: string[] }
 })
 
 
-const ChatMessage = memo(({ m, sameSender, agentState, userAvatarUrl }: {
-  m: Message, sameSender: boolean, agentState?: AgentState | null, userAvatarUrl?: string
+const ChatMessage = memo(({ m, sameSender, agentState, userAvatarUrl, onApproveProposal, onRejectProposal }: {
+  m: Message, sameSender: boolean, agentState?: AgentState | null, userAvatarUrl?: string,
+  onApproveProposal?: (id: string) => void, onRejectProposal?: (id: string) => void
 }) => {
   const isAgent = m.from !== 'You' && m.from !== 'Sarah' && m.from !== 'System'
   const displayText = m.text.replace('[from doc] ', '')
@@ -218,6 +226,24 @@ const ChatMessage = memo(({ m, sameSender, agentState, userAvatarUrl }: {
         <div className="msg-text">
           <FormatMentions text={displayText} />
         </div>
+        {m.proposal && m.proposal.status === 'pending' && (
+          <div className="msg-proposal-actions">
+            <button
+              className="msg-proposal-btn msg-proposal-approve"
+              onClick={() => onApproveProposal?.(m.id)}
+            >Approve</button>
+            <button
+              className="msg-proposal-btn msg-proposal-reject"
+              onClick={() => onRejectProposal?.(m.id)}
+            >Dismiss</button>
+          </div>
+        )}
+        {m.proposal && m.proposal.status === 'approved' && (
+          <span className="msg-proposal-status">Approved</span>
+        )}
+        {m.proposal && m.proposal.status === 'rejected' && (
+          <span className="msg-proposal-status msg-proposal-dismissed">Dismissed</span>
+        )}
       </div>
     </div>
   )
@@ -402,6 +428,15 @@ function App() {
             console.error('[App] saveChatMessage error:', err)
           )
         }
+      },
+      onProposal: (agent, proposalType, proposal) => {
+        setMessages(prev => [...prev, {
+          id: uid(),
+          from: agent,
+          text: proposal,
+          time: now(),
+          proposal: { type: proposalType as Proposal['type'], description: proposal, status: 'pending' },
+        }])
       },
       onRenameSession: (title) => {
         const session = activeSessionRef.current
@@ -1023,7 +1058,17 @@ function App() {
                         const prev = arr[i - 1]
                         const sameSender = prev && prev.from === m.from
                         return (
-                          <ChatMessage key={m.id} m={m} sameSender={sameSender} agentState={activeAgents.some(a => a.name === m.from) ? getAgentState(m.from) : null} userAvatarUrl={user?.user_metadata?.avatar_url} />
+                          <ChatMessage key={m.id} m={m} sameSender={sameSender} agentState={activeAgents.some(a => a.name === m.from) ? getAgentState(m.from) : null} userAvatarUrl={user?.user_metadata?.avatar_url}
+                            onApproveProposal={(id) => {
+                              setMessages(prev => prev.map(msg => msg.id === id && msg.proposal ? { ...msg, proposal: { ...msg.proposal, status: 'approved' as const } } : msg))
+                              // Execute the proposed action
+                              const msg = messages.find(x => x.id === id)
+                              if (msg?.proposal?.type === 'create-doc') setShowTemplatePicker(true)
+                            }}
+                            onRejectProposal={(id) => {
+                              setMessages(prev => prev.map(msg => msg.id === id && msg.proposal ? { ...msg, proposal: { ...msg.proposal, status: 'rejected' as const } } : msg))
+                            }}
+                          />
                         )
                       })}
                     </>

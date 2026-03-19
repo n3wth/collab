@@ -35,6 +35,7 @@ interface OrchestratorConfig {
   limits?: Partial<OrchestratorLimits>
   sessionTemplate?: string
   onRenameSession?: (newTitle: string) => void
+  onProposal?: (agent: AgentName, proposalType: string, proposal: string) => void
 }
 
 interface OrchestratorHandle {
@@ -161,6 +162,10 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
           // Handle rename action
           if (action.type === 'rename' && action.newTitle && config.onRenameSession) {
             config.onRenameSession(action.newTitle)
+          }
+          // Handle proposal action
+          if (action.type === 'propose' && action.proposalType && config.onProposal) {
+            config.onProposal(req.agent, action.proposalType, action.proposal || '')
           }
           // Fire timeline callback for doc edits
           const didDocEdit = action.type === 'insert' || action.type === 'replace' || action.type === 'read'

@@ -661,6 +661,52 @@
   margin: 0 1px;
 }
 
+/* Proposal actions */
+.msg-proposal-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.msg-proposal-btn {
+  font-size: 12px;
+  font-family: inherit;
+  font-weight: 500;
+  padding: 5px 14px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+}
+
+.msg-proposal-approve {
+  background: var(--agent-aiden);
+  color: #000;
+}
+
+.msg-proposal-approve:hover {
+  opacity: 0.9;
+}
+
+.msg-proposal-reject {
+  background: var(--surface-2);
+  color: var(--text-secondary);
+}
+
+.msg-proposal-reject:hover {
+  background: var(--surface-3);
+}
+
+.msg-proposal-status {
+  font-size: 11px;
+  color: var(--agent-aiden);
+  margin-top: 4px;
+  display: block;
+}
+
+.msg-proposal-dismissed {
+  color: var(--text-disabled);
+}
+
 /* Agent status bar */
 .agent-status-bar {
   display: flex;
