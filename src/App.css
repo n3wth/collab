@@ -557,6 +557,8 @@
   transition: background var(--duration-fast) ease;
   position: relative;
   flex-shrink: 0;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 48px;
 }
 
 /* Only animate the last 5 messages on entrance */
