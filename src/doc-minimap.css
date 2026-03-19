@@ -5,7 +5,7 @@
   right: 0;
   bottom: 0;
   width: 8px;
-  background: var(--surface-2);
+  background: transparent;
   border-left: 1px solid var(--border-subtle);
   z-index: 10;
   transition: width var(--duration-fast, 150ms) ease;
@@ -22,7 +22,7 @@
   left: 1px;
   right: 1px;
   border-radius: 4px;
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.12);
   pointer-events: none;
   z-index: 0;
 }
