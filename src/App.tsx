@@ -8,7 +8,7 @@ import { createOrchestrator, type AgentConfig } from './orchestrator'
 import { DEFAULT_PERSONAS } from './agent'
 import { Sidebar } from './Sidebar'
 import { CommandPalette, type Command } from './CommandPalette'
-import { AgentConfigurator } from './AgentConfigurator'
+import { AgentConfigurator, invalidateApiKeyCache } from './AgentConfigurator'
 import { loadUserSettings, saveGeminiApiKey } from './lib/settings-store'
 
 // Lazy-loaded components (not needed on initial render)
@@ -748,7 +748,7 @@ function App() {
       loadUserSettings(user.id).then(settings => {
         const key = settings.gemini_api_key || ''
         setGeminiApiKey(key)
-        if (key) localStorage.setItem('collab-gemini-api-key', key)
+        if (key) { localStorage.setItem('collab-gemini-api-key', key); invalidateApiKeyCache() }
       })
     } else {
       setGeminiApiKey(localStorage.getItem('collab-gemini-api-key') || '')
@@ -1253,6 +1253,7 @@ function App() {
             onSave={async (key) => {
               if (user) await saveGeminiApiKey(user.id, key)
               localStorage.setItem('collab-gemini-api-key', key)
+              invalidateApiKeyCache()
               setGeminiApiKey(key)
             }}
             onClose={() => setShowSettings(false)}

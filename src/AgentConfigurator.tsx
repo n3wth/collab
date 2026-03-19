@@ -46,9 +46,17 @@ interface Props {
 }
 
 const API_KEY_STORAGE_KEY = 'collab-gemini-api-key'
+let _cachedApiKey: string | null = null
 
 export function getStoredApiKey(): string {
-  return localStorage.getItem(API_KEY_STORAGE_KEY) || ''
+  if (_cachedApiKey !== null) return _cachedApiKey
+  _cachedApiKey = localStorage.getItem(API_KEY_STORAGE_KEY) || ''
+  return _cachedApiKey
+}
+
+// Invalidate cache when key is updated
+export function invalidateApiKeyCache(): void {
+  _cachedApiKey = null
 }
 
 export function AgentConfigurator({ agents, onChange }: Props) {
