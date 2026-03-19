@@ -867,7 +867,7 @@ function App() {
         </div>
       )}
       <div className="app-body">
-        <div style={{ width: sidebarCollapsed ? 40 : sidebarWidth, flexShrink: 0 }}>
+        <div style={{ width: sidebarCollapsed ? 0 : sidebarWidth, flexShrink: 0, overflow: 'hidden' }}>
           <Sidebar
             sessions={sessions}
             activeSessionId={activeSession?.id ?? null}
@@ -1118,6 +1118,7 @@ function App() {
           </div>
         ) : (
           <div className="empty-state">
+            <span className="empty-state-brand" onClick={resetToHome}>Collab</span>
             <div className="empty-state-shader">
               <ColorPanels speed={0.5} scale={1.15} density={3} angle1={0} angle2={0} length={1.1} edges={false} blur={0} fadeIn={1} fadeOut={0.3} gradient={0} rotation={0} offsetX={0} offsetY={0} colors={['#FF9D00', '#FD4F30', '#809BFF', '#6D2EFF', '#333AFF', '#F15CFF', '#FFD557']} colorBack="#00000000" style={{ backgroundColor: '#000000', height: '100%', width: '100%' }} />
             </div>

@@ -74,13 +74,11 @@ export function Sidebar({ sessions, activeSessionId, onSelect, onNewDoc, onDelet
 
   if (collapsed) {
     return (
-      <div className="sidebar sidebar-collapsed">
-        <button className="sidebar-expand-btn" onClick={onCollapse} title="Expand sidebar">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="9 18 15 12 9 6" />
-          </svg>
-        </button>
-      </div>
+      <button className="sidebar-expand-btn" onClick={onCollapse} title="Expand sidebar">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="9 18 15 12 9 6" />
+        </svg>
+      </button>
     )
   }
 
