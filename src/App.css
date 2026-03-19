@@ -861,19 +861,20 @@
 .chat-input input {
   flex: 1;
   padding: 10px 14px;
-  border: 1px solid var(--border-default);
-  border-radius: 10px;
-  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--surface-0);
   color: var(--text-primary);
   font-size: 14px;
   font-family: inherit;
   outline: none;
   min-width: 0;
-  transition: border-color 0.15s ease;
+  transition: border-color 0.15s ease, background 0.15s ease;
 }
 
 .chat-input input:focus {
-  border-color: var(--text-tertiary);
+  border-color: var(--border-default);
+  background: var(--surface-1);
 }
 
 .chat-input input::placeholder {
@@ -2406,15 +2407,15 @@
 
 .sidebar-expand-btn {
   position: fixed;
-  bottom: 16px;
-  left: 12px;
+  bottom: 8px;
+  left: 8px;
   width: 28px;
   height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid var(--border-default);
-  background: var(--sidebar-bg);
+  border: none;
+  background: var(--surface-2);
   color: var(--text-secondary);
   cursor: pointer;
   border-radius: 7px;
