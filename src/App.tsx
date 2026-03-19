@@ -609,6 +609,18 @@ function App() {
       })
       setAgentStates(prev => ({ ...prev, ...newStates }))
       orchestratorRef.current?.trigger('doc-opened')
+      // Welcome message if chat is empty
+      if (messagesRef.current.length === 0 && currentAgents.length > 0) {
+        const lead = currentAgents[0]
+        const roles = currentAgents.map(a => {
+          const role = a.persona.split('.')[0].replace(/^You are \w+, /, '')
+          return `${a.name} (${role})`
+        }).join(', ')
+        setMessages(prev => {
+          if (prev.length > 0) return prev
+          return [{ id: uid(), from: lead.name, text: `Ready to collaborate. Your team: ${roles}. @mention any of us, or just start writing and we'll review as you go.`, time: now() }]
+        })
+      }
     }, 300)
     refreshSessions()
   }
@@ -1065,6 +1077,12 @@ function App() {
                         >
                           <BlobAvatar name={n} size={16} />
                           <span>{n}</span>
+                          {(() => {
+                            const agent = activeAgents.find(a => a.name === n)
+                            if (!agent) return null
+                            const role = agent.persona.split('.')[0].replace(/^You are \w+, /, '')
+                            return <span className="mention-role">{role}</span>
+                          })()}
                         </div>
                       ))}
                     </div>

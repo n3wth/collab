@@ -889,6 +889,15 @@
   background: var(--surface-2);
 }
 
+.mention-role {
+  font-size: 11px;
+  color: var(--text-disabled);
+  margin-left: auto;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 140px;
+}
 
 /* Doc panel */
 .doc-panel {
