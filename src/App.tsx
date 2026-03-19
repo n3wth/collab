@@ -12,6 +12,7 @@ import { Sidebar } from './Sidebar'
 import { TemplatePickerModal } from './TemplatePickerModal'
 import { AgentConfigurator } from './AgentConfigurator'
 import { DOC_TEMPLATES } from './templates'
+import { supabase } from './lib/supabase'
 import { saveDocument, loadDocument, saveChatMessage, loadChatMessages, getSession, updateSessionTitle, listSessions, createSession } from './lib/session-store'
 import { useAuth } from './lib/auth'
 import type { Session } from './types'
@@ -272,6 +273,7 @@ function App() {
   const [showTemplatePicker, setShowTemplatePicker] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [agentsPaused, setAgentsPaused] = useState(false)
+  const agentsPausedRef = useRef(false)
   const [activeAgents, setActiveAgents] = useState<AgentConfig[]>(DEFAULT_AGENT_CONFIGS)
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'idle'>('idle')
   const [showConfigurator, setShowConfigurator] = useState(false)
@@ -414,11 +416,15 @@ function App() {
   }, [])
 
   useEffect(() => {
-    const orch = makeOrchestrator()
-    orchestratorRef.current = orch
-    return () => {
-      orch.destroy()
-      orchestratorRef.current = null
+    if (!agentsPausedRef.current) {
+      const orch = makeOrchestrator()
+      orchestratorRef.current = orch
+      return () => {
+        if (orchestratorRef.current === orch) {
+          orch.destroy()
+          orchestratorRef.current = null
+        }
+      }
     }
   }, [makeOrchestrator])
 
@@ -619,7 +625,7 @@ function App() {
   return (
     <div className="app-shell">
       <div className="app-header">
-        <div className="header-sidebar-zone">
+        <div className={`header-sidebar-zone ${sidebarCollapsed ? 'collapsed' : ''}`}>
           <span className="header-wordmark" onClick={resetToHome}>Collab</span>
         </div>
         <div className="header-editor-zone">
@@ -638,19 +644,20 @@ function App() {
                 className={`header-pause-btn ${agentsPaused ? 'paused' : ''}`}
                 onClick={() => {
                   setAgentsPaused(v => {
-                    const orch = orchestratorRef.current
-                    if (!v && orch) {
-                      // Pause: destroy and clear all activity
-                      orch.destroy()
+                    const next = !v
+                    agentsPausedRef.current = next
+                    if (next) {
+                      // Pause: destroy current orchestrator, clear states
+                      orchestratorRef.current?.destroy()
                       orchestratorRef.current = null
                       setAgentStates({})
-                    } else if (v) {
-                      // Resume: recreate
-                      const newOrch = makeOrchestrator()
-                      orchestratorRef.current = newOrch
-                      newOrch.trigger('doc-opened')
+                    } else {
+                      // Resume: create fresh orchestrator
+                      const orch = makeOrchestrator()
+                      orchestratorRef.current = orch
+                      orch.trigger('doc-opened')
                     }
-                    return !v
+                    return next
                   })
                 }}
                 title={agentsPaused ? 'Resume agents' : 'Pause agents'}
@@ -781,6 +788,45 @@ function App() {
                     title="Ordered List"
                   >
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="10" y1="6" x2="21" y2="6"/><line x1="10" y1="12" x2="21" y2="12"/><line x1="10" y1="18" x2="21" y2="18"/><text x="1" y="8" fontSize="8" fill="currentColor" stroke="none" fontFamily="sans-serif">1</text><text x="1" y="14" fontSize="8" fill="currentColor" stroke="none" fontFamily="sans-serif">2</text><text x="1" y="20" fontSize="8" fill="currentColor" stroke="none" fontFamily="sans-serif">3</text></svg>
+                  </button>
+                  <span className="doc-toolbar-spacer" />
+                  <button
+                    className="doc-toolbar-btn"
+                    onClick={() => {
+                      const text = editor.getText()
+                      const h1 = text.split('\n')[0] || 'document'
+                      const blob = new Blob([text], { type: 'text/markdown' })
+                      const url = URL.createObjectURL(blob)
+                      const a = document.createElement('a')
+                      a.href = url; a.download = `${h1.slice(0, 40)}.md`; a.click()
+                      URL.revokeObjectURL(url)
+                    }}
+                    title="Download as Markdown"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  </button>
+                  <button
+                    className="doc-toolbar-btn"
+                    onClick={async () => {
+                      const token = (await supabase.auth.getSession()).data.session?.provider_token
+                      if (!token) { alert('Sign in with Google to save to Drive'); return }
+                      const html = editor.getHTML()
+                      const title = activeSession?.title || 'Untitled'
+                      const metadata = { name: `${title}.html`, mimeType: 'application/vnd.google-apps.document' }
+                      const form = new FormData()
+                      form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }))
+                      form.append('file', new Blob([html], { type: 'text/html' }))
+                      const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+                        method: 'POST',
+                        headers: { Authorization: `Bearer ${token}` },
+                        body: form,
+                      })
+                      if (res.ok) setSaveStatus('saved')
+                      else console.error('Drive save failed:', res.status)
+                    }}
+                    title="Save to Google Drive"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 87.3 78" xmlns="http://www.w3.org/2000/svg"><path d="m6.6 66.85 3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8h-27.5c0 1.55.4 3.1 1.2 4.5z" fill="#0066da"/><path d="m43.65 25-13.75-23.8c-1.35.8-2.5 1.9-3.3 3.3l-20.4 35.3c-.8 1.4-1.2 2.95-1.2 4.5h27.5z" fill="#00ac47"/><path d="m73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5h-27.5l5.85 13.95z" fill="#ea4335"/><path d="m43.65 25 13.75-23.8c-1.35-.8-2.9-1.2-4.5-1.2h-18.5c-1.6 0-3.15.45-4.5 1.2z" fill="#00832d"/><path d="m59.8 53h-32.3l-13.75 23.8c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.15-.45 4.5-1.2z" fill="#2684fc"/><path d="m73.4 26.5-10.1-17.5c-.8-1.4-1.95-2.5-3.3-3.3l-13.75 23.8 16.15 23.8h27.45c0-1.55-.4-3.1-1.2-4.5z" fill="#ffba00"/></svg>
                   </button>
                 </div>
                 <div className="doc-body">
