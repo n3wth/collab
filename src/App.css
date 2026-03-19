@@ -2237,9 +2237,33 @@
   flex-shrink: 0;
 }
 
-/* Hide sidebar brand when header is showing (has-session) */
-.app-shell-active .sidebar-brand {
+/* Hide sidebar brand labels when header is showing (has-session) */
+.app-shell-active .sidebar-brand,
+.app-shell-active .sidebar-brand-label {
   display: none;
+}
+
+.app-shell-active .sidebar-header {
+  height: auto;
+  padding: 6px 10px 0;
+  justify-content: flex-end;
+}
+
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  height: 48px;
+  padding: 0 10px;
+  flex-shrink: 0;
+}
+
+.sidebar-brand-label {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  letter-spacing: -0.03em;
+  flex: 1;
+  padding-left: 6px;
 }
 
 .sidebar-search-btn {
@@ -2253,7 +2277,6 @@
   color: var(--text-disabled);
   cursor: pointer;
   border-radius: 50%;
-  margin: 4px 4px 4px auto;
   flex-shrink: 0;
 }
 
@@ -2266,12 +2289,11 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 10px;
-  margin: 4px 6px 4px;
+  flex: 1;
+  padding: 5px 10px;
   background: var(--surface-2);
   border-radius: 7px;
   color: var(--text-tertiary);
-  flex-shrink: 0;
 }
 
 .sidebar-new-btn {
@@ -2330,7 +2352,7 @@
 .sidebar-docs {
   flex: 1;
   overflow-y: auto;
-  padding: 6px 6px 0;
+  padding: 0 6px;
 }
 
 .sidebar-section-header {
@@ -3109,21 +3131,7 @@
 }
 
 /* Fixed Collab brand — always top-left */
-.app-brand {
-  position: fixed;
-  top: 14px;
-  left: 16px;
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  letter-spacing: -0.03em;
-  cursor: pointer;
-  z-index: 50;
-}
 
-.app-brand:hover {
-  color: var(--text-primary);
-}
 
 .empty-state-shader {
   position: absolute;
