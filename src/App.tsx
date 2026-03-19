@@ -281,6 +281,7 @@ function App() {
   const [input, setInput] = useState('')
   const [mentionQuery, setMentionQuery] = useState<string | null>(null)
   const [mentionIndex, setMentionIndex] = useState(0)
+  const [chatVisibleCount, setChatVisibleCount] = useState(50)
   const MENTION_NAMES = [...activeAgents.map(a => a.name), 'Sarah']
   const chatEndRef = useRef<HTMLDivElement>(null)
   const messagesRef = useRef(messages)
@@ -976,13 +977,27 @@ function App() {
             <div className="chat-panel chat-right" style={{ width: chatWidth, maxWidth: chatWidth, flexBasis: chatWidth }}>
               <div className="chat-messages">
                 <div className="chat-messages-inner">
-                {messages.filter(m => !m.text.startsWith('Couldn\'t find that text')).map((m, i, arr) => {
-                  const prev = arr[i - 1]
-                  const sameSender = prev && prev.from === m.from
+                {(() => {
+                  const filtered = messages.filter(m => !m.text.startsWith('Couldn\'t find that text'))
+                  const hiddenCount = Math.max(0, filtered.length - chatVisibleCount)
+                  const visible = hiddenCount > 0 ? filtered.slice(-chatVisibleCount) : filtered
                   return (
-                    <ChatMessage key={m.id} m={m} sameSender={sameSender} agentState={activeAgents.some(a => a.name === m.from) ? getAgentState(m.from) : null} userAvatarUrl={user?.user_metadata?.avatar_url} />
+                    <>
+                      {hiddenCount > 0 && (
+                        <button className="load-older-btn" onClick={() => setChatVisibleCount(c => c + 50)}>
+                          Load {Math.min(50, hiddenCount)} older messages
+                        </button>
+                      )}
+                      {visible.map((m, i, arr) => {
+                        const prev = arr[i - 1]
+                        const sameSender = prev && prev.from === m.from
+                        return (
+                          <ChatMessage key={m.id} m={m} sameSender={sameSender} agentState={activeAgents.some(a => a.name === m.from) ? getAgentState(m.from) : null} userAvatarUrl={user?.user_metadata?.avatar_url} />
+                        )
+                      })}
+                    </>
                   )
-                })}
+                })()}
                 {activeAgents.map(agent => {
                   const state = getAgentState(agent.name)
                   return (state.status === 'thinking' || state.status === 'typing') && !state.inDoc ? (
