@@ -25,7 +25,7 @@
   background: rgba(255, 255, 255, 0.12);
   pointer-events: none;
   z-index: 0;
-  transition: top 0.15s ease-out, height 0.15s ease-out;
+  will-change: top, height;
 }
 
 /* Dots — agent and user indicators */
