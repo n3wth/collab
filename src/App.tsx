@@ -550,6 +550,12 @@ function App() {
     }
     lastDocSnapshot.current = editor?.getText() || ''
 
+    // Reset doc scroll to top
+    requestAnimationFrame(() => {
+      const docBody = document.querySelector('.doc-body')
+      if (docBody) docBody.scrollTop = 0
+    })
+
     // Auto-open doc immediately
     setTimeout(() => {
       const newStates: Record<string, AgentState> = {}
