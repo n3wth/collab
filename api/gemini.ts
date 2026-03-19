@@ -8,9 +8,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed' })
   }
 
-  const apiKey = process.env.GEMINI_API_KEY
+  const apiKey = process.env.GEMINI_API_KEY || (req.headers['x-gemini-key'] as string)
   if (!apiKey) {
-    return res.status(500).json({ error: 'GEMINI_API_KEY not configured' })
+    return res.status(400).json({ error: 'No API key. Set GEMINI_API_KEY on server or provide your own in Settings.' })
   }
 
   try {

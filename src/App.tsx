@@ -263,7 +263,7 @@ function App() {
   const activeSessionRef = useRef<Session | null>(null)
   const [docOpen, setDocOpen] = useState(false)
   const [activeAgents, setActiveAgents] = useState<AgentConfig[]>(DEFAULT_AGENT_CONFIGS)
-  const [showConfigurator] = useState(false)
+  const [showConfigurator, setShowConfigurator] = useState(false)
   const [agentStates, setAgentStates] = useState<Record<string, AgentState>>({})
   const getAgentState = (name: string): AgentState => agentStates[name] || { status: 'idle', inDoc: false }
   const [messages, setMessages] = useState<Message[]>([])
@@ -605,6 +605,17 @@ function App() {
             })}
           </div>
           <div className="header-buttons">
+            <button
+              className={`header-icon-btn ${showConfigurator ? 'active' : ''}`}
+              onClick={() => setShowConfigurator(v => !v)}
+              aria-label="Configure agents"
+              title="Configure agents"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="3" />
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+              </svg>
+            </button>
             <button
               className={`doc-toggle-btn ${docOpen ? 'active' : ''}`}
               onClick={() => {
