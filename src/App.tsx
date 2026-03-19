@@ -654,7 +654,12 @@ function App() {
   if (window.location.pathname === '/terms') return <LegalPage page="terms" />
 
   // Login page for unauthenticated users (non-localhost)
-  if (params.has('login') || (!isLocalhost && (authLoading || !user))) {
+  // Show nothing while auth is loading to prevent flash
+  if (!isLocalhost && authLoading) {
+    return <div className="app-shell" style={{ background: 'var(--surface-0)' }} />
+  }
+
+  if (params.has('login') || (!isLocalhost && !user)) {
     return <LoginPage />
   }
 
