@@ -255,7 +255,7 @@ export function AwakenSequence({ onComplete }: Props) {
 
       {/* Wordmark — celebration moment when blobs converge */}
       <div className={`awaken-wordmark ${showWordmark ? 'visible' : ''}`}>
-        Collab
+        Markup
       </div>
 
       {/* Tagline */}

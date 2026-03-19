@@ -215,9 +215,9 @@ export function HomePage({ onSelect, onSignOut, demoMode, onDemoConsumed }: Prop
         <nav className="home-nav">
           <div className="home-nav-logo">
             <div className="home-nav-blob-wrap">
-              <BlobAvatar name="Collab" size={24} state="logo" color="#30d158" />
+              <BlobAvatar name="Markup" size={24} state="logo" color="#30d158" />
             </div>
-            <span className="home-nav-wordmark">Collab</span>
+            <span className="home-nav-wordmark">Markup</span>
           </div>
           <div className="home-nav-agents">
             {AGENT_PRESETS.map((p, i) => (
@@ -307,7 +307,7 @@ export function HomePage({ onSelect, onSignOut, demoMode, onDemoConsumed }: Prop
 
         <footer className="home-footer">
           <div className="home-footer-left">
-            <span className="home-footer-brand">Collab</span>
+            <span className="home-footer-brand">Markup</span>
           </div>
           <div className="home-footer-right">
             <a href="/privacy" className="home-footer-link">Privacy</a>

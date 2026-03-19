@@ -114,7 +114,7 @@ export function Sidebar({ sessions, activeSessionId, onSelect, onNewDoc, onDelet
           </div>
         ) : (
           <>
-            <span className="sidebar-brand-label" onClick={onHome} style={{ cursor: onHome ? 'pointer' : undefined }}>Collab</span>
+            <span className="sidebar-brand-label" onClick={onHome} style={{ cursor: onHome ? 'pointer' : undefined }}>Markup</span>
             {sessions.length > 3 && (
               <button className="sidebar-search-btn" onClick={() => setSearchOpen(true)} title="Search documents">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
