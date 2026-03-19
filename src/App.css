@@ -2178,6 +2178,11 @@
   flex-shrink: 0;
 }
 
+/* Hide sidebar brand when header is showing (has-session) */
+.app-shell-active .sidebar-brand {
+  display: none;
+}
+
 .sidebar-top {
   padding: 0 12px 12px;
 }

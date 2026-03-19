@@ -611,9 +611,11 @@ function App() {
   }
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${activeSession ? 'app-shell-active' : ''}`}>
       {activeSession && <div className="app-header">
-        <div className={`header-sidebar-zone ${sidebarCollapsed ? 'collapsed' : ''}`} />
+        <div className={`header-sidebar-zone ${sidebarCollapsed ? 'collapsed' : ''}`}>
+          <span className="header-wordmark" onClick={resetToHome}>Collab</span>
+        </div>
         <div className="header-editor-zone">
           {activeSession && (
             <>
