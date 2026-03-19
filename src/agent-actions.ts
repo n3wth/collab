@@ -597,6 +597,42 @@ export function executeAgentAction(
     if (action.chatMessage) callbacks.onChatMessage(agentName, action.chatMessage)
     releaseLockAndDone(true)
 
+  } else if (action.type === 'delete') {
+    // Delete specific text from the document
+    if (action.deleteText) {
+      const doc = editor.state.doc
+      const docText = doc.textContent
+      const idx = docText.indexOf(action.deleteText)
+      if (idx >= 0) {
+        if (action.chatBefore) callbacks.onChatMessage(agentName, action.chatBefore)
+        const from = idx + 1
+        const to = from + action.deleteText.length
+        const tr = editor.state.tr.delete(from, to)
+        editor.view.dispatch(tr)
+        if (action.chatMessage) callbacks.onChatMessage(agentName, action.chatMessage)
+      }
+    }
+    releaseLockAndDone(true)
+
+  } else if (action.type === 'propose') {
+    // Proposals are surfaced as chat — user confirms via reply
+    const msg = action.chatMessage || action.proposal || 'I have a suggestion.'
+    callbacks.onChatMessage(agentName, msg)
+    releaseLockAndDone(true)
+
+  } else if (action.type === 'plan') {
+    // Plans are surfaced as chat with numbered steps
+    const steps = action.steps?.map((s, i) => `${i + 1}. ${s}`).join('\n') || ''
+    const msg = action.chatMessage ? `${action.chatMessage}\n${steps}` : steps
+    callbacks.onChatMessage(agentName, msg)
+    releaseLockAndDone(true)
+
+  } else if (action.type === 'ask') {
+    // Questions are surfaced as chat
+    const msg = action.question || action.chatMessage || 'I have a question.'
+    callbacks.onChatMessage(agentName, msg)
+    releaseLockAndDone(true)
+
   } else if (action.type === 'chat') {
     callbacks.onChatMessage(agentName, action.chatMessage || 'Got it.')
     releaseLockAndDone(true)
