@@ -212,7 +212,6 @@ export function Sidebar({ sessions, activeSessionId, onSelect, onNewDoc, onDelet
             <line x1="5" y1="12" x2="19" y2="12" />
           </svg>
           New document
-          <span className="sidebar-new-shortcut">{navigator.platform?.includes('Mac') ? '\u2318' : 'Ctrl+'}N</span>
         </button>
         <button className="sidebar-collapse-btn" onClick={onCollapse} title="Collapse sidebar">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
