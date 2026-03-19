@@ -550,7 +550,7 @@
 .msg {
   display: flex;
   gap: 10px;
-  padding: 6px 12px;
+  padding: 8px 12px;
   max-width: 100%;
   border-radius: var(--radius-sm);
   transition: background var(--duration-fast) ease;
@@ -807,23 +807,24 @@
 
 .chat-input input {
   flex: 1;
-  padding: 8px 12px;
-  border: none;
-  border-radius: var(--radius-lg);
-  background: transparent;
+  padding: 10px 14px;
+  border: 1px solid var(--border-default);
+  border-radius: 10px;
+  background: var(--surface-1);
   color: var(--text-primary);
   font-size: 14px;
   font-family: inherit;
   outline: none;
   min-width: 0;
+  transition: border-color 0.15s ease;
 }
 
 .chat-input input:focus {
-  border: none;
+  border-color: var(--text-tertiary);
 }
 
 .chat-input input::placeholder {
-  color: var(--text-tertiary);
+  color: var(--text-disabled);
 }
 
 /* Chat suggestion chips */
