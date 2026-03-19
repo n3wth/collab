@@ -281,6 +281,11 @@
 
 .agent-hover-card-dot.active {
   background: var(--agent-aiden, #30d158);
+}
+
+/* Only animate pulse when hover card is visible */
+.header-avatar-wrap:hover .agent-hover-card-dot.active,
+.msg-avatar-agent:hover .agent-hover-card-dot.active {
   animation: statusPulse 2s ease-in-out infinite;
 }
 
@@ -464,11 +469,13 @@
   max-width: 100%;
   border-radius: var(--radius-sm);
   transition: background var(--duration-fast) ease;
-  animation: msgFadeIn var(--duration-slow) var(--ease-out-expo) forwards;
   position: relative;
   flex-shrink: 0;
-  opacity: 0;
-  transform: translateY(8px);
+}
+
+/* Only animate the last 5 messages on entrance */
+.msg:nth-last-child(-n+6) {
+  animation: msgFadeIn var(--duration-slow) var(--ease-out-expo) both;
 }
 
 .msg-consecutive {
@@ -1951,9 +1958,9 @@
   100% { transform: scaleX(0.3); transform-origin: right; }
 }
 
-/* Agent message entrance — slide from left */
-.msg-agent .msg-body {
-  animation: agentMsgIn 0.5s var(--ease-out-expo) forwards;
+/* Agent message entrance — only recent messages */
+.msg-agent:nth-last-child(-n+6) .msg-body {
+  animation: agentMsgIn 0.5s var(--ease-out-expo) both;
 }
 
 @keyframes agentMsgIn {
@@ -1961,8 +1968,10 @@
   to { opacity: 1; transform: translateX(0); }
 }
 
-/* Blob breathing when idle */
-.blob-avatar-wrap {
+/* Blob breathing — only in header and sidebar, not in chat messages */
+.app-header .blob-avatar-wrap,
+.sidebar .blob-avatar-wrap,
+.empty-state .blob-avatar-wrap {
   animation: blobBreathe 4s ease-in-out infinite;
 }
 
