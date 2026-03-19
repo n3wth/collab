@@ -880,7 +880,6 @@ function App() {
               if (activeSession?.id === id) setActiveSession(s => s ? { ...s, title } : s)
             }}
             onCollapse={() => setSidebarCollapsed(v => !v)}
-            onHome={resetToHome}
             collapsed={sidebarCollapsed}
             user={user ?? null}
             onSignOut={isLocalhost ? undefined : signOut}

@@ -38,13 +38,12 @@ interface Props {
   onDelete: (id: string) => void
   onRename: (id: string, title: string) => void
   onCollapse: () => void
-  onHome: () => void
   collapsed: boolean
   user: User | null
   onSignOut?: () => void
 }
 
-export function Sidebar({ sessions, activeSessionId, onSelect, onNewDoc, onDelete, onRename, onCollapse, onHome, collapsed, user, onSignOut }: Props) {
+export function Sidebar({ sessions, activeSessionId, onSelect, onNewDoc, onDelete, onRename, onCollapse, collapsed, user, onSignOut }: Props) {
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [editing, setEditing] = useState(false)
   const [renamingId, setRenamingId] = useState<string | null>(null)
