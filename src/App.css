@@ -55,6 +55,26 @@
   white-space: nowrap;
 }
 
+.header-save-status {
+  font-size: 11px;
+  color: var(--text-disabled);
+  font-weight: 400;
+  margin-left: 8px;
+  flex-shrink: 0;
+  transition: opacity var(--duration-fast) ease;
+}
+
+.header-save-status.saved {
+  color: var(--text-tertiary);
+  animation: savedFade 2s ease forwards;
+}
+
+@keyframes savedFade {
+  0% { opacity: 1; }
+  70% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
 .header-chat-zone {
   width: 340px;
   flex-shrink: 0;

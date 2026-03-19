@@ -271,6 +271,7 @@ function App() {
   const [sessions, setSessions] = useState<Session[]>([])
   const [showTemplatePicker, setShowTemplatePicker] = useState(false)
   const [activeAgents, setActiveAgents] = useState<AgentConfig[]>(DEFAULT_AGENT_CONFIGS)
+  const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'idle'>('idle')
   const [showConfigurator, setShowConfigurator] = useState(false)
   const [agentStates, setAgentStates] = useState<Record<string, AgentState>>({})
   const getAgentState = (name: string): AgentState => agentStates[name] || { status: 'idle', inDoc: false }
@@ -307,12 +308,13 @@ function App() {
     onUpdate: ({ editor: ed }) => {
       // Debounced save to Supabase
       if (docSaveTimer.current) clearTimeout(docSaveTimer.current)
+      setSaveStatus('saving')
       docSaveTimer.current = window.setTimeout(() => {
         const session = activeSessionRef.current
         if (session) {
-          saveDocument(session.id, ed.getHTML()).catch(err =>
-            console.error('[App] saveDocument error:', err)
-          )
+          saveDocument(session.id, ed.getHTML())
+            .then(() => { setSaveStatus('saved'); setTimeout(() => setSaveStatus('idle'), 2000) })
+            .catch(err => console.error('[App] saveDocument error:', err))
           // Sync title from first H1
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const json = ed.getJSON() as any
@@ -609,7 +611,11 @@ function App() {
         </div>
         <div className="header-editor-zone">
           {activeSession && (
-            <span className="header-doc-title">{activeSession.title}</span>
+            <>
+              <span className="header-doc-title">{activeSession.title}</span>
+              {saveStatus === 'saving' && <span className="header-save-status">Saving...</span>}
+              {saveStatus === 'saved' && <span className="header-save-status saved">Saved</span>}
+            </>
           )}
         </div>
         <div className="header-chat-zone">
