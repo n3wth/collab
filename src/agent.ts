@@ -101,8 +101,10 @@ const rateLimiter = {
   },
 }
 
+export type AgentActionType = 'insert' | 'replace' | 'read' | 'chat' | 'search' | 'rename' | 'delete' | 'propose' | 'plan' | 'ask'
+
 export interface AgentAction {
-  type: 'insert' | 'replace' | 'read' | 'chat' | 'search' | 'rename'
+  type: AgentActionType
   position?: 'end' | 'after-heading' | 'cursor' | string
   content?: string
   searchText?: string
@@ -110,6 +112,11 @@ export interface AgentAction {
   highlightText?: string
   query?: string        // search query for web search action
   newTitle?: string     // for rename action
+  deleteText?: string   // text to delete (for delete action)
+  proposal?: string     // what the agent proposes (for propose action)
+  proposalType?: 'create-doc' | 'delete-doc' | 'add-agent' | 'remove-agent'
+  steps?: string[]      // planned steps (for plan action)
+  question?: string     // clarifying question (for ask action)
   chatBefore?: string   // message sent BEFORE the action (intent)
   chatMessage?: string  // message sent AFTER the action (summary)
   thought?: string
@@ -200,9 +207,16 @@ function buildPrompt(params: AskParams): string {
 - Read a specific part and comment on it in chat (tag the other agent if relevant, e.g. "@Nova this section needs user scenarios")
 - Insert new content that builds on or complements what the other agent wrote
 - Replace/improve existing text
+- Delete text that's redundant, outdated, or incorrect
 - Send a chat message reacting to something the other agent added (use @mentions)
+- Ask the user a clarifying question if the doc's intent is unclear
+- Plan your approach before making multiple changes (use "plan" then set shouldContinue:true)
+- Propose creating a new doc, adding/removing an agent if it would help the project
+- Rename the document if the title doesn't match the content
 
-Prefer actions that reference or build on the other agent's work. Be concise — max 3-4 bullets per insert. IMPORTANT: Before inserting a new heading, check if that heading already exists in the document. If it does, add content UNDER the existing heading using "replace" or insert after it — do NOT create a duplicate section.`
+Prefer actions that reference or build on the other agent's work. Be concise — max 3-4 bullets per insert. IMPORTANT: Before inserting a new heading, check if that heading already exists in the document. If it does, add content UNDER the existing heading using "replace" or insert after it — do NOT create a duplicate section.
+
+TURN LOGIC: If the other agent just made a change, decide whether to react based on relevance. Don't react just because they acted — only if you have something substantive to add, challenge, or build on. If you don't, use shouldContinue:false to yield.`
   } else if (params.trigger === 'instruction') {
     taskBlock = `The user said: "${params.instruction}"
 
@@ -265,6 +279,18 @@ Use search when the document needs current data, market info, or technical resea
 
 To rename the document when the title doesn't match its content:
 {"type":"rename","reasoning":["<step>","<step>"],"newTitle":"<better title>","chatMessage":"<explanation>"}
+
+To delete specific text from the document:
+{"type":"delete","reasoning":["<step>","<step>"],"deleteText":"<exact text to remove>","chatBefore":"<what you're removing and why>"}
+
+To propose an action that needs user approval (create doc, add/remove agent):
+{"type":"propose","reasoning":["<step>","<step>"],"proposalType":"<create-doc|delete-doc|add-agent|remove-agent>","proposal":"<what you're proposing and why>","chatMessage":"<ask for approval>"}
+
+To outline a plan before making multiple changes:
+{"type":"plan","reasoning":["<step>","<step>"],"steps":["Step 1: ...","Step 2: ..."],"chatMessage":"<summary of plan>","shouldContinue":true}
+
+To ask the user a clarifying question before proceeding:
+{"type":"ask","reasoning":["<step>","<step>"],"question":"<your question>","chatMessage":"<context for the question>"}
 
 Rules:
 - "reasoning" is REQUIRED — 2-3 short steps showing your thinking process. Each step MAX 8 words. Examples: ["Architecture section lacks specifics", "Need CRDT sync protocol details", "Adding data model and sync flow"]. Show what you noticed, what's missing, and what you'll do.

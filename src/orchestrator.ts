@@ -243,6 +243,10 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
       case 'chat': return `${agent} sent a message`
       case 'search': return `${agent} searched: "${(action.query || '').slice(0, 80)}"`
       case 'rename': return `${agent} renamed doc to "${action.newTitle || ''}"`
+      case 'delete': return `${agent} deleted: "${(action.deleteText || '').slice(0, 60)}"`
+      case 'propose': return `${agent} proposed: ${(action.proposal || '').slice(0, 80)}`
+      case 'plan': return `${agent} outlined a plan with ${action.steps?.length || 0} steps`
+      case 'ask': return `${agent} asked: "${(action.question || '').slice(0, 80)}"`
       default: return `${agent} acted`
     }
   }
