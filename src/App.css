@@ -2406,6 +2406,19 @@
   background: var(--agent-aiden);
 }
 
+.sidebar-doc-rename-input {
+  width: 100%;
+  padding: 6px 10px;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  color: var(--text-primary);
+  background: var(--surface-2);
+  border: 1px solid var(--text-tertiary);
+  border-radius: 6px;
+  outline: none;
+}
+
 .sidebar-doc-title {
   flex: 1;
   overflow: hidden;

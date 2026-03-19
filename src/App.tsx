@@ -868,6 +868,11 @@ function App() {
             onSelect={handleSidebarSelect}
             onNewDoc={() => setShowTemplatePicker(true)}
             onDelete={(id) => { setSessions(s => s.filter(x => x.id !== id)); if (activeSession?.id === id) resetToHome() }}
+            onRename={(id, title) => {
+              updateSessionTitle(id, title).catch(console.error)
+              setSessions(s => s.map(x => x.id === id ? { ...x, title } : x))
+              if (activeSession?.id === id) setActiveSession(s => s ? { ...s, title } : s)
+            }}
             onCollapse={() => setSidebarCollapsed(v => !v)}
             onHome={resetToHome}
             collapsed={sidebarCollapsed}

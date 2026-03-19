@@ -36,6 +36,7 @@ interface Props {
   onSelect: (session: Session) => void
   onNewDoc: () => void
   onDelete: (id: string) => void
+  onRename: (id: string, title: string) => void
   onCollapse: () => void
   onHome: () => void
   collapsed: boolean
@@ -43,9 +44,11 @@ interface Props {
   onSignOut?: () => void
 }
 
-export function Sidebar({ sessions, activeSessionId, onSelect, onNewDoc, onDelete, onCollapse, onHome, collapsed, user, onSignOut }: Props) {
+export function Sidebar({ sessions, activeSessionId, onSelect, onNewDoc, onDelete, onRename, onCollapse, onHome, collapsed, user, onSignOut }: Props) {
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [editing, setEditing] = useState(false)
+  const [renamingId, setRenamingId] = useState<string | null>(null)
+  const [renameValue, setRenameValue] = useState('')
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
   const [confirmDeleteAccount, setConfirmDeleteAccount] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -117,12 +120,30 @@ export function Sidebar({ sessions, activeSessionId, onSelect, onNewDoc, onDelet
               <div className="sidebar-group-label">{group.label}</div>
               {group.items.map(s => (
                 <div key={s.id} className="sidebar-doc-row">
-                  <button
-                    className={`sidebar-doc-item ${s.id === activeSessionId ? 'active' : ''}`}
-                    onClick={() => !editing && onSelect(s)}
-                  >
-                    <span className="sidebar-doc-title">{s.title}</span>
-                  </button>
+                  {renamingId === s.id ? (
+                    <input
+                      className="sidebar-doc-rename-input"
+                      value={renameValue}
+                      onChange={e => setRenameValue(e.target.value)}
+                      onBlur={() => {
+                        if (renameValue.trim() && renameValue !== s.title) onRename(s.id, renameValue.trim())
+                        setRenamingId(null)
+                      }}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') e.currentTarget.blur()
+                        if (e.key === 'Escape') setRenamingId(null)
+                      }}
+                      autoFocus
+                    />
+                  ) : (
+                    <button
+                      className={`sidebar-doc-item ${s.id === activeSessionId ? 'active' : ''}`}
+                      onClick={() => !editing && onSelect(s)}
+                      onDoubleClick={() => { setRenamingId(s.id); setRenameValue(s.title) }}
+                    >
+                      <span className="sidebar-doc-title">{s.title}</span>
+                    </button>
+                  )}
                   {editing && (
                     <button
                       className="sidebar-doc-delete"
@@ -203,7 +224,7 @@ export function Sidebar({ sessions, activeSessionId, onSelect, onNewDoc, onDelet
             <p className="sidebar-confirm-text sidebar-confirm-text-danger">Delete your account and all documents? This can't be undone.</p>
             <div className="sidebar-confirm-actions">
               <button className="sidebar-confirm-cancel" onClick={() => setConfirmDeleteAccount(false)}>Cancel</button>
-              <button className="sidebar-confirm-delete" onClick={() => { setConfirmDeleteAccount(false); /* TODO: call account delete API */ }}>Delete account</button>
+              <button className="sidebar-confirm-delete" onClick={() => { setConfirmDeleteAccount(false) }}>Delete account</button>
             </div>
           </div>
         </div>
