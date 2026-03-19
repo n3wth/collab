@@ -750,10 +750,10 @@ function App() {
 
   return (
     <div className={`app-shell ${activeSession ? 'app-shell-active' : ''}`}>
+      <span className="app-brand" onClick={resetToHome}>Collab</span>
       {activeSession && <div className="app-header">
-        <div className={`header-sidebar-zone ${sidebarCollapsed ? 'collapsed' : ''}`} style={!sidebarCollapsed ? { width: sidebarWidth + 4 } : undefined}>
-          <span className="header-wordmark" onClick={resetToHome}>Collab</span>
-        </div>
+        <div className={`header-sidebar-zone ${sidebarCollapsed ? 'collapsed' : ''}`} style={!sidebarCollapsed ? { width: sidebarWidth + 4 } : undefined} />
+
         <div className="header-editor-zone">
           {activeSession && (
             <>
@@ -867,7 +867,7 @@ function App() {
         </div>
       )}
       <div className="app-body">
-        <div style={{ width: sidebarCollapsed ? 40 : sidebarWidth, flexShrink: 0 }}>
+        <div style={{ width: sidebarCollapsed ? 0 : sidebarWidth, flexShrink: 0, overflow: 'hidden' }}>
           <Sidebar
             sessions={sessions}
             activeSessionId={activeSession?.id ?? null}
@@ -880,7 +880,6 @@ function App() {
               if (activeSession?.id === id) setActiveSession(s => s ? { ...s, title } : s)
             }}
             onCollapse={() => setSidebarCollapsed(v => !v)}
-            onHome={resetToHome}
             collapsed={sidebarCollapsed}
             user={user ?? null}
             onSignOut={isLocalhost ? undefined : signOut}

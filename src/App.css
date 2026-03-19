@@ -28,8 +28,9 @@
 }
 
 .header-sidebar-zone.collapsed {
-  width: 44px;
-  padding: 0 8px;
+  width: 0;
+  padding: 0;
+  overflow: hidden;
 }
 
 .header-wordmark {
@@ -2230,7 +2231,7 @@
 }
 
 .sidebar-top {
-  padding: 0 12px 12px;
+  padding: 44px 12px 12px 12px;
 }
 
 .sidebar-new-btn {
@@ -2254,26 +2255,21 @@
   color: var(--text-primary);
 }
 
-.sidebar-collapsed {
-  width: 40px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-end;
-  padding: 0 0 14px;
-}
-
 .sidebar-expand-btn {
-  width: 24px;
-  height: 24px;
+  position: fixed;
+  bottom: 16px;
+  left: 12px;
+  width: 28px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: none;
-  background: var(--surface-2);
+  border: 1px solid var(--border-default);
+  background: var(--sidebar-bg);
   color: var(--text-secondary);
   cursor: pointer;
-  border-radius: 5px;
+  border-radius: 7px;
+  z-index: 50;
 }
 
 .sidebar-expand-btn:hover {
@@ -2978,6 +2974,23 @@
   background: var(--surface-0);
   position: relative;
   overflow: hidden;
+}
+
+/* Fixed Collab brand — always top-left */
+.app-brand {
+  position: fixed;
+  top: 14px;
+  left: 16px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  letter-spacing: -0.03em;
+  cursor: pointer;
+  z-index: 50;
+}
+
+.app-brand:hover {
+  color: var(--text-primary);
 }
 
 .empty-state-shader {
