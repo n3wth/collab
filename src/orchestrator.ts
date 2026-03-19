@@ -1,8 +1,7 @@
 import type { Editor } from '@tiptap/react'
 import { askAgent, AgentError, resetRateLimiter, type AgentAction, type AskParams } from './agent'
-import { detectObservations } from './wizard-of-oz'
 import { executeAgentAction, type ActionCallbacks } from './agent-actions'
-import { generateHeartbeat } from './heartbeat'
+import { generateObservation, resetHeartbeat } from './heartbeat'
 import { DEFAULT_LIMITS, type OrchestratorLimits } from './types'
 
 type AgentName = string
@@ -332,7 +331,6 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
     const delay = config.demoMode ? 8000 + Math.random() * 4000 : hbMin + Math.random() * (hbMax - hbMin)
     heartbeatTimer = window.setTimeout(() => {
       fireHeartbeat()
-      startHeartbeat()
     }, delay)
   }
 
@@ -343,29 +341,26 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
     }
   }
 
-  function fireHeartbeat() {
+  async function fireHeartbeat() {
     if (destroyed || processing || agentNames.length === 0) return
 
-    // Wizard of Oz: scripted observations before LLM heartbeat
-    const wizardObs = detectObservations(
+    const agent = config.agents[Math.floor(Math.random() * config.agents.length)]
+    if (queue.some(q => q.agent === agent.name)) return
+
+    const observation = await generateObservation(
       config.getDocText(),
       config.getMessages().slice(-10),
-      agentNames,
+      agent.name,
+      agent.persona,
+      agentNames.filter(n => n !== agent.name),
     )
-    for (const obs of wizardObs) {
-      scheduleTimeout(() => {
-        if (!destroyed) config.onChatMessage(obs.agent, obs.text)
-      }, obs.delay)
+
+    if (observation && !destroyed) {
+      config.onChatMessage(agent.name, observation)
     }
 
-    const instruction = generateHeartbeat(
-      config.getDocText(),
-      config.getMessages().slice(-10),
-    )
-    if (!instruction) return
-    const agent = agentNames[Math.floor(Math.random() * agentNames.length)]
-    if (queue.some(q => q.agent === agent)) return
-    enqueue({ agent, trigger: 'instruction', instruction })
+    // Restart heartbeat timer
+    if (!destroyed) startHeartbeat()
   }
 
   function destroy() {
@@ -373,6 +368,7 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
     clearAllTimers()
     stopHeartbeat()
     resetRateLimiter()
+    resetHeartbeat()
     queue.length = 0
     processing = false
     editorLockRef.current = null
