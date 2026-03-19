@@ -612,12 +612,12 @@ function App() {
       setActiveAgents(restored)
       currentAgents = restored
     } else {
-      currentAgents = agents.length > 0 ? agents : activeAgents
-      // Persist starter agents for new sessions
-      if (agents.length > 0) {
-        saveAgentPersonas(session.id, agentConfigsToPersonas(currentAgents))
-          .catch(err => console.error('[App] saveAgentPersonas error:', err))
-      }
+      // No saved personas: use provided agents, or defaults (Aiden + Nova)
+      currentAgents = agents.length > 0 ? agents : DEFAULT_AGENT_CONFIGS
+      setActiveAgents(currentAgents)
+      // Persist so they load correctly next time
+      saveAgentPersonas(session.id, agentConfigsToPersonas(currentAgents))
+        .catch(err => console.error('[App] saveAgentPersonas error:', err))
     }
 
     if (savedDoc && editor) {
