@@ -1,3 +1,4 @@
+import { useState, useRef, useEffect } from 'react'
 import { BlobAvatar } from './blob-avatar'
 import type { Session } from './types'
 import type { User } from '@supabase/supabase-js'
@@ -26,6 +27,20 @@ interface Props {
 }
 
 export function Sidebar({ sessions, activeSessionId, onSelect, onNewDoc, user, onSignOut }: Props) {
+  const [userMenuOpen, setUserMenuOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!userMenuOpen) return
+    const onClick = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setUserMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', onClick)
+    return () => document.removeEventListener('mousedown', onClick)
+  }, [userMenuOpen])
+
   return (
     <div className="sidebar">
       <div className="sidebar-top">
@@ -56,9 +71,20 @@ export function Sidebar({ sessions, activeSessionId, onSelect, onNewDoc, user, o
           )}
         </div>
       </div>
-      <div className="sidebar-user">
+      <div className="sidebar-user" ref={menuRef}>
+        {userMenuOpen && (
+          <div className="sidebar-user-menu">
+            {onSignOut && (
+              <button className="sidebar-user-menu-item sidebar-user-menu-signout" onClick={() => { setUserMenuOpen(false); onSignOut() }}>
+                Sign out
+              </button>
+            )}
+            <a href="/privacy" className="sidebar-user-menu-item">Privacy</a>
+            <a href="/terms" className="sidebar-user-menu-item">Terms</a>
+          </div>
+        )}
         {user ? (
-          <button className="sidebar-user-btn" onClick={onSignOut}>
+          <button className="sidebar-user-btn" onClick={() => setUserMenuOpen(v => !v)}>
             {user.user_metadata?.avatar_url ? (
               <img
                 src={user.user_metadata.avatar_url}
@@ -74,12 +100,12 @@ export function Sidebar({ sessions, activeSessionId, onSelect, onNewDoc, user, o
             </div>
           </button>
         ) : (
-          <div className="sidebar-user-btn">
+          <button className="sidebar-user-btn" onClick={() => setUserMenuOpen(v => !v)}>
             <BlobAvatar name="Collab" size={22} state="logo" color="#30d158" />
             <div className="sidebar-user-info">
               <span className="sidebar-user-name">Local mode</span>
             </div>
-          </div>
+          </button>
         )}
       </div>
     </div>

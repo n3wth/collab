@@ -1,36 +1,17 @@
-import { BlobAvatar } from './blob-avatar'
-import { AGENT_PRESETS } from './AgentConfigurator'
+import { ColorPanels } from '@paper-design/shaders-react'
 import { useAuth } from './lib/auth'
-
-const AGENT_ROLES: Record<string, string> = {
-  Aiden: 'Engineering',
-  Nova: 'Product',
-  Lex: 'Legal',
-  Mira: 'Design',
-}
-
-function GoogleIcon({ size = 18 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 48 48">
-      <path fill="#4285F4" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
-      <path fill="#34A853" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
-      <path fill="#FBBC05" d="M10.53 28.59A14.5 14.5 0 019.5 24c0-1.59.28-3.14.76-4.59l-7.98-6.19A23.998 23.998 0 000 24c0 3.77.9 7.35 2.56 10.56l7.97-5.97z"/>
-      <path fill="#EA4335" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 5.97C6.51 42.62 14.62 48 24 48z"/>
-    </svg>
-  )
-}
 
 export function LoginPage() {
   const { signInWithGoogle } = useAuth()
 
   return (
-    <div className="home">
-      <div className="home-inner">
-        <nav className="home-nav">
+    <div className="login-page">
+      <div className="login-shader">
+        <ColorPanels speed={0.5} scale={1.15} density={3} angle1={0} angle2={0} length={1.1} edges={false} blur={0} fadeIn={1} fadeOut={0.3} gradient={0} rotation={0} offsetX={0} offsetY={0} colors={['#FF9D00', '#FD4F30', '#809BFF', '#6D2EFF', '#333AFF', '#F15CFF', '#FFD557']} colorBack="#00000000" style={{ backgroundColor: '#000000', height: '100%', width: '100%' }} />
+      </div>
+      <div className="login-content">
+        <nav className="login-nav">
           <div className="home-nav-logo">
-            <div className="home-nav-blob-wrap">
-              <BlobAvatar name="Collab" size={24} state="logo" color="#30d158" />
-            </div>
             <span className="home-nav-wordmark">Collab</span>
           </div>
           <div className="home-nav-actions">
@@ -40,44 +21,24 @@ export function LoginPage() {
           </div>
         </nav>
 
-        <header className="home-hero">
-          <div className="home-hero-glow" />
-          <h1 className="home-headline">
-            <span className="home-headline-main">Every draft reviewed</span>
-            <span className="home-headline-italic">by four experts.</span>
+        <header className="login-hero">
+          <h1 className="login-headline">
+            <span className="login-headline-main">Write with</span>
+            <span className="login-headline-italic">AI experts.</span>
           </h1>
-          <p className="home-subtitle">
+          <p className="login-subtitle">
             AI agents that read your docs and push back on what you missed.
           </p>
-          <div className="login-actions">
-            <button className="login-google-btn" onClick={signInWithGoogle}>
-              <GoogleIcon size={18} />
-              Sign in with Google
+          <div className="login-cta-row">
+            <button className="home-cta-primary" onClick={signInWithGoogle}>
+              Get started
             </button>
           </div>
         </header>
 
-        <section className="home-blobs-section">
-          <div className="home-blobs">
-            {AGENT_PRESETS.map((p, i) => (
-              <div key={p.name} className="home-blob" style={{ animationDelay: `${i * 100}ms` }}>
-                <BlobAvatar name={p.name} size={48} state="idle" color={p.color} />
-                <span className="home-blob-name">{p.name}</span>
-                <span className="home-blob-role">{AGENT_ROLES[p.name]}</span>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <footer className="home-footer">
-          <div className="home-footer-left">
-            <span className="home-footer-brand">Collab</span>
-          </div>
-          <div className="home-footer-right">
-            <a href="/privacy" className="home-footer-link">Privacy</a>
-            <a href="/terms" className="home-footer-link">Terms</a>
-            <span className="home-footer-copy">Built by n3wth</span>
-          </div>
+        <footer className="login-footer">
+          <a href="/privacy" className="login-footer-link">Privacy</a>
+          <a href="/terms" className="login-footer-link">Terms</a>
         </footer>
       </div>
     </div>
