@@ -2237,16 +2237,15 @@
   flex-shrink: 0;
 }
 
-/* Hide sidebar brand labels when header is showing (has-session) */
-.app-shell-active .sidebar-brand,
-.app-shell-active .sidebar-brand-label {
+/* Hide old sidebar-brand (replaced by sidebar-brand-label in sidebar-header) */
+.app-shell-active .sidebar-brand {
   display: none;
 }
 
-.app-shell-active .sidebar-header {
-  height: auto;
-  padding: 6px 10px 0;
-  justify-content: flex-end;
+/* In editor mode, sidebar extends under the header via negative margin */
+.app-shell-active .sidebar {
+  margin-top: -48px;
+  padding-top: 0;
 }
 
 .sidebar-header {
@@ -2443,21 +2442,20 @@
   color: var(--text-secondary);
   background: transparent;
   border: none;
-  border-radius: 5px;
+  border-radius: 0;
   cursor: pointer;
   text-align: left;
   overflow: hidden;
   flex-shrink: 0;
   line-height: 1.6;
+  outline: none;
 }
 
 .sidebar-doc-item:hover {
-  background: var(--surface-2);
   color: var(--text-primary);
 }
 
 .sidebar-doc-item.active {
-  background: var(--surface-2);
   color: var(--text-primary);
   font-weight: 500;
 }
@@ -2542,7 +2540,17 @@
 .sidebar-doc-row {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 0;
+  border-radius: 5px;
+  padding-right: 4px;
+}
+
+.sidebar-doc-row:hover {
+  background: var(--surface-2);
+}
+
+.sidebar-doc-row:has(.sidebar-doc-item.active) {
+  background: var(--surface-2);
 }
 
 .sidebar-doc-row .sidebar-doc-item {
