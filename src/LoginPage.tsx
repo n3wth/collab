@@ -35,7 +35,6 @@ export function LoginPage() {
           </div>
           <div className="home-nav-actions">
             <button className="login-google-btn login-google-btn--nav" onClick={signInWithGoogle}>
-              <GoogleIcon size={16} />
               Sign in
             </button>
           </div>
