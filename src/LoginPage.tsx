@@ -72,9 +72,6 @@ export function LoginPage() {
 
         <footer className="home-footer">
           <div className="home-footer-left">
-            <div className="home-nav-blob-wrap">
-              <BlobAvatar name="Collab" size={16} state="idle" color="#30d158" />
-            </div>
             <span className="home-footer-brand">Collab</span>
           </div>
           <span className="home-footer-copy">Built by n3wth</span>
