@@ -291,7 +291,7 @@ function Timeline({ entries }: { entries: TimelineEntry[] }) {
 const EMPTY_DOC = '<h1>Untitled</h1><p></p>'
 
 function App() {
-  const { user, loading: authLoading, signOut } = useAuth()
+  const { user, loading: authLoading, signOut, providerToken, signInWithGoogle } = useAuth()
   const [activeSession, setActiveSession] = useState<Session | null>(null)
   const activeSessionRef = useRef<Session | null>(null)
   const [sessions, setSessions] = useState<Session[]>([])
@@ -1035,11 +1035,18 @@ function App() {
                   <button
                     className="doc-toolbar-btn"
                     onClick={async () => {
-                      const token = (await supabase.auth.getSession()).data.session?.provider_token
+                      // Try provider token from auth context first, then session
+                      const token = providerToken || (await supabase.auth.getSession()).data.session?.provider_token
                       if (!token) {
-                        setMessages(prev => [...prev, { id: uid(), from: 'System', text: 'Sign in with Google to save to Drive.', time: now() }])
+                        if (!user) {
+                          signInWithGoogle()
+                        } else {
+                          // Token expired — need to re-auth with Drive scope
+                          setMessages(prev => [...prev, { id: uid(), from: 'System', text: 'Google Drive access expired. Please sign out and sign in again to reconnect Drive.', time: now() }])
+                        }
                         return
                       }
+                      setSaveStatus('saving')
                       const html = editor.getHTML()
                       const title = activeSession?.title || 'Untitled'
                       const metadata = { name: `${title}.html`, mimeType: 'application/vnd.google-apps.document' }
@@ -1055,8 +1062,8 @@ function App() {
                         setSaveStatus('saved')
                         setMessages(prev => [...prev, { id: uid(), from: 'System', text: `Saved "${title}" to Google Drive.`, time: now() }])
                       } else {
-                        console.error('Drive save failed:', res.status)
-                        setMessages(prev => [...prev, { id: uid(), from: 'System', text: 'Drive save failed. Try signing in again.', time: now() }])
+                        setSaveStatus('idle')
+                        setMessages(prev => [...prev, { id: uid(), from: 'System', text: 'Drive save failed. Try signing out and back in.', time: now() }])
                       }
                     }}
                     title="Save to Google Drive"
