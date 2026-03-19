@@ -9,7 +9,7 @@ import { DEFAULT_PERSONAS } from './agent'
 import { LoginPage } from './LoginPage'
 import { LegalPage } from './LegalPage'
 import { Sidebar } from './Sidebar'
-import { TemplatePickerModal } from './TemplatePickerModal'
+import { TemplatePickerModal, type GoogleDocFile } from './TemplatePickerModal'
 import { AgentConfigurator } from './AgentConfigurator'
 import { DOC_TEMPLATES } from './templates'
 import { supabase } from './lib/supabase'
@@ -575,6 +575,51 @@ function App() {
     handleSessionSelect(session, starter.agents)
   }
 
+  const handleGoogleImport = async (file: GoogleDocFile) => {
+    setShowTemplatePicker(false)
+    try {
+      const { data: { session: authSession } } = await supabase.auth.getSession()
+      const token = authSession?.provider_token
+      if (!token) {
+        alert('Google session expired. Please sign out and back in.')
+        return
+      }
+
+      // Export Google Doc as HTML
+      const exportRes = await fetch(
+        `https://www.googleapis.com/drive/v3/files/${file.id}/export?mimeType=text/html`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      )
+      if (!exportRes.ok) {
+        console.error('[import] export failed:', exportRes.status)
+        alert('Failed to export document from Google Drive')
+        return
+      }
+
+      const rawHtml = await exportRes.text()
+      // Extract body content, strip Google's style/span wrappers
+      const bodyMatch = rawHtml.match(/<body[^>]*>([\s\S]*)<\/body>/i)
+      let html = bodyMatch ? bodyMatch[1] : rawHtml
+      html = html.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+      html = html.replace(/<span[^>]*>/gi, '').replace(/<\/span>/gi, '')
+      html = html.replace(/\s+(class|style|id|data-[a-z-]+)="[^"]*"/gi, '')
+      html = html.trim()
+
+      // Create session and load the content
+      const title = file.name.replace(/\.gdoc$|\.docx?$/i, '')
+      const session = await createSession(title, 'blank')
+
+      // Save the imported HTML immediately
+      await saveDocument(session.id, html)
+
+      // Load the session (will pick up the saved doc)
+      handleSessionSelect(session, [])
+    } catch (err) {
+      console.error('[import] error:', err)
+      alert('Import failed. Check console for details.')
+    }
+  }
+
   const handleSidebarSelect = (session: Session) => {
     handleSessionSelect(session, [])
   }
@@ -1028,7 +1073,9 @@ function App() {
       {showTemplatePicker && (
         <TemplatePickerModal
           onSelect={handleTemplatePick}
+          onImport={handleGoogleImport}
           onClose={() => setShowTemplatePicker(false)}
+          importAvailable={!!user}
         />
       )}
     </div>
