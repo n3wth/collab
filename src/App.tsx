@@ -810,11 +810,11 @@ function App() {
                 title={agentsPaused ? 'Resume agents' : 'Pause agents'}
               >
                 {agentsPaused ? (
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none">
                     <polygon points="6,4 20,12 6,20" />
                   </svg>
                 ) : (
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none">
                     <rect x="5" y="4" width="5" height="16" rx="1" />
                     <rect x="14" y="4" width="5" height="16" rx="1" />
                   </svg>
@@ -825,7 +825,7 @@ function App() {
                   const agentState = getAgentState(agent.name)
                   return (
                     <div key={agent.name} className="header-avatar-wrap">
-                      <BlobAvatar name={agent.name} size={22} state={agentState.status} />
+                      <BlobAvatar name={agent.name} size={18} state={agentState.status} />
                       <AgentHoverCard
                         name={agent.name}
                         agentState={agentState}
