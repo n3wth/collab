@@ -946,13 +946,16 @@ function App() {
       {showConfigurator && activeSession && (
         <div className="configurator-panel">
           <AgentConfigurator
-            agents={activeAgents.map(a => ({
-              name: a.name,
-              description: a.persona.split('.')[0].replace(/^You are \w+, /, ''),
-              persona: a.persona,
-              owner: a.owner,
-              color: a.color,
-            }))}
+            agents={activeAgents.map(a => {
+              const preset = AGENT_DESCRIPTIONS[a.name]
+              return {
+                name: a.name,
+                description: preset || a.persona.split('.')[0].replace(/^You are \w+, /, ''),
+                persona: a.persona,
+                owner: a.owner,
+                color: a.color,
+              }
+            })}
             onChange={(configs) => {
               const updated = configs.map(c => ({
                 name: c.name,
