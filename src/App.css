@@ -2666,7 +2666,8 @@
 }
 
 .sidebar-bottom {
-  padding: 8px;
+  padding: 12px 8px 8px;
+  border-top: 1px solid var(--border-subtle);
   display: flex;
   align-items: center;
   gap: 6px;
