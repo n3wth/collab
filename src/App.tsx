@@ -11,12 +11,19 @@ import { LoginPage } from './LoginPage'
 import { LegalPage } from './LegalPage'
 import { AgentConfigurator } from './AgentConfigurator'
 import { DOC_TEMPLATES } from './templates'
-import { saveDocument, loadDocument, saveChatMessage, loadChatMessages, getSession } from './lib/session-store'
+import { saveDocument, loadDocument, saveChatMessage, loadChatMessages, getSession, updateSessionTitle } from './lib/session-store'
 import { useAuth } from './lib/auth'
 import type { Session } from './types'
 import { BlobAvatar } from './blob-avatar'
 import type { Editor } from '@tiptap/react'
 import './App.css'
+
+interface DocChange {
+  type: 'insert' | 'replace' | 'delete'
+  summary: string
+  added?: string
+  removed?: string
+}
 
 interface Message {
   id: string
@@ -25,6 +32,7 @@ interface Message {
   time: string
   showDocButton?: boolean
   reasoning?: string[]
+  docChange?: DocChange
 }
 
 interface AgentState {
@@ -120,7 +128,7 @@ function ReasoningChain({ steps }: { steps: string[] }) {
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`reasoning-chevron ${expanded ? 'open' : ''}`}>
           <polyline points="9 18 15 12 9 6" />
         </svg>
-        <span className="reasoning-label">{steps.length} steps</span>
+        <span className="reasoning-label">{steps.length} {steps.length === 1 ? 'step' : 'steps'}</span>
       </div>
       {expanded && (
         <div className="reasoning-steps">
@@ -162,8 +170,8 @@ const FormatMentions = memo(({ text, names }: { text: string, names?: string[] }
 })
 
 
-const ChatMessage = memo(({ m, sameSender, docOpen, onOpenDoc, agentState }: {
-  m: Message, sameSender: boolean, docOpen: boolean, onOpenDoc: () => void, agentState?: AgentState | null
+const ChatMessage = memo(({ m, sameSender, agentState, userAvatarUrl }: {
+  m: Message, sameSender: boolean, agentState?: AgentState | null, userAvatarUrl?: string
 }) => {
   const isAgent = m.from !== 'You' && m.from !== 'Sarah' && m.from !== 'System'
   const displayText = m.text.replace('[from doc] ', '')
@@ -176,6 +184,12 @@ const ChatMessage = memo(({ m, sameSender, docOpen, onOpenDoc, agentState }: {
               <BlobAvatar name={m.from} size={26} />
               <AgentHoverCard name={m.from} agentState={agentState ?? null} />
             </>
+          ) : m.from === 'You' ? (
+            userAvatarUrl ? (
+              <img src={userAvatarUrl} alt="You" className="user-avatar" width={26} height={26} />
+            ) : (
+              <div className="user-avatar user-avatar-fallback" style={{ width: 26, height: 26 }} />
+            )
           ) : (
             <ShapeAvatar name={m.from} size={26} />
           )}
@@ -194,9 +208,6 @@ const ChatMessage = memo(({ m, sameSender, docOpen, onOpenDoc, agentState }: {
         <div className="msg-text">
           <FormatMentions text={displayText} />
         </div>
-        {m.showDocButton && !docOpen && (
-          <button className="doc-prompt" onClick={onOpenDoc}>Open doc</button>
-        )}
       </div>
     </div>
   )
@@ -262,7 +273,7 @@ function App() {
   const [demoMode, setDemoMode] = useState(false)
   const [activeSession, setActiveSession] = useState<Session | null>(null)
   const activeSessionRef = useRef<Session | null>(null)
-  const [docOpen, setDocOpen] = useState(false)
+  // Doc is always open in workspace view
   const [activeAgents, setActiveAgents] = useState<AgentConfig[]>(DEFAULT_AGENT_CONFIGS)
   const [showConfigurator, setShowConfigurator] = useState(false)
   const [agentStates, setAgentStates] = useState<Record<string, AgentState>>({})
@@ -306,6 +317,17 @@ function App() {
           saveDocument(session.id, ed.getHTML()).catch(err =>
             console.error('[App] saveDocument error:', err)
           )
+          // Sync title from first H1
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const json = ed.getJSON() as any
+          const h1 = json.content?.find((n: any) => n.type === 'heading' && n.attrs?.level === 1)
+          const h1Text = h1?.content?.map((c: any) => c.text || '').join('') || ''
+          if (h1Text && h1Text !== session.title) {
+            setActiveSession(s => s ? { ...s, title: h1Text } : s)
+            updateSessionTitle(session.id, h1Text).catch(err =>
+              console.error('[App] updateSessionTitle error:', err)
+            )
+          }
         }
       }, 2000)
       // Detect user typing in doc
@@ -435,7 +457,6 @@ function App() {
       } else {
         setActiveSession(null)
         activeSessionRef.current = null
-        setDocOpen(false)
       }
     }
     window.addEventListener('popstate', onPopState)
@@ -456,24 +477,11 @@ function App() {
   }, [messages])
 
   const openDocWithAgents = useCallback(() => {
-    setDocOpen(true)
     const newStates: Record<string, AgentState> = {}
-    activeAgents.forEach((a, i) => {
-      newStates[a.name] = { status: 'reading', inDoc: true, thought: i === 0 ? 'Opening the document...' : 'Joining...' }
+    activeAgents.forEach(a => {
+      newStates[a.name] = { status: 'reading', inDoc: true }
     })
     setAgentStates(prev => ({ ...prev, ...newStates }))
-    if (activeAgents.length > 0) {
-      setMessages(m => [...m,
-        { id: uid(), from: activeAgents[0].name, text: 'Opening the doc now. Let me review and contribute.', time: now() },
-      ])
-    }
-    if (activeAgents.length > 1) {
-      setTimeout(() => {
-        setMessages(m => [...m,
-          { id: uid(), from: activeAgents[1].name, text: 'I\'m in. Let me take a look too.', time: now() },
-        ])
-      }, 1200)
-    }
     orchestratorRef.current?.trigger('doc-opened')
   }, [activeAgents])
 
@@ -490,32 +498,21 @@ function App() {
       )
     }
 
-    const lower = text.toLowerCase()
-
-    if (lower.includes('doc') && (lower.includes('go') || lower.includes('work') || lower.includes('start') || lower.includes('open'))) {
-      setTimeout(() => openDocWithAgents(), 800)
-      return
-    }
-
-    if (lower.includes('come back') || lower.includes('stop') || lower.includes('close')) {
-      setTimeout(() => {
-        orchestratorRef.current?.destroy()
-        const idleStates: Record<string, AgentState> = {}
-        activeAgents.forEach(a => { idleStates[a.name] = { status: 'idle', inDoc: false } })
-        setAgentStates(idleStates)
-        setDocOpen(false)
-        orchestratorRef.current = makeOrchestrator()
-        const backMsgs = activeAgents.slice(0, 2).map(a => ({
-          id: uid(), from: a.name, text: 'Back from the doc.', time: now(),
-        }))
-        setMessages(m => [...m, ...backMsgs])
-      }, 800)
-      return
-    }
-
-    // Always forward messages to orchestrator — agents respond in chat or doc
+    // Forward messages to orchestrator — agents respond in chat or doc
     orchestratorRef.current?.trigger('user-message', { instruction: text })
   }, [input, activeAgents, openDocWithAgents, makeOrchestrator])
+
+  const sendSuggestion = useCallback((text: string) => {
+    setMessages(m => [...m, { id: uid(), from: 'You', text, time: now() }])
+    setInput('')
+    const session = activeSessionRef.current
+    if (session) {
+      saveChatMessage(session.id, { sender: 'You', text }).catch(err =>
+        console.error('[App] saveChatMessage error:', err)
+      )
+    }
+    orchestratorRef.current?.trigger('user-message', { instruction: text })
+  }, [activeAgents])
 
   const handleSessionSelect = async (session: Session, agents: AgentConfig[]) => {
     setActiveSession(session)
@@ -557,17 +554,11 @@ function App() {
 
     // Auto-open doc immediately
     setTimeout(() => {
-      setDocOpen(true)
       const newStates: Record<string, AgentState> = {}
-      currentAgents.forEach((a, i) => {
-        newStates[a.name] = { status: 'reading', inDoc: true, thought: i === 0 ? 'Reading the document...' : 'Joining...' }
+      currentAgents.forEach(a => {
+        newStates[a.name] = { status: 'reading', inDoc: true }
       })
       setAgentStates(prev => ({ ...prev, ...newStates }))
-      if (currentAgents.length > 0) {
-        setMessages(m => [...m,
-          { id: uid(), from: currentAgents[0].name, text: `Reviewing the doc now.`, time: now() },
-        ])
-      }
       orchestratorRef.current?.trigger('doc-opened')
     }, 300)
   }
@@ -599,7 +590,7 @@ function App() {
     <div className="shell">
       <div className="main-area">
         <div className="main-header">
-          <button className="back-btn" onClick={() => { setActiveSession(null); activeSessionRef.current = null; setDocOpen(false); navigateToHome() }} aria-label="Back to home">&lsaquo; Back</button>
+          <button className="back-btn" onClick={() => { setActiveSession(null); activeSessionRef.current = null; navigateToHome() }} aria-label="Back to home">&larr;</button>
           <span className="chat-header-title">{activeSession.title}</span>
           <div className="header-participants">
             {activeAgents.map(agent => {
@@ -623,23 +614,6 @@ function App() {
                 <circle cx="12" cy="12" r="3" />
                 <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
               </svg>
-            </button>
-            <button
-              className={`doc-toggle-btn ${docOpen ? 'active' : ''}`}
-              onClick={() => {
-                if (docOpen) {
-                  orchestratorRef.current?.destroy()
-                  setDocOpen(false)
-                  const idleStates: Record<string, AgentState> = {}
-                  activeAgents.forEach(a => { idleStates[a.name] = { status: 'idle', inDoc: false } })
-                  setAgentStates(idleStates)
-                  orchestratorRef.current = makeOrchestrator()
-                } else {
-                  openDocWithAgents()
-                }
-              }}
-            >
-              Doc
             </button>
           </div>
         </div>
@@ -666,14 +640,14 @@ function App() {
         )}
         <AgentActivityBar agents={activeAgents} getAgentState={getAgentState} />
         <div className="main-content">
-        <div className={`chat-panel ${docOpen ? 'chat-side' : 'chat-full'}`}>
+        <div className="chat-panel chat-side">
           <div className="chat-messages">
             <div className="chat-messages-inner">
             {messages.filter(m => !m.text.startsWith('Couldn\'t find that text')).map((m, i, arr) => {
               const prev = arr[i - 1]
               const sameSender = prev && prev.from === m.from
               return (
-                <ChatMessage key={m.id} m={m} sameSender={sameSender} docOpen={docOpen} onOpenDoc={openDocWithAgents} agentState={activeAgents.some(a => a.name === m.from) ? getAgentState(m.from) : null} />
+                <ChatMessage key={m.id} m={m} sameSender={sameSender} agentState={activeAgents.some(a => a.name === m.from) ? getAgentState(m.from) : null} userAvatarUrl={user?.user_metadata?.avatar_url} />
               )
             })}
             {activeAgents.map(agent => {
@@ -697,6 +671,13 @@ function App() {
             <div ref={chatEndRef} />
             </div>
           </div>
+          {messages.length === 0 && (
+            <div className="chat-suggestions">
+              {['Help me outline a product spec', 'Review my draft for clarity', 'What should this doc cover?', 'Brainstorm ideas for this topic'].map(text => (
+                <button key={text} className="chat-suggestion-chip" onClick={() => sendSuggestion(text)}>{text}</button>
+              ))}
+            </div>
+          )}
           <div className="chat-input">
             {mentionQuery !== null && (() => {
               const filtered = MENTION_NAMES.filter(n => n.toLowerCase().startsWith(mentionQuery.toLowerCase()))
@@ -769,20 +750,66 @@ function App() {
                 }
                 if (e.key === 'Enter') sendMessage()
               }}
-              placeholder={activeAgents.some(a => getAgentState(a.name).inDoc) ? 'Talk to the agents...' : 'Message the group...'}
+              placeholder={activeAgents.some(a => getAgentState(a.name).inDoc) ? 'Talk to the agents...' : 'Message the team...'}
             />
           </div>
         </div>
 
-        {docOpen && (
+        {editor && (
           <div className="doc-panel">
+            <div className="doc-toolbar">
+              <button
+                className={`doc-toolbar-btn ${editor.isActive('bold') ? 'active' : ''}`}
+                onClick={() => editor.chain().focus().toggleBold().run()}
+                title="Bold (Ctrl+B)"
+              >
+                B
+              </button>
+              <button
+                className={`doc-toolbar-btn ${editor.isActive('italic') ? 'active' : ''}`}
+                onClick={() => editor.chain().focus().toggleItalic().run()}
+                title="Italic (Ctrl+I)"
+              >
+                <em>I</em>
+              </button>
+              <span className="doc-toolbar-sep" />
+              <button
+                className={`doc-toolbar-btn ${editor.isActive('heading', { level: 1 }) ? 'active' : ''}`}
+                onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+                title="Heading 1"
+              >
+                H1
+              </button>
+              <button
+                className={`doc-toolbar-btn ${editor.isActive('heading', { level: 2 }) ? 'active' : ''}`}
+                onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+                title="Heading 2"
+              >
+                H2
+              </button>
+              <span className="doc-toolbar-sep" />
+              <button
+                className={`doc-toolbar-btn ${editor.isActive('bulletList') ? 'active' : ''}`}
+                onClick={() => editor.chain().focus().toggleBulletList().run()}
+                title="Bullet List"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="3" cy="6" r="1.5" fill="currentColor" stroke="none"/><circle cx="3" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="3" cy="18" r="1.5" fill="currentColor" stroke="none"/></svg>
+              </button>
+              <button
+                className={`doc-toolbar-btn ${editor.isActive('orderedList') ? 'active' : ''}`}
+                onClick={() => editor.chain().focus().toggleOrderedList().run()}
+                title="Ordered List"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="10" y1="6" x2="21" y2="6"/><line x1="10" y1="12" x2="21" y2="12"/><line x1="10" y1="18" x2="21" y2="18"/><text x="1" y="8" fontSize="8" fill="currentColor" stroke="none" fontFamily="sans-serif">1</text><text x="1" y="14" fontSize="8" fill="currentColor" stroke="none" fontFamily="sans-serif">2</text><text x="1" y="20" fontSize="8" fill="currentColor" stroke="none" fontFamily="sans-serif">3</text></svg>
+              </button>
+            </div>
             <div className="doc-body">
               <EditorContent editor={editor} />
             </div>
           </div>
         )}
         </div>
-        {docOpen && <Timeline entries={timeline} />}
+        <Timeline entries={timeline} />
       </div>
     </div>
   )

@@ -172,9 +172,12 @@ function useHeroTimeline(gated: boolean) {
   return { states }
 }
 
+const DOCS_PER_PAGE = 5
+
 export function HomePage({ onSelect, onSignOut, demoMode, onDemoConsumed }: Props) {
   const [sessions, setSessions] = useState<Session[]>([])
   const [loading, setLoading] = useState(true)
+  const [showAll, setShowAll] = useState(false)
   const { states: blobStates } = useHeroTimeline(false)
 
   useEffect(() => {
@@ -224,29 +227,62 @@ export function HomePage({ onSelect, onSignOut, demoMode, onDemoConsumed }: Prop
             ))}
           </div>
           <div className="home-nav-actions">
-            {onSignOut ? (
+            {onSignOut && (
               <button className="home-nav-btn" onClick={onSignOut}>Sign out</button>
-            ) : (
+            )}
+            {!onSignOut && sessions.length === 0 && (
               <button className="home-nav-cta" onClick={() => handleStarter(DEMO_STARTER)}>Try demo</button>
             )}
           </div>
         </nav>
 
-        <header className="home-hero">
-          <div className="home-hero-glow" />
+        {!loading && sessions.length === 0 && (
+          <header className="home-hero">
+            <div className="home-hero-glow" />
+            <h1 className="home-headline">
+              <span className="home-headline-main">Every draft reviewed</span>
+              <span className="home-headline-italic">by four experts.</span>
+            </h1>
+            <p className="home-subtitle">
+              AI agents that read your docs and push back on what you missed.
+            </p>
+          </header>
+        )}
 
-          <h1 className="home-headline">
-            <span className="home-headline-main">Every draft reviewed</span>
-            <span className="home-headline-italic">by four experts.</span>
-          </h1>
-          <p className="home-subtitle">
-            AI agents that read your docs and push back on what you missed.
-          </p>
-
-        </header>
+        {!loading && sessions.length > 0 && (
+          <section className="home-recent">
+            <div className="home-recent-header">Your documents</div>
+            <div className="home-recent-list">
+              {(showAll ? sessions : sessions.slice(0, DOCS_PER_PAGE)).map(s => (
+                <button
+                  key={s.id}
+                  className="home-recent-item"
+                  onClick={() => handleResumeSession(s)}
+                >
+                  <span className="home-recent-title">{s.title}</span>
+                  <span className="home-recent-meta">
+                    <span className="home-recent-template">{DOC_TEMPLATES[s.template]?.label ?? s.template}</span>
+                    <span className="home-recent-date">{new Date(s.updated_at).toLocaleDateString()}</span>
+                    <span
+                      className="home-recent-delete"
+                      onClick={e => handleDeleteSession(e, s.id)}
+                    >
+                      Remove
+                    </span>
+                  </span>
+                </button>
+              ))}
+            </div>
+            {sessions.length > DOCS_PER_PAGE && (
+              <button className="home-recent-toggle" onClick={() => setShowAll(v => !v)}>
+                {showAll ? 'Show less' : `Show all (${sessions.length})`}
+              </button>
+            )}
+          </section>
+        )}
 
         <section className="home-starters">
-          <div className="home-starters-label">Start a session</div>
+          <div className="home-starters-label">{sessions.length > 0 ? 'New document' : 'Start a session'}</div>
           <div className="home-starter-grid">
             {STARTERS.map((s, i) => (
               <button
@@ -268,33 +304,6 @@ export function HomePage({ onSelect, onSignOut, demoMode, onDemoConsumed }: Prop
             ))}
           </div>
         </section>
-
-        {!loading && sessions.length > 0 && (
-          <section className="home-recent">
-            <div className="home-recent-header">Recent</div>
-            <div className="home-recent-list">
-              {sessions.slice(0, 5).map(s => (
-                <button
-                  key={s.id}
-                  className="home-recent-item"
-                  onClick={() => handleResumeSession(s)}
-                >
-                  <span className="home-recent-title">{s.title}</span>
-                  <span className="home-recent-meta">
-                    <span className="home-recent-template">{DOC_TEMPLATES[s.template]?.label ?? s.template}</span>
-                    <span className="home-recent-date">{new Date(s.updated_at).toLocaleDateString()}</span>
-                    <span
-                      className="home-recent-delete"
-                      onClick={e => handleDeleteSession(e, s.id)}
-                    >
-                      Remove
-                    </span>
-                  </span>
-                </button>
-              ))}
-            </div>
-          </section>
-        )}
 
         <footer className="home-footer">
           <div className="home-footer-left">
