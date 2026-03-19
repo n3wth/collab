@@ -3,6 +3,7 @@ import { askAgent, AgentError, resetRateLimiter, type AgentAction, type AskParam
 import { detectObservations } from './wizard-of-oz'
 import { executeAgentAction, type ActionCallbacks } from './agent-actions'
 import { generateHeartbeat } from './heartbeat'
+import { DEFAULT_LIMITS, type OrchestratorLimits } from './types'
 
 type AgentName = string
 type TriggerType = 'doc-opened' | 'user-message' | 'agent-tagged' | 'turn-complete' | 'heartbeat'
@@ -32,6 +33,9 @@ interface OrchestratorConfig {
   onSearchRequest?: (agent: AgentName, query: string) => void
   agents: AgentConfig[]
   demoMode?: boolean
+  limits?: Partial<OrchestratorLimits>
+  sessionTemplate?: string
+  onRenameSession?: (newTitle: string) => void
 }
 
 interface OrchestratorHandle {
@@ -55,17 +59,20 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
   const agentNames = config.agents.map(a => a.name)
   function getAgentConfig(name: string) { return config.agents.find(a => a.name === name) }
 
+  // Merge limits with defaults (demoMode overrides)
+  const baseLimits = { ...DEFAULT_LIMITS, ...config.limits }
+  const limits = config.demoMode
+    ? { ...baseLimits, maxTurns: Math.max(baseLimits.maxTurns, 6), maxExchanges: Math.max(baseLimits.maxExchanges, 6) }
+    : baseLimits
+
   // Track total turns per agent (caps all non-user-initiated work)
   const turnCount: Record<string, number> = Object.fromEntries(config.agents.map(a => [a.name, 0]))
-  const MAX_TURNS = config.demoMode ? 6 : 4
   // Track back-and-forth exchanges
   let exchangeCount = 0
-  const MAX_EXCHANGES = config.demoMode ? 6 : 4
   // Track pending doc-edit reaction to prevent double-triggers
   let pendingReaction: AgentName | null = null
-  // Track consecutive failures per agent — pause after MAX_CONSECUTIVE_FAILURES
+  // Track consecutive failures per agent
   const consecutiveFailures: Record<string, number> = Object.fromEntries(config.agents.map(a => [a.name, 0]))
-  const MAX_CONSECUTIVE_FAILURES = 3
   const pausedAgents = new Set<AgentName>()
   // Track ALL scheduled timeouts so we can clear them on destroy/user-message
   const scheduledTimers = new Set<number>()
@@ -171,7 +178,7 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
           const didEdit = (action.type === 'insert' || action.type === 'replace') && success !== false
           if (didEdit && queue.length === 0) {
             const other: AgentName = req.agent === 'Aiden' ? 'Nova' : 'Aiden'
-            if (exchangeCount < MAX_EXCHANGES && turnCount[other] < MAX_TURNS && pendingReaction !== other) {
+            if (exchangeCount < limits.maxExchanges && turnCount[other] < limits.maxTurns && pendingReaction !== other) {
               exchangeCount++
               pendingReaction = other
               scheduleTimeout(() => {
@@ -182,9 +189,9 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
                     instruction: `${req.agent} just edited the doc: ${actionDesc}. React to their changes — build on it, challenge it, add your perspective, or ask a question about it. Don't just repeat what they did.`,
                   })
                 }
-              }, 3000 + Math.random() * 2000)
+              }, limits.reactionDelayMs[0] + Math.random() * (limits.reactionDelayMs[1] - limits.reactionDelayMs[0]))
             }
-          } else if (action.shouldContinue && turnCount[req.agent] < MAX_TURNS) {
+          } else if (action.shouldContinue && turnCount[req.agent] < limits.maxTurns) {
             enqueue({ agent: req.agent, trigger: 'autonomous' })
           } else {
             processQueue()
@@ -208,7 +215,7 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
 
       config.onError?.(req.agent, agentError, failures)
 
-      if (failures >= MAX_CONSECUTIVE_FAILURES) {
+      if (failures >= limits.maxConsecutiveFailures) {
         log(`pausing ${req.agent} after ${failures} consecutive failures`)
         pausedAgents.add(req.agent)
         for (let i = queue.length - 1; i >= 0; i--) {
@@ -290,11 +297,11 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
           log('agent-tagged skipped — already has pending reaction', target)
           break
         }
-        if (exchangeCount >= MAX_EXCHANGES) {
+        if (exchangeCount >= limits.maxExchanges) {
           log('exchange limit reached, ignoring agent tag')
           break
         }
-        if (target && turnCount[target] < MAX_TURNS) {
+        if (target && turnCount[target] < limits.maxTurns) {
           exchangeCount++
           enqueue({ agent: target, trigger: 'instruction', instruction: `${from} just mentioned you in chat. Read the recent chat and respond to their latest message.` })
         }
@@ -321,7 +328,8 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
 
   function startHeartbeat() {
     stopHeartbeat()
-    const delay = config.demoMode ? 8000 + Math.random() * 4000 : 20000 + Math.random() * 10000
+    const [hbMin, hbMax] = limits.heartbeatDelayMs
+    const delay = config.demoMode ? 8000 + Math.random() * 4000 : hbMin + Math.random() * (hbMax - hbMin)
     heartbeatTimer = window.setTimeout(() => {
       fireHeartbeat()
       startHeartbeat()

@@ -158,6 +158,18 @@ describe('createOrchestrator', () => {
     expect(timers.length).toBeGreaterThan(0)
     orch.destroy()
   })
+
+  it('accepts custom limits via config', () => {
+    const config = makeConfig({
+      limits: { maxTurns: 10, heartbeatDelayMs: [5000, 8000] },
+    })
+    const orch = createOrchestrator(config)
+    orch.trigger('doc-opened')
+    // Heartbeat timer should use custom range (5000-8000ms)
+    expect(timers[0].ms).toBeGreaterThanOrEqual(5000)
+    expect(timers[0].ms).toBeLessThanOrEqual(8000)
+    orch.destroy()
+  })
 })
 
 describe('describeAction (tested via orchestrator internals)', () => {
