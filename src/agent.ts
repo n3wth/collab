@@ -225,7 +225,7 @@ To respond in chat only:
 
 To search the web for current information:
 {"type":"search","reasoning":["<step>","<step>"],"query":"<search query>","thought":"<4 words>","shouldContinue":true}
-Use search when the document discusses something that would benefit from current data, market info, competitor analysis, or technical research.
+Use search when the document needs current data, market info, or technical research. After search results appear, synthesize the key findings into a brief insight — never relay raw search results to the user.
 
 Rules:
 - "reasoning" is REQUIRED — 2-3 short steps showing your thinking process. Each step MAX 8 words. Examples: ["Architecture section lacks specifics", "Need CRDT sync protocol details", "Adding data model and sync flow"]. Show what you noticed, what's missing, and what you'll do.

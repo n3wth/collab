@@ -574,12 +574,15 @@ export function executeAgentAction(
       .then(data => {
         const results = data.results || []
         if (results.length > 0) {
-          const formatted = results.map((r: { title: string, url: string, content: string }, i: number) =>
-            `${i + 1}. "${r.title}" - ${r.content.slice(0, 150)} (source: ${r.url})`
-          ).join('\n')
-          callbacks.onChatMessage(agentName, `Found ${results.length} results for "${action.query}":\n${formatted}`)
+          // Synthesize findings into a brief summary instead of dumping raw results
+          const snippets = results.map((r: { title: string, url: string, content: string }) =>
+            r.content.slice(0, 200)
+          )
+          const synthesis = snippets.join(' ').slice(0, 500)
+          const sourceList = results.map((r: { title: string, url: string }) => r.url).join(', ')
+          callbacks.onChatMessage(agentName, `Researched "${action.query}": ${synthesis}... (sources: ${sourceList})`)
         } else {
-          callbacks.onChatMessage(agentName, `No results found for "${action.query}".`)
+          callbacks.onChatMessage(agentName, `Couldn't find relevant results for "${action.query}".`)
         }
         callbacks.onStateChange('idle')
         releaseLockAndDone(true)

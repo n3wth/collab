@@ -16,6 +16,17 @@
   width: 12px;
 }
 
+/* Viewport indicator — shows current scroll position */
+.doc-minimap-viewport {
+  position: absolute;
+  left: 1px;
+  right: 1px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  pointer-events: none;
+  z-index: 0;
+}
+
 /* Dots — agent and user indicators */
 .doc-minimap-dot {
   position: absolute;

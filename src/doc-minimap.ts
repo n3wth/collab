@@ -117,6 +117,11 @@ export const DocMinimap = Extension.create<DocMinimapOptions>({
     tooltip.className = 'doc-minimap-tooltip'
     strip.appendChild(tooltip)
 
+    // Viewport indicator bar
+    const viewportBar = document.createElement('div')
+    viewportBar.className = 'doc-minimap-viewport'
+    strip.appendChild(viewportBar)
+
     // Track dots
     const dotEls = new Map<string, HTMLElement>()
     let userDot: HTMLElement | null = null
@@ -240,6 +245,15 @@ export const DocMinimap = Extension.create<DocMinimapOptions>({
 
         el.style.opacity = String(opacity)
         el.classList.toggle('doc-minimap-dot-thinking', dot.state === 'thinking')
+      }
+
+      // Viewport indicator bar
+      const scrollHeight = scrollEl.scrollHeight
+      if (scrollHeight > 0 && minimapHeight > 0) {
+        const viewportTop = scrollEl.scrollTop / scrollHeight
+        const viewportHeight = scrollEl.clientHeight / scrollHeight
+        viewportBar.style.top = `${viewportTop * minimapHeight}px`
+        viewportBar.style.height = `${Math.max(viewportHeight * minimapHeight, 12)}px`
       }
 
       // User cursor dot
