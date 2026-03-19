@@ -15,6 +15,7 @@ vi.mock('../agent', () => ({
     }
   },
   resetRateLimiter: vi.fn(),
+  extractDocStructure: vi.fn().mockReturnValue({ headings: [], wordCounts: {} }),
 }))
 
 // Mock agent-actions module
@@ -156,6 +157,18 @@ describe('createOrchestrator', () => {
     orch.onMessage('Aiden', 'hey @nova what do you think?')
     // Should schedule a timer for the agent-tagged trigger
     expect(timers.length).toBeGreaterThan(0)
+    orch.destroy()
+  })
+
+  it('accepts custom limits via config', () => {
+    const config = makeConfig({
+      limits: { maxTurns: 10, heartbeatDelayMs: [5000, 8000] },
+    })
+    const orch = createOrchestrator(config)
+    orch.trigger('doc-opened')
+    // Heartbeat timer should use custom range (5000-8000ms)
+    expect(timers[0].ms).toBeGreaterThanOrEqual(5000)
+    expect(timers[0].ms).toBeLessThanOrEqual(8000)
     orch.destroy()
   })
 })

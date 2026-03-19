@@ -35,3 +35,19 @@ export interface SearchResult {
   content: string
   score: number
 }
+
+export interface OrchestratorLimits {
+  maxTurns: number
+  maxExchanges: number
+  maxConsecutiveFailures: number
+  heartbeatDelayMs: [number, number]
+  reactionDelayMs: [number, number]
+}
+
+export const DEFAULT_LIMITS: OrchestratorLimits = {
+  maxTurns: 4,
+  maxExchanges: 4,
+  maxConsecutiveFailures: 3,
+  heartbeatDelayMs: [20000, 30000],
+  reactionDelayMs: [3000, 5000],
+}

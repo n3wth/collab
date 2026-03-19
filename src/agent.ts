@@ -102,13 +102,14 @@ const rateLimiter = {
 }
 
 export interface AgentAction {
-  type: 'insert' | 'replace' | 'read' | 'chat' | 'search'
+  type: 'insert' | 'replace' | 'read' | 'chat' | 'search' | 'rename'
   position?: 'end' | 'after-heading' | 'cursor' | string
   content?: string
   searchText?: string
   replaceWith?: string
   highlightText?: string
   query?: string        // search query for web search action
+  newTitle?: string     // for rename action
   chatBefore?: string   // message sent BEFORE the action (intent)
   chatMessage?: string  // message sent AFTER the action (summary)
   thought?: string
@@ -128,6 +129,8 @@ export interface AskParams {
   lockHolder?: string | null
   persona: string
   otherAgents: string[]
+  sessionTemplate?: string
+  docStructure?: { headings: string[], wordCounts: Record<string, number> }
 }
 
 // Default personas kept for backward compatibility
@@ -139,6 +142,30 @@ export const DEFAULT_PERSONAS: Record<string, string> = {
 function truncateDoc(text: string, maxChars = 2000): string {
   if (text.length <= maxChars) return text
   return text.slice(0, maxChars) + '\n[...truncated]'
+}
+
+export function extractDocStructure(docText: string): { headings: string[], wordCounts: Record<string, number> } {
+  const headings: string[] = []
+  const wordCounts: Record<string, number> = {}
+  const plain = docText.replace(/<[^>]+>/g, '')
+  const lines = plain.split('\n')
+  let currentHeading = ''
+  let currentWords = 0
+
+  for (const line of lines) {
+    const match = line.match(/^#{1,3}\s+(.+)/)
+    if (match) {
+      if (currentHeading) wordCounts[currentHeading] = currentWords
+      currentHeading = match[1].trim()
+      headings.push(currentHeading)
+      currentWords = 0
+    } else {
+      currentWords += line.trim().split(/\s+/).filter(Boolean).length
+    }
+  }
+  if (currentHeading) wordCounts[currentHeading] = currentWords
+
+  return { headings, wordCounts }
 }
 
 function buildPrompt(params: AskParams): string {
@@ -156,6 +183,15 @@ function buildPrompt(params: AskParams): string {
   }
   if (params.lockHolder) {
     contextBlock += `\nEDITOR LOCK: Currently held by ${params.lockHolder}`
+  }
+  if (params.sessionTemplate) {
+    contextBlock += `\nDOC TYPE: ${params.sessionTemplate}`
+  }
+  if (params.docStructure && params.docStructure.headings.length > 0) {
+    const outline = params.docStructure.headings
+      .map(h => `- ${h} (${params.docStructure!.wordCounts[h] || 0} words)`)
+      .join('\n')
+    contextBlock += `\nDOC OUTLINE:\n${outline}`
   }
 
   let taskBlock = ''
@@ -226,6 +262,9 @@ To respond in chat only:
 To search the web for current information:
 {"type":"search","reasoning":["<step>","<step>"],"query":"<search query>","thought":"<4 words>","shouldContinue":true}
 Use search when the document needs current data, market info, or technical research. After search results appear, synthesize the key findings into a brief insight — never relay raw search results to the user.
+
+To rename the document when the title doesn't match its content:
+{"type":"rename","reasoning":["<step>","<step>"],"newTitle":"<better title>","chatMessage":"<explanation>"}
 
 Rules:
 - "reasoning" is REQUIRED — 2-3 short steps showing your thinking process. Each step MAX 8 words. Examples: ["Architecture section lacks specifics", "Need CRDT sync protocol details", "Adding data model and sync flow"]. Show what you noticed, what's missing, and what you'll do.
