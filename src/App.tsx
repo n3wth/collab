@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, memo } from 'react'
+import { useState, useEffect, useRef, useCallback, memo, lazy, Suspense } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
@@ -6,14 +6,17 @@ import { AgentCursors } from './agent-cursor'
 import { DocMinimap } from './doc-minimap'
 import { createOrchestrator, type AgentConfig } from './orchestrator'
 import { DEFAULT_PERSONAS } from './agent'
-import { LoginPage } from './LoginPage'
-import { LegalPage } from './LegalPage'
 import { Sidebar } from './Sidebar'
-import { TemplatePickerModal, type GoogleDocFile } from './TemplatePickerModal'
 import { CommandPalette, type Command } from './CommandPalette'
 import { AgentConfigurator } from './AgentConfigurator'
-import { SettingsModal } from './SettingsModal'
 import { loadUserSettings, saveGeminiApiKey } from './lib/settings-store'
+
+// Lazy-loaded components (not needed on initial render)
+const LoginPage = lazy(() => import('./LoginPage').then(m => ({ default: m.LoginPage })))
+const LegalPage = lazy(() => import('./LegalPage').then(m => ({ default: m.LegalPage })))
+const TemplatePickerModal = lazy(() => import('./TemplatePickerModal').then(m => ({ default: m.TemplatePickerModal })))
+import type { GoogleDocFile } from './TemplatePickerModal'
+const SettingsModal = lazy(() => import('./SettingsModal').then(m => ({ default: m.SettingsModal })))
 import { DOC_TEMPLATES } from './templates'
 import { supabase } from './lib/supabase'
 import { saveDocument, loadDocument, saveChatMessage, loadChatMessages, getSession, updateSessionTitle, listSessions, createSession, saveAgentPersonas, loadAgentPersonas } from './lib/session-store'
@@ -808,8 +811,8 @@ function App() {
   }, [])
 
   // Legal pages — accessible without auth
-  if (window.location.pathname === '/privacy') return <LegalPage page="privacy" />
-  if (window.location.pathname === '/terms') return <LegalPage page="terms" />
+  if (window.location.pathname === '/privacy') return <Suspense><LegalPage page="privacy" /></Suspense>
+  if (window.location.pathname === '/terms') return <Suspense><LegalPage page="terms" /></Suspense>
 
   // Login page for unauthenticated users (non-localhost)
   // Show nothing while auth is loading to prevent flash
@@ -818,7 +821,7 @@ function App() {
   }
 
   if (params.has('login') || (!isLocalhost && !user)) {
-    return <LoginPage />
+    return <Suspense><LoginPage /></Suspense>
   }
 
   return (
@@ -1235,23 +1238,27 @@ function App() {
       </div>
       </div>
       {showSettings && (
-        <SettingsModal
-          apiKey={geminiApiKey}
-          onSave={async (key) => {
-            if (user) await saveGeminiApiKey(user.id, key)
-            localStorage.setItem('collab-gemini-api-key', key)
-            setGeminiApiKey(key)
-          }}
-          onClose={() => setShowSettings(false)}
-        />
+        <Suspense>
+          <SettingsModal
+            apiKey={geminiApiKey}
+            onSave={async (key) => {
+              if (user) await saveGeminiApiKey(user.id, key)
+              localStorage.setItem('collab-gemini-api-key', key)
+              setGeminiApiKey(key)
+            }}
+            onClose={() => setShowSettings(false)}
+          />
+        </Suspense>
       )}
       {showTemplatePicker && (
-        <TemplatePickerModal
-          onSelect={handleTemplatePick}
-          onImport={handleGoogleImport}
-          onClose={() => setShowTemplatePicker(false)}
-          importAvailable={!!user}
-        />
+        <Suspense>
+          <TemplatePickerModal
+            onSelect={handleTemplatePick}
+            onImport={handleGoogleImport}
+            onClose={() => setShowTemplatePicker(false)}
+            importAvailable={!!user}
+          />
+        </Suspense>
       )}
       {showCommandPalette && (
         <CommandPalette

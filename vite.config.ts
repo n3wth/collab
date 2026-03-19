@@ -15,6 +15,17 @@ export default defineConfig(({ mode }) => {
         },
       },
     },
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            'vendor-tiptap': ['@tiptap/react', '@tiptap/starter-kit', '@tiptap/extension-placeholder'],
+            'vendor-supabase': ['@supabase/supabase-js'],
+            'vendor-shaders': ['@paper-design/shaders-react'],
+          },
+        },
+      },
+    },
     test: {
       globals: true,
       environment: 'node',
