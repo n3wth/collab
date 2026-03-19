@@ -2407,16 +2407,16 @@
 .sidebar-confirm-dialog {
   background: var(--surface-2);
   border: 1px solid var(--border-default);
-  border-radius: 10px;
-  padding: 16px 20px;
-  width: 200px;
+  border-radius: 12px;
+  padding: 24px;
+  width: 280px;
 }
 
 .sidebar-confirm-text {
-  font-size: 13px;
+  font-size: 14px;
   color: var(--text-primary);
-  margin: 0 0 14px;
-  line-height: 1.4;
+  margin: 0 0 20px;
+  line-height: 1.5;
 }
 
 .sidebar-confirm-actions {
@@ -2427,11 +2427,11 @@
 
 .sidebar-confirm-cancel,
 .sidebar-confirm-delete {
-  font-size: 12px;
+  font-size: 13px;
   font-family: inherit;
   font-weight: 500;
-  padding: 5px 12px;
-  border-radius: 6px;
+  padding: 8px 16px;
+  border-radius: 8px;
   border: none;
   cursor: pointer;
 }
