@@ -243,25 +243,6 @@ function Timeline({ entries }: { entries: TimelineEntry[] }) {
   )
 }
 
-function AgentActivityBar({ agents, getAgentState }: { agents: AgentConfig[], getAgentState: (name: string) => AgentState }) {
-  const hasActivity = agents.some(a => getAgentState(a.name).status !== 'idle')
-  if (!hasActivity) return null
-  return (
-    <div className="agent-activity-bar">
-      {agents.map(a => {
-        const state = getAgentState(a.name)
-        const isActive = state.status !== 'idle'
-        return (
-          <div
-            key={a.name}
-            className={`agent-activity-segment ${isActive ? `active-${state.status}` : ''}`}
-            style={{ background: isActive ? a.color : 'transparent' }}
-          />
-        )
-      })}
-    </div>
-  )
-}
 
 const EMPTY_DOC = '<h1>Untitled</h1><p></p>'
 
@@ -603,6 +584,13 @@ function App() {
   const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
   const params = new URLSearchParams(window.location.search)
 
+  // Sync page title with active session
+  useEffect(() => {
+    document.title = activeSession?.title
+      ? `${activeSession.title} — Collab`
+      : 'Collab'
+  }, [activeSession?.title])
+
   const resetToHome = useCallback(() => {
     setActiveSession(null)
     activeSessionRef.current = null
@@ -624,7 +612,7 @@ function App() {
 
   return (
     <div className="app-shell">
-      <div className="app-header">
+      {activeSession && <div className="app-header">
         <div className={`header-sidebar-zone ${sidebarCollapsed ? 'collapsed' : ''}`}>
           <span className="header-wordmark" onClick={resetToHome}>Collab</span>
         </div>
@@ -663,13 +651,13 @@ function App() {
                 title={agentsPaused ? 'Resume agents' : 'Pause agents'}
               >
                 {agentsPaused ? (
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none">
-                    <polygon points="5,3 19,12 5,21" />
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                    <polygon points="6,4 20,12 6,20" />
                   </svg>
                 ) : (
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none">
-                    <rect x="4" y="3" width="6" height="18" rx="1" />
-                    <rect x="14" y="3" width="6" height="18" rx="1" />
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                    <rect x="5" y="4" width="5" height="16" rx="1" />
+                    <rect x="14" y="4" width="5" height="16" rx="1" />
                   </svg>
                 )}
               </button>
@@ -704,7 +692,7 @@ function App() {
             </>
           )}
         </div>
-      </div>
+      </div>}
       {showConfigurator && activeSession && (
         <div className="configurator-panel">
           <AgentConfigurator
@@ -726,7 +714,6 @@ function App() {
           />
         </div>
       )}
-      {activeSession && <AgentActivityBar agents={activeAgents} getAgentState={getAgentState} />}
       <div className="app-body">
         <Sidebar
           sessions={sessions}
