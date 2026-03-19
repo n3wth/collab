@@ -40,6 +40,10 @@
   cursor: pointer;
 }
 
+.header-wordmark:hover {
+  color: var(--text-primary);
+}
+
 .header-sidebar-zone.collapsed .header-wordmark {
   display: none;
 }

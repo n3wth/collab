@@ -251,6 +251,7 @@ function App() {
   const [activeSession, setActiveSession] = useState<Session | null>(null)
   const activeSessionRef = useRef<Session | null>(null)
   const [sessions, setSessions] = useState<Session[]>([])
+  const [sessionsLoaded, setSessionsLoaded] = useState(false)
   const [showTemplatePicker, setShowTemplatePicker] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [sidebarWidth, setSidebarWidth] = useState(240)
@@ -494,8 +495,8 @@ function App() {
   // Load sessions list for sidebar
   useEffect(() => {
     listSessions()
-      .then(setSessions)
-      .catch(console.error)
+      .then(s => { setSessions(s); setSessionsLoaded(true) })
+      .catch(() => setSessionsLoaded(true))
   }, [])
 
   const refreshSessions = useCallback(() => {
@@ -1003,23 +1004,24 @@ function App() {
             <div className="empty-state-shader">
               <ColorPanels speed={0.5} scale={1.15} density={3} angle1={0} angle2={0} length={1.1} edges={false} blur={0} fadeIn={1} fadeOut={0.3} gradient={0} rotation={0} offsetX={0} offsetY={0} colors={['#FF9D00', '#FD4F30', '#809BFF', '#6D2EFF', '#333AFF', '#F15CFF', '#FFD557']} colorBack="#00000000" style={{ backgroundColor: '#000000', height: '100%', width: '100%' }} />
             </div>
-            <div className="empty-state-card">
-              {sessions.length === 0 ? (
-                <>
-                  <h2 className="empty-state-headline">Four experts are<br />waiting to review.</h2>
-                  <p className="empty-state-desc">Create your first document. AI agents will read along, challenge assumptions, and fill gaps in real time.</p>
-                </>
-              ) : (
-                <>
-                  <h2 className="empty-state-headline">Pick up where<br />you left off.</h2>
-                  <p className="empty-state-desc">Select a document from the sidebar or start something new.</p>
-                </>
-              )}
-              <button className="empty-state-cta" onClick={() => setShowTemplatePicker(true)}>
-                New document
-                <span className="empty-state-key">{navigator.platform.includes('Mac') ? '\u2318' : 'Ctrl+'}N</span>
-              </button>
-            </div>
+            {sessionsLoaded && (
+              <div className="empty-state-card">
+                {sessions.length === 0 ? (
+                  <>
+                    <h2 className="empty-state-headline">Four experts are<br />waiting to review.</h2>
+                    <p className="empty-state-desc">Create your first document. AI agents will read along, challenge assumptions, and fill gaps in real time.</p>
+                  </>
+                ) : (
+                  <>
+                    <h2 className="empty-state-headline">Pick up where<br />you left off.</h2>
+                    <p className="empty-state-desc">Select a document from the sidebar or start something new.</p>
+                  </>
+                )}
+                <button className="empty-state-cta" onClick={() => setShowTemplatePicker(true)}>
+                  New document
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
