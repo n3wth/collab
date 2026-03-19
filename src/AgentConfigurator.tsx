@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { BlobAvatar } from './blob-avatar'
 
 export interface AgentConfig {
@@ -53,24 +53,6 @@ export function getStoredApiKey(): string {
 
 export function AgentConfigurator({ agents, onChange }: Props) {
   const [editing, setEditing] = useState<number | null>(null)
-  const [apiKey, setApiKey] = useState('')
-  const [keyVisible, setKeyVisible] = useState(false)
-  const [keySaved, setKeySaved] = useState(false)
-
-  useEffect(() => {
-    setApiKey(getStoredApiKey())
-  }, [])
-
-  const saveKey = (key: string) => {
-    setApiKey(key)
-    if (key) {
-      localStorage.setItem(API_KEY_STORAGE_KEY, key)
-    } else {
-      localStorage.removeItem(API_KEY_STORAGE_KEY)
-    }
-    setKeySaved(true)
-    setTimeout(() => setKeySaved(false), 1500)
-  }
 
   const addPreset = (preset: AgentConfig) => {
     if (agents.length >= 4) return
@@ -159,30 +141,6 @@ export function AgentConfigurator({ agents, onChange }: Props) {
         </div>
       )}
 
-      <div className="ac-api-key">
-        <div className="ac-label">Gemini API Key</div>
-        <div className="ac-key-row">
-          <input
-            type={keyVisible ? 'text' : 'password'}
-            value={apiKey}
-            onChange={e => setApiKey(e.target.value)}
-            onBlur={() => saveKey(apiKey)}
-            onKeyDown={e => { if (e.key === 'Enter') saveKey(apiKey) }}
-            placeholder="Paste your Gemini API key"
-            className="ac-key-input"
-            spellCheck={false}
-            autoComplete="off"
-          />
-          <button className="ac-btn" onClick={() => setKeyVisible(v => !v)}>
-            {keyVisible ? 'Hide' : 'Show'}
-          </button>
-          {keySaved && <span className="ac-key-saved">Saved</span>}
-        </div>
-        <span className="ac-key-hint">
-          Optional. Used when no server key is configured.{' '}
-          <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">Get a key</a>
-        </span>
-      </div>
     </div>
   )
 }
