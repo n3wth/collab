@@ -8,6 +8,7 @@ import { createOrchestrator, type AgentConfig } from './orchestrator'
 import { DEFAULT_PERSONAS } from './agent'
 import { HomePage } from './HomePage'
 import { LoginPage } from './LoginPage'
+import { LegalPage } from './LegalPage'
 import { AgentConfigurator } from './AgentConfigurator'
 import { DOC_TEMPLATES } from './templates'
 import { saveDocument, loadDocument, saveChatMessage, loadChatMessages, getSession } from './lib/session-store'
@@ -570,6 +571,10 @@ function App() {
 
   const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
   const params = new URLSearchParams(window.location.search)
+
+  // Legal pages — accessible without auth
+  if (window.location.pathname === '/privacy') return <LegalPage page="privacy" />
+  if (window.location.pathname === '/terms') return <LegalPage page="terms" />
 
   // Test routes for UI development
   if (params.has('home')) {
