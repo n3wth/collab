@@ -13,7 +13,7 @@ import { TemplatePickerModal, type GoogleDocFile } from './TemplatePickerModal'
 import { AgentConfigurator } from './AgentConfigurator'
 import { DOC_TEMPLATES } from './templates'
 import { supabase } from './lib/supabase'
-import { saveDocument, loadDocument, saveChatMessage, loadChatMessages, getSession, updateSessionTitle, listSessions, createSession } from './lib/session-store'
+import { saveDocument, loadDocument, saveChatMessage, loadChatMessages, getSession, updateSessionTitle, listSessions, createSession, saveAgentPersonas, loadAgentPersonas } from './lib/session-store'
 import { useAuth } from './lib/auth'
 import type { Session } from './types'
 import { BlobAvatar } from './blob-avatar'
@@ -55,6 +55,18 @@ const DEFAULT_AGENT_CONFIGS: AgentConfig[] = [
   { name: 'Aiden', persona: DEFAULT_PERSONAS.Aiden, owner: 'You', color: '#30d158' },
   { name: 'Nova', persona: DEFAULT_PERSONAS.Nova, owner: 'Sarah', color: '#ff6961' },
 ]
+
+function agentConfigsToPersonas(agents: AgentConfig[]) {
+  return agents.map(a => ({
+    name: a.name,
+    description: a.persona.split('.')[0].replace(/^You are \w+, /, ''),
+    system_prompt: a.persona,
+    color: a.color,
+    owner: a.owner,
+    model: 'gemini-2.5-flash',
+    sort_order: 0,
+  }))
+}
 
 function ShapeAvatar({ name, size = 28, className = '' }: { name: string, size?: number, className?: string }) {
   const color = 'currentColor'
@@ -521,13 +533,33 @@ function App() {
     if (agents.length > 0) {
       setActiveAgents(agents)
     }
-    const currentAgents = agents.length > 0 ? agents : activeAgents
 
-    // Load existing doc + messages from Supabase
-    const [savedDoc, savedMessages] = await Promise.all([
+    // Load existing doc + messages + agent personas from Supabase
+    const [savedDoc, savedMessages, savedPersonas] = await Promise.all([
       loadDocument(session.id).catch(() => null),
       loadChatMessages(session.id).catch(() => []),
+      loadAgentPersonas(session.id).catch(() => []),
     ])
+
+    // Restore agent personas if saved, otherwise use provided or current agents
+    let currentAgents: AgentConfig[]
+    if (savedPersonas.length > 0) {
+      const restored = savedPersonas.map(p => ({
+        name: p.name,
+        persona: p.system_prompt,
+        owner: p.owner,
+        color: p.color,
+      }))
+      setActiveAgents(restored)
+      currentAgents = restored
+    } else {
+      currentAgents = agents.length > 0 ? agents : activeAgents
+      // Persist starter agents for new sessions
+      if (agents.length > 0) {
+        saveAgentPersonas(session.id, agentConfigsToPersonas(currentAgents))
+          .catch(err => console.error('[App] saveAgentPersonas error:', err))
+      }
+    }
 
     if (savedDoc && editor) {
       editor.commands.setContent(savedDoc)
@@ -770,7 +802,16 @@ function App() {
                         name={agent.name}
                         agentState={agentState}
                         agentConfig={agent}
-                        onRemove={activeAgents.length > 1 ? () => setActiveAgents(a => a.filter((_, i) => i !== idx)) : undefined}
+                        onRemove={activeAgents.length > 1 ? () => {
+                          setActiveAgents(prev => {
+                            const updated = prev.filter((_, i) => i !== idx)
+                            if (activeSessionRef.current) {
+                              saveAgentPersonas(activeSessionRef.current.id, agentConfigsToPersonas(updated))
+                                .catch(err => console.error('[App] saveAgentPersonas error:', err))
+                            }
+                            return updated
+                          })
+                        } : undefined}
                       />
                     </div>
                   )
@@ -803,12 +844,17 @@ function App() {
               color: a.color,
             }))}
             onChange={(configs) => {
-              setActiveAgents(configs.map(c => ({
+              const updated = configs.map(c => ({
                 name: c.name,
                 persona: c.persona,
                 owner: c.owner,
                 color: c.color,
-              })))
+              }))
+              setActiveAgents(updated)
+              if (activeSessionRef.current) {
+                saveAgentPersonas(activeSessionRef.current.id, agentConfigsToPersonas(updated))
+                  .catch(err => console.error('[App] saveAgentPersonas error:', err))
+              }
             }}
           />
         </div>
