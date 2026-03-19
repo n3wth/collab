@@ -1,4 +1,4 @@
-/* App Shell — 3-column layout */
+/* App Shell — sidebar + main column layout */
 .app-shell {
   height: 100vh;
   width: 100vw;
@@ -9,6 +9,26 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background: var(--surface-0);
+}
+
+.app-layout {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.app-sidebar-column {
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.app-main-column {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
 }
 
 /* 3-zone header */
@@ -2242,11 +2262,6 @@
   display: none;
 }
 
-/* In editor mode, sidebar extends under the header via negative margin */
-.app-shell-active .sidebar {
-  margin-top: -48px;
-  padding-top: 0;
-}
 
 .sidebar-header {
   display: flex;
