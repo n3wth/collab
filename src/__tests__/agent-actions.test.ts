@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import { extractDocStructure } from '../agent'
 
 // --- Replicated pure functions from agent-actions.ts for direct testing ---
 
@@ -186,5 +187,91 @@ describe('parseAgentResponse edge cases', () => {
     const thought = 'four words right here'
     const truncated = thought.split(/\s+/).slice(0, 4).join(' ')
     expect(truncated).toBe('four words right here')
+  })
+})
+
+describe('extractDocStructure', () => {
+  it('extracts headings and word counts from markdown-style text', () => {
+    const doc = '## Introduction\nThis is the intro paragraph with five words.\n## Architecture\nBackend uses PostgreSQL.'
+    const result = extractDocStructure(doc)
+    expect(result.headings).toEqual(['Introduction', 'Architecture'])
+    expect(result.wordCounts['Introduction']).toBe(8)
+    expect(result.wordCounts['Architecture']).toBe(3)
+  })
+
+  it('returns empty for doc with no headings', () => {
+    const result = extractDocStructure('Just plain text without any structure.')
+    expect(result.headings).toEqual([])
+    expect(result.wordCounts).toEqual({})
+  })
+
+  it('handles H1 and H3 headings', () => {
+    const doc = '# Title\nSome words here.\n### Subsection\nMore content below.'
+    const result = extractDocStructure(doc)
+    expect(result.headings).toEqual(['Title', 'Subsection'])
+  })
+
+  it('handles empty doc', () => {
+    const result = extractDocStructure('')
+    expect(result.headings).toEqual([])
+  })
+
+  it('strips HTML tags before parsing', () => {
+    const doc = '<h2>Overview</h2><p>Some paragraph text here.</p>'
+    const result = extractDocStructure(doc)
+    // After HTML stripping, no markdown headings remain
+    expect(result.headings).toEqual([])
+  })
+
+  it('counts words accurately across sections', () => {
+    const doc = '## A\none two three\n## B\nfour five'
+    const result = extractDocStructure(doc)
+    expect(result.wordCounts['A']).toBe(3)
+    expect(result.wordCounts['B']).toBe(2)
+  })
+})
+
+describe('new action type validation', () => {
+  // Updated validator that knows about all action types
+  const VALID_TYPES = ['insert', 'replace', 'read', 'chat', 'search', 'rename', 'delete', 'propose', 'plan', 'ask']
+
+  function validateNewAction(action: { type: string, deleteText?: string, newTitle?: string, proposal?: string, steps?: string[], question?: string }): string[] {
+    const errors: string[] = []
+    if (!VALID_TYPES.includes(action.type)) errors.push(`Invalid type: ${action.type}`)
+    if (action.type === 'delete' && !action.deleteText) errors.push('delete requires deleteText')
+    if (action.type === 'rename' && !action.newTitle) errors.push('rename requires newTitle')
+    if (action.type === 'propose' && !action.proposal) errors.push('propose requires proposal')
+    if (action.type === 'ask' && !action.question) errors.push('ask requires question')
+    return errors
+  }
+
+  it('validates delete action requires deleteText', () => {
+    expect(validateNewAction({ type: 'delete' })).toContain('delete requires deleteText')
+    expect(validateNewAction({ type: 'delete', deleteText: 'foo' })).toEqual([])
+  })
+
+  it('validates rename action requires newTitle', () => {
+    expect(validateNewAction({ type: 'rename' })).toContain('rename requires newTitle')
+    expect(validateNewAction({ type: 'rename', newTitle: 'New Title' })).toEqual([])
+  })
+
+  it('validates propose action requires proposal', () => {
+    expect(validateNewAction({ type: 'propose' })).toContain('propose requires proposal')
+    expect(validateNewAction({ type: 'propose', proposal: 'Create a new doc' })).toEqual([])
+  })
+
+  it('validates ask action requires question', () => {
+    expect(validateNewAction({ type: 'ask' })).toContain('ask requires question')
+    expect(validateNewAction({ type: 'ask', question: 'What tone?' })).toEqual([])
+  })
+
+  it('plan and chat actions pass with no extra fields', () => {
+    expect(validateNewAction({ type: 'plan' })).toEqual([])
+    expect(validateNewAction({ type: 'chat' })).toEqual([])
+    expect(validateNewAction({ type: 'search' })).toEqual([])
+  })
+
+  it('rejects unknown action types', () => {
+    expect(validateNewAction({ type: 'explode' })).toContain('Invalid type: explode')
   })
 })
