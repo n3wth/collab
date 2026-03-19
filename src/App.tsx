@@ -6,16 +6,18 @@ import { AgentCursors } from './agent-cursor'
 import { DocMinimap } from './doc-minimap'
 import { createOrchestrator, type AgentConfig } from './orchestrator'
 import { DEFAULT_PERSONAS } from './agent'
-import { HomePage } from './HomePage'
 import { LoginPage } from './LoginPage'
 import { LegalPage } from './LegalPage'
+import { Sidebar } from './Sidebar'
+import { TemplatePickerModal } from './TemplatePickerModal'
 import { AgentConfigurator } from './AgentConfigurator'
 import { DOC_TEMPLATES } from './templates'
-import { saveDocument, loadDocument, saveChatMessage, loadChatMessages, getSession, updateSessionTitle } from './lib/session-store'
+import { saveDocument, loadDocument, saveChatMessage, loadChatMessages, getSession, updateSessionTitle, listSessions, createSession } from './lib/session-store'
 import { useAuth } from './lib/auth'
 import type { Session } from './types'
 import { BlobAvatar } from './blob-avatar'
 import type { Editor } from '@tiptap/react'
+import { ColorPanels } from '@paper-design/shaders-react'
 import './App.css'
 
 interface DocChange {
@@ -85,10 +87,8 @@ const AGENT_DESCRIPTIONS: Record<string, string> = {
   Mira: 'Design and user experience. Advocates for users, evaluates usability, and proposes interface patterns.',
 }
 
-function AgentHoverCard({ name, agentState, agentConfig }: { name: string, agentState: AgentState | null, agentConfig?: AgentConfig }) {
+function AgentHoverCard({ name, agentState, agentConfig, onRemove }: { name: string, agentState: AgentState | null, agentConfig?: AgentConfig, onRemove?: () => void }) {
   const desc = AGENT_DESCRIPTIONS[name] || agentConfig?.persona?.split('.')[0]?.replace(/^You are \w+, /, '') || 'AI agent'
-  const owner = agentConfig?.owner || 'You'
-  const tools = ['read', 'insert', 'replace', 'chat', 'search']
 
   return (
     <div className="agent-hover-card">
@@ -100,22 +100,18 @@ function AgentHoverCard({ name, agentState, agentConfig }: { name: string, agent
         </div>
       </div>
       <div className="agent-hover-card-desc">{desc}</div>
-      <div className="agent-hover-card-section">
-        <div className="agent-hover-card-section-label">Tools</div>
-        <div className="agent-hover-card-tools">
-          {tools.map(t => <span key={t} className="agent-tool-tag">{t}</span>)}
-        </div>
-      </div>
-      <div className="agent-hover-card-section">
-        <div className="agent-hover-card-section-label">Owner</div>
-        <div className="agent-hover-card-owner">{owner}</div>
-      </div>
       <div className="agent-hover-card-divider" />
       <div className="agent-hover-card-status">
         <span className={`agent-hover-card-dot ${agentState?.status !== 'idle' ? 'active' : ''}`} />
         {agentState?.status === 'idle' ? 'Idle' : agentState?.thought || agentState?.status}
         {agentState?.inDoc && <span className="agent-hover-card-location">In document</span>}
       </div>
+      {onRemove && (
+        <>
+          <div className="agent-hover-card-divider" />
+          <button className="agent-hover-card-remove" onClick={onRemove}>Remove agent</button>
+        </>
+      )}
     </div>
   )
 }
@@ -270,10 +266,10 @@ const EMPTY_DOC = '<h1>Untitled</h1><p></p>'
 
 function App() {
   const { user, loading: authLoading, signOut } = useAuth()
-  const [demoMode, setDemoMode] = useState(false)
   const [activeSession, setActiveSession] = useState<Session | null>(null)
   const activeSessionRef = useRef<Session | null>(null)
-  // Doc is always open in workspace view
+  const [sessions, setSessions] = useState<Session[]>([])
+  const [showTemplatePicker, setShowTemplatePicker] = useState(false)
   const [activeAgents, setActiveAgents] = useState<AgentConfig[]>(DEFAULT_AGENT_CONFIGS)
   const [showConfigurator, setShowConfigurator] = useState(false)
   const [agentStates, setAgentStates] = useState<Record<string, AgentState>>({})
@@ -428,10 +424,6 @@ function App() {
     window.scrollTo(0, 0)
   }, [])
 
-  const navigateToHome = useCallback(() => {
-    history.pushState(null, '', '/')
-    window.scrollTo(0, 0)
-  }, [])
 
   // Load session from URL on mount
   useEffect(() => {
@@ -514,6 +506,17 @@ function App() {
     orchestratorRef.current?.trigger('user-message', { instruction: text })
   }, [activeAgents])
 
+  // Load sessions list for sidebar
+  useEffect(() => {
+    listSessions()
+      .then(setSessions)
+      .catch(console.error)
+  }, [])
+
+  const refreshSessions = useCallback(() => {
+    listSessions().then(setSessions).catch(console.error)
+  }, [])
+
   const handleSessionSelect = async (session: Session, agents: AgentConfig[]) => {
     setActiveSession(session)
     activeSessionRef.current = session
@@ -561,7 +564,30 @@ function App() {
       setAgentStates(prev => ({ ...prev, ...newStates }))
       orchestratorRef.current?.trigger('doc-opened')
     }, 300)
+    refreshSessions()
   }
+
+  const handleTemplatePick = async (starter: { title: string, template: import('./types').DocTemplate, agents: AgentConfig[] }) => {
+    const session = await createSession(starter.title, starter.template)
+    setShowTemplatePicker(false)
+    handleSessionSelect(session, starter.agents)
+  }
+
+  const handleSidebarSelect = (session: Session) => {
+    handleSessionSelect(session, [])
+  }
+
+  // Cmd+N to create new doc
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'n') {
+        e.preventDefault()
+        setShowTemplatePicker(true)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
 
   const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
   const params = new URLSearchParams(window.location.search)
@@ -570,247 +596,280 @@ function App() {
   if (window.location.pathname === '/privacy') return <LegalPage page="privacy" />
   if (window.location.pathname === '/terms') return <LegalPage page="terms" />
 
-  // Test routes for UI development
-  if (params.has('home')) {
-    return <HomePage onSelect={handleSessionSelect} onSignOut={signOut} demoMode={demoMode} onDemoConsumed={() => setDemoMode(false)} />
-  }
-  if (params.has('login')) {
+  // Login page for unauthenticated users (non-localhost)
+  if (params.has('login') || (!isLocalhost && (authLoading || !user))) {
     return <LoginPage />
-  }
-
-  if (!isLocalhost && (authLoading || !user)) {
-    return <LoginPage />
-  }
-
-  if (!activeSession) {
-    return <HomePage onSelect={handleSessionSelect} onSignOut={isLocalhost ? undefined : signOut} demoMode={demoMode} onDemoConsumed={() => setDemoMode(false)} />
   }
 
   return (
-    <div className="shell">
-      <div className="main-area">
-        <div className="main-header">
-          <button className="back-btn" onClick={() => { setActiveSession(null); activeSessionRef.current = null; navigateToHome() }} aria-label="Back to home">&larr;</button>
-          <span className="chat-header-title">{activeSession.title}</span>
-          <div className="header-participants">
-            {activeAgents.map(agent => {
-              const agentState = getAgentState(agent.name)
-              return (
-                <div key={agent.name} className="header-avatar-wrap">
-                  <BlobAvatar name={agent.name} size={24} state={agentState.status} />
-                  <AgentHoverCard name={agent.name} agentState={agentState} agentConfig={agent} />
-                </div>
-              )
-            })}
-          </div>
-          <div className="header-buttons">
-            <button
-              className={`header-icon-btn ${showConfigurator ? 'active' : ''}`}
-              onClick={() => setShowConfigurator(v => !v)}
-              aria-label="Configure agents"
-              title="Configure agents"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="3" />
-                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-              </svg>
-            </button>
-          </div>
+    <div className="app-shell">
+      <div className="app-header">
+        <div className="header-sidebar-zone">
+          <span className="header-wordmark" onClick={() => { setActiveSession(null); activeSessionRef.current = null; setAgentStates({}); setMessages([]); setTimeline([]); history.pushState(null, '', '/') }}>Collab</span>
         </div>
-        {showConfigurator && (
-          <div className="configurator-panel">
-            <AgentConfigurator
-              agents={activeAgents.map(a => ({
-                name: a.name,
-                description: a.persona.split('.')[0].replace(/^You are \w+, /, ''),
-                persona: a.persona,
-                owner: a.owner,
-                color: a.color,
-              }))}
-              onChange={(configs) => {
-                setActiveAgents(configs.map(c => ({
-                  name: c.name,
-                  persona: c.persona,
-                  owner: c.owner,
-                  color: c.color,
-                })))
-              }}
-            />
-          </div>
-        )}
-        <AgentActivityBar agents={activeAgents} getAgentState={getAgentState} />
-        <div className="main-content">
-        <div className="chat-panel chat-side">
-          <div className="chat-messages">
-            <div className="chat-messages-inner">
-            {messages.filter(m => !m.text.startsWith('Couldn\'t find that text')).map((m, i, arr) => {
-              const prev = arr[i - 1]
-              const sameSender = prev && prev.from === m.from
-              return (
-                <ChatMessage key={m.id} m={m} sameSender={sameSender} agentState={activeAgents.some(a => a.name === m.from) ? getAgentState(m.from) : null} userAvatarUrl={user?.user_metadata?.avatar_url} />
-              )
-            })}
-            {activeAgents.map(agent => {
-              const state = getAgentState(agent.name)
-              return (state.status === 'thinking' || state.status === 'typing') && !state.inDoc ? (
-                <div key={agent.name} className="msg">
-                  <div className="msg-avatar">
-                    <BlobAvatar name={agent.name} size={26} state={state.status} />
-                  </div>
-                  <div className="msg-body">
-                    <div className="msg-header">
-                      <span className="msg-name">{agent.name}</span>
-                    </div>
-                    <div className="msg-thinking">
-                      <span className="thinking-text">{state.thought || 'Thinking...'}</span>
-                    </div>
-                  </div>
-                </div>
-              ) : null
-            })}
-            <div ref={chatEndRef} />
-            </div>
-          </div>
-          {messages.length === 0 && (
-            <div className="chat-suggestions">
-              {['Help me outline a product spec', 'Review my draft for clarity', 'What should this doc cover?', 'Brainstorm ideas for this topic'].map(text => (
-                <button key={text} className="chat-suggestion-chip" onClick={() => sendSuggestion(text)}>{text}</button>
-              ))}
-            </div>
+        <div className="header-editor-zone">
+          {activeSession && (
+            <span className="header-doc-title">{activeSession.title}</span>
           )}
-          <div className="chat-input">
-            {mentionQuery !== null && (() => {
-              const filtered = MENTION_NAMES.filter(n => n.toLowerCase().startsWith(mentionQuery.toLowerCase()))
-              if (filtered.length === 0) return null
-              const safeIndex = Math.min(mentionIndex, filtered.length - 1)
-              return (
-                <div className="mention-dropdown">
-                  {filtered.map((n, i) => (
-                    <div
-                      key={n}
-                      className={`mention-option ${i === safeIndex ? 'mention-option-active' : ''}`}
-                      onMouseDown={e => {
-                        e.preventDefault()
-                        const atIdx = input.lastIndexOf('@')
-                        setInput(input.slice(0, atIdx) + '@' + n + ' ')
-                        setMentionQuery(null)
-                      }}
-                    >
-                      <BlobAvatar name={n} size={16} />
-                      <span>{n}</span>
+        </div>
+        <div className="header-chat-zone">
+          {activeSession && (
+            <>
+              <div className="header-participants">
+                {activeAgents.map((agent, idx) => {
+                  const agentState = getAgentState(agent.name)
+                  return (
+                    <div key={agent.name} className="header-avatar-wrap">
+                      <BlobAvatar name={agent.name} size={22} state={agentState.status} />
+                      <AgentHoverCard
+                        name={agent.name}
+                        agentState={agentState}
+                        agentConfig={agent}
+                        onRemove={activeAgents.length > 1 ? () => setActiveAgents(a => a.filter((_, i) => i !== idx)) : undefined}
+                      />
                     </div>
+                  )
+                })}
+                {activeAgents.length < 4 && (
+                  <button
+                    className="header-add-agent"
+                    onClick={() => setShowConfigurator(v => !v)}
+                    title="Add agent"
+                  >
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="12" y1="5" x2="12" y2="19" />
+                      <line x1="5" y1="12" x2="19" y2="12" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+      {showConfigurator && activeSession && (
+        <div className="configurator-panel">
+          <AgentConfigurator
+            agents={activeAgents.map(a => ({
+              name: a.name,
+              description: a.persona.split('.')[0].replace(/^You are \w+, /, ''),
+              persona: a.persona,
+              owner: a.owner,
+              color: a.color,
+            }))}
+            onChange={(configs) => {
+              setActiveAgents(configs.map(c => ({
+                name: c.name,
+                persona: c.persona,
+                owner: c.owner,
+                color: c.color,
+              })))
+            }}
+          />
+        </div>
+      )}
+      {activeSession && <AgentActivityBar agents={activeAgents} getAgentState={getAgentState} />}
+      <div className="app-body">
+        <Sidebar
+          sessions={sessions}
+          activeSessionId={activeSession?.id ?? null}
+          onSelect={handleSidebarSelect}
+          onNewDoc={() => setShowTemplatePicker(true)}
+          user={user ?? null}
+          onSignOut={isLocalhost ? undefined : signOut}
+        />
+        {activeSession ? (
+          <div className="workspace-area">
+            <div className="workspace-content">
+            {editor && (
+              <div className="doc-panel">
+                <div className="doc-toolbar">
+                  <button
+                    className={`doc-toolbar-btn ${editor.isActive('bold') ? 'active' : ''}`}
+                    onClick={() => editor.chain().focus().toggleBold().run()}
+                    title="Bold (Ctrl+B)"
+                  >
+                    B
+                  </button>
+                  <button
+                    className={`doc-toolbar-btn ${editor.isActive('italic') ? 'active' : ''}`}
+                    onClick={() => editor.chain().focus().toggleItalic().run()}
+                    title="Italic (Ctrl+I)"
+                  >
+                    <em>I</em>
+                  </button>
+                  <span className="doc-toolbar-sep" />
+                  <button
+                    className={`doc-toolbar-btn ${editor.isActive('heading', { level: 1 }) ? 'active' : ''}`}
+                    onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+                    title="Heading 1"
+                  >
+                    H1
+                  </button>
+                  <button
+                    className={`doc-toolbar-btn ${editor.isActive('heading', { level: 2 }) ? 'active' : ''}`}
+                    onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+                    title="Heading 2"
+                  >
+                    H2
+                  </button>
+                  <span className="doc-toolbar-sep" />
+                  <button
+                    className={`doc-toolbar-btn ${editor.isActive('bulletList') ? 'active' : ''}`}
+                    onClick={() => editor.chain().focus().toggleBulletList().run()}
+                    title="Bullet List"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="3" cy="6" r="1.5" fill="currentColor" stroke="none"/><circle cx="3" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="3" cy="18" r="1.5" fill="currentColor" stroke="none"/></svg>
+                  </button>
+                  <button
+                    className={`doc-toolbar-btn ${editor.isActive('orderedList') ? 'active' : ''}`}
+                    onClick={() => editor.chain().focus().toggleOrderedList().run()}
+                    title="Ordered List"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="10" y1="6" x2="21" y2="6"/><line x1="10" y1="12" x2="21" y2="12"/><line x1="10" y1="18" x2="21" y2="18"/><text x="1" y="8" fontSize="8" fill="currentColor" stroke="none" fontFamily="sans-serif">1</text><text x="1" y="14" fontSize="8" fill="currentColor" stroke="none" fontFamily="sans-serif">2</text><text x="1" y="20" fontSize="8" fill="currentColor" stroke="none" fontFamily="sans-serif">3</text></svg>
+                  </button>
+                </div>
+                <div className="doc-body">
+                  <EditorContent editor={editor} />
+                </div>
+              </div>
+            )}
+            <div className="chat-panel chat-right">
+              <div className="chat-messages">
+                <div className="chat-messages-inner">
+                {messages.filter(m => !m.text.startsWith('Couldn\'t find that text')).map((m, i, arr) => {
+                  const prev = arr[i - 1]
+                  const sameSender = prev && prev.from === m.from
+                  return (
+                    <ChatMessage key={m.id} m={m} sameSender={sameSender} agentState={activeAgents.some(a => a.name === m.from) ? getAgentState(m.from) : null} userAvatarUrl={user?.user_metadata?.avatar_url} />
+                  )
+                })}
+                {activeAgents.map(agent => {
+                  const state = getAgentState(agent.name)
+                  return (state.status === 'thinking' || state.status === 'typing') && !state.inDoc ? (
+                    <div key={agent.name} className="msg">
+                      <div className="msg-avatar">
+                        <BlobAvatar name={agent.name} size={26} state={state.status} />
+                      </div>
+                      <div className="msg-body">
+                        <div className="msg-header">
+                          <span className="msg-name">{agent.name}</span>
+                        </div>
+                        <div className="msg-thinking">
+                          <span className="thinking-text">{state.thought || 'Thinking...'}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ) : null
+                })}
+                <div ref={chatEndRef} />
+                </div>
+              </div>
+              {messages.length === 0 && (
+                <div className="chat-suggestions">
+                  {['Help me outline a product spec', 'Review my draft for clarity', 'What should this doc cover?', 'Brainstorm ideas for this topic'].map(text => (
+                    <button key={text} className="chat-suggestion-chip" onClick={() => sendSuggestion(text)}>{text}</button>
                   ))}
                 </div>
-              )
-            })()}
-            <input
-              value={input}
-              onChange={e => {
-                const val = e.target.value
-                setInput(val)
-                const atIdx = val.lastIndexOf('@')
-                if (atIdx !== -1 && (atIdx === 0 || val[atIdx - 1] === ' ')) {
-                  const query = val.slice(atIdx + 1)
-                  if (!query.includes(' ')) {
-                    setMentionQuery(query)
-                    setMentionIndex(0)
-                    return
-                  }
-                }
-                setMentionQuery(null)
-              }}
-              onKeyDown={e => {
-                if (mentionQuery !== null) {
+              )}
+              <div className="chat-input">
+                {mentionQuery !== null && (() => {
                   const filtered = MENTION_NAMES.filter(n => n.toLowerCase().startsWith(mentionQuery.toLowerCase()))
-                  if (e.key === 'Tab' || (e.key === 'Enter' && filtered.length > 0)) {
-                    e.preventDefault()
-                    const safeIndex = Math.min(mentionIndex, filtered.length - 1)
-                    const pick = filtered[safeIndex] ?? filtered[0]
-                    if (pick) {
-                      const atIdx = input.lastIndexOf('@')
-                      setInput(input.slice(0, atIdx) + '@' + pick + ' ')
-                      setMentionQuery(null)
+                  if (filtered.length === 0) return null
+                  const safeIndex = Math.min(mentionIndex, filtered.length - 1)
+                  return (
+                    <div className="mention-dropdown">
+                      {filtered.map((n, i) => (
+                        <div
+                          key={n}
+                          className={`mention-option ${i === safeIndex ? 'mention-option-active' : ''}`}
+                          onMouseDown={e => {
+                            e.preventDefault()
+                            const atIdx = input.lastIndexOf('@')
+                            setInput(input.slice(0, atIdx) + '@' + n + ' ')
+                            setMentionQuery(null)
+                          }}
+                        >
+                          <BlobAvatar name={n} size={16} />
+                          <span>{n}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )
+                })()}
+                <input
+                  value={input}
+                  onChange={e => {
+                    const val = e.target.value
+                    setInput(val)
+                    const atIdx = val.lastIndexOf('@')
+                    if (atIdx !== -1 && (atIdx === 0 || val[atIdx - 1] === ' ')) {
+                      const query = val.slice(atIdx + 1)
+                      if (!query.includes(' ')) {
+                        setMentionQuery(query)
+                        setMentionIndex(0)
+                        return
+                      }
                     }
-                    return
-                  }
-                  if (e.key === 'ArrowDown') {
-                    e.preventDefault()
-                    setMentionIndex(i => Math.min(i + 1, filtered.length - 1))
-                    return
-                  }
-                  if (e.key === 'ArrowUp') {
-                    e.preventDefault()
-                    setMentionIndex(i => Math.max(i - 1, 0))
-                    return
-                  }
-                  if (e.key === 'Escape') {
                     setMentionQuery(null)
-                    return
-                  }
-                }
-                if (e.key === 'Enter') sendMessage()
-              }}
-              placeholder={activeAgents.some(a => getAgentState(a.name).inDoc) ? 'Talk to the agents...' : 'Message the team...'}
-            />
-          </div>
-        </div>
-
-        {editor && (
-          <div className="doc-panel">
-            <div className="doc-toolbar">
-              <button
-                className={`doc-toolbar-btn ${editor.isActive('bold') ? 'active' : ''}`}
-                onClick={() => editor.chain().focus().toggleBold().run()}
-                title="Bold (Ctrl+B)"
-              >
-                B
-              </button>
-              <button
-                className={`doc-toolbar-btn ${editor.isActive('italic') ? 'active' : ''}`}
-                onClick={() => editor.chain().focus().toggleItalic().run()}
-                title="Italic (Ctrl+I)"
-              >
-                <em>I</em>
-              </button>
-              <span className="doc-toolbar-sep" />
-              <button
-                className={`doc-toolbar-btn ${editor.isActive('heading', { level: 1 }) ? 'active' : ''}`}
-                onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
-                title="Heading 1"
-              >
-                H1
-              </button>
-              <button
-                className={`doc-toolbar-btn ${editor.isActive('heading', { level: 2 }) ? 'active' : ''}`}
-                onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-                title="Heading 2"
-              >
-                H2
-              </button>
-              <span className="doc-toolbar-sep" />
-              <button
-                className={`doc-toolbar-btn ${editor.isActive('bulletList') ? 'active' : ''}`}
-                onClick={() => editor.chain().focus().toggleBulletList().run()}
-                title="Bullet List"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="3" cy="6" r="1.5" fill="currentColor" stroke="none"/><circle cx="3" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="3" cy="18" r="1.5" fill="currentColor" stroke="none"/></svg>
-              </button>
-              <button
-                className={`doc-toolbar-btn ${editor.isActive('orderedList') ? 'active' : ''}`}
-                onClick={() => editor.chain().focus().toggleOrderedList().run()}
-                title="Ordered List"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="10" y1="6" x2="21" y2="6"/><line x1="10" y1="12" x2="21" y2="12"/><line x1="10" y1="18" x2="21" y2="18"/><text x="1" y="8" fontSize="8" fill="currentColor" stroke="none" fontFamily="sans-serif">1</text><text x="1" y="14" fontSize="8" fill="currentColor" stroke="none" fontFamily="sans-serif">2</text><text x="1" y="20" fontSize="8" fill="currentColor" stroke="none" fontFamily="sans-serif">3</text></svg>
-              </button>
+                  }}
+                  onKeyDown={e => {
+                    if (mentionQuery !== null) {
+                      const filtered = MENTION_NAMES.filter(n => n.toLowerCase().startsWith(mentionQuery.toLowerCase()))
+                      if (e.key === 'Tab' || (e.key === 'Enter' && filtered.length > 0)) {
+                        e.preventDefault()
+                        const safeIndex = Math.min(mentionIndex, filtered.length - 1)
+                        const pick = filtered[safeIndex] ?? filtered[0]
+                        if (pick) {
+                          const atIdx = input.lastIndexOf('@')
+                          setInput(input.slice(0, atIdx) + '@' + pick + ' ')
+                          setMentionQuery(null)
+                        }
+                        return
+                      }
+                      if (e.key === 'ArrowDown') {
+                        e.preventDefault()
+                        setMentionIndex(i => Math.min(i + 1, filtered.length - 1))
+                        return
+                      }
+                      if (e.key === 'ArrowUp') {
+                        e.preventDefault()
+                        setMentionIndex(i => Math.max(i - 1, 0))
+                        return
+                      }
+                      if (e.key === 'Escape') {
+                        setMentionQuery(null)
+                        return
+                      }
+                    }
+                    if (e.key === 'Enter') sendMessage()
+                  }}
+                  placeholder={activeAgents.some(a => getAgentState(a.name).inDoc) ? 'Talk to the agents...' : 'Message the team...'}
+                />
+              </div>
             </div>
-            <div className="doc-body">
-              <EditorContent editor={editor} />
+            </div>
+            <Timeline entries={timeline} />
+          </div>
+        ) : (
+          <div className="empty-state">
+            <div className="empty-state-shader">
+              <ColorPanels speed={0.5} scale={1.15} density={3} angle1={0} angle2={0} length={1.1} edges={false} blur={0} fadeIn={1} fadeOut={0.3} gradient={0} rotation={0} offsetX={0} offsetY={0} colors={['#FF9D00', '#FD4F30', '#809BFF', '#6D2EFF', '#333AFF', '#F15CFF', '#FFD557']} colorBack="#00000000" style={{ backgroundColor: '#000000', height: '100%', width: '100%' }} />
+            </div>
+            <div className="empty-state-card">
+              <h2 className="empty-state-title">Select a document</h2>
+              <p className="empty-state-desc">Pick a document from the sidebar or create a new one.</p>
+              <span className="empty-state-shortcut">{navigator.platform.includes('Mac') ? '\u2318' : 'Ctrl+'}N to create</span>
             </div>
           </div>
         )}
-        </div>
-        <Timeline entries={timeline} />
       </div>
+      {showTemplatePicker && (
+        <TemplatePickerModal
+          onSelect={handleTemplatePick}
+          onClose={() => setShowTemplatePicker(false)}
+        />
+      )}
     </div>
   )
 }
