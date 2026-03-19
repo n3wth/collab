@@ -2206,21 +2206,21 @@
 }
 
 .sidebar-expand-btn {
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
   border: none;
-  background: none;
-  color: var(--text-tertiary);
+  background: var(--surface-2);
+  color: var(--text-secondary);
   cursor: pointer;
-  border-radius: 4px;
+  border-radius: 5px;
 }
 
 .sidebar-expand-btn:hover {
   color: var(--text-primary);
-  background: var(--surface-2);
+  background: var(--surface-3);
 }
 
 .sidebar-docs {
