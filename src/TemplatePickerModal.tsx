@@ -1,8 +1,14 @@
 import { useEffect, useRef } from 'react'
-import { BlobAvatar } from './blob-avatar'
 import { AGENT_PRESETS } from './AgentConfigurator'
 import type { AgentConfig } from './orchestrator'
 import type { DocTemplate } from './types'
+
+const AGENT_DESCRIPTIONS: Record<string, string> = {
+  Aiden: 'Technical architecture and engineering',
+  Nova: 'Product strategy and user research',
+  Lex: 'Legal review and compliance',
+  Mira: 'Design and user experience',
+}
 
 interface Starter {
   id: string
@@ -13,6 +19,15 @@ interface Starter {
 }
 
 export const STARTERS: Starter[] = [
+  {
+    id: 'blank',
+    title: 'Blank Canvas',
+    description: 'Empty doc, your choice of agents.',
+    template: 'blank',
+    agents: [
+      { name: 'Aiden', persona: AGENT_PRESETS[0].persona, owner: 'You', color: '#30d158' },
+    ],
+  },
   {
     id: 'product-brief',
     title: 'Product Brief',
@@ -65,15 +80,6 @@ export const STARTERS: Starter[] = [
       { name: 'Aiden', persona: AGENT_PRESETS[0].persona, owner: 'You', color: '#30d158' },
     ],
   },
-  {
-    id: 'blank',
-    title: 'Blank Canvas',
-    description: 'Empty doc, your choice of agents.',
-    template: 'blank',
-    agents: [
-      { name: 'Aiden', persona: AGENT_PRESETS[0].persona, owner: 'You', color: '#30d158' },
-    ],
-  },
 ]
 
 interface Props {
@@ -99,22 +105,37 @@ export function TemplatePickerModal({ onSelect, onClose }: Props) {
       onClick={e => { if (e.target === overlayRef.current) onClose() }}
     >
       <div className="template-picker">
-        <h2 className="template-picker-title">New document</h2>
-        <div className="template-picker-grid">
-          {STARTERS.map(s => (
+        <div className="template-picker-header">
+          <span className="template-picker-title">New document</span>
+          <button className="template-picker-close" onClick={onClose}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+        <div className="template-picker-list">
+          {STARTERS.map((s, i) => (
             <button
               key={s.id}
-              className="template-picker-card"
+              className={`template-picker-item ${i === 0 ? 'template-picker-item-default' : ''}`}
               onClick={() => onSelect(s)}
             >
-              <div className="template-picker-strip">
-                {s.agents.map(a => (
-                  <BlobAvatar key={a.name} name={a.name} size={18} state="idle" color={a.color} />
-                ))}
+              <div className="template-picker-item-info">
+                <span className="template-picker-item-name">{s.title}</span>
+                <span className="template-picker-item-desc">{s.description}</span>
               </div>
-              <div className="template-picker-body">
-                <span className="template-picker-name">{s.title}</span>
-                <span className="template-picker-desc">{s.description}</span>
+              <div className="template-picker-agents">
+                {s.agents.map(a => (
+                  <span
+                    key={a.name}
+                    className="template-picker-agent-tag"
+                    style={{ color: a.color, background: `${a.color}1a` }}
+                    title={AGENT_DESCRIPTIONS[a.name]}
+                  >
+                    {a.name}
+                  </span>
+                ))}
               </div>
             </button>
           ))}
