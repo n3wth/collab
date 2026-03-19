@@ -87,6 +87,10 @@ body {
 
 * { box-sizing: border-box; }
 
+/* Replace native focus outlines */
+*:focus { outline: none; }
+*:focus-visible { outline: 1px solid var(--text-tertiary); outline-offset: 1px; border-radius: 4px; }
+
 /* Hide native scrollbars globally */
 ::-webkit-scrollbar { width: 0; height: 0; }
 * { scrollbar-width: none; }

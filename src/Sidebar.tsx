@@ -37,12 +37,13 @@ interface Props {
   onNewDoc: () => void
   onDelete: (id: string) => void
   onCollapse: () => void
+  onHome: () => void
   collapsed: boolean
   user: User | null
   onSignOut?: () => void
 }
 
-export function Sidebar({ sessions, activeSessionId, onSelect, onNewDoc, onDelete, onCollapse, collapsed, user, onSignOut }: Props) {
+export function Sidebar({ sessions, activeSessionId, onSelect, onNewDoc, onDelete, onCollapse, onHome, collapsed, user, onSignOut }: Props) {
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [editing, setEditing] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
@@ -81,6 +82,9 @@ export function Sidebar({ sessions, activeSessionId, onSelect, onNewDoc, onDelet
 
   return (
     <div className="sidebar">
+      <div className="sidebar-brand">
+        <span className="header-wordmark" onClick={onHome}>Collab</span>
+      </div>
       <div className="sidebar-top">
         <button className="sidebar-new-btn" onClick={onNewDoc}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

@@ -613,9 +613,7 @@ function App() {
   return (
     <div className="app-shell">
       {activeSession && <div className="app-header">
-        <div className={`header-sidebar-zone ${sidebarCollapsed ? 'collapsed' : ''}`}>
-          <span className="header-wordmark" onClick={resetToHome}>Collab</span>
-        </div>
+        <div className={`header-sidebar-zone ${sidebarCollapsed ? 'collapsed' : ''}`} />
         <div className="header-editor-zone">
           {activeSession && (
             <>
@@ -722,6 +720,7 @@ function App() {
           onNewDoc={() => setShowTemplatePicker(true)}
           onDelete={(id) => { setSessions(s => s.filter(x => x.id !== id)); if (activeSession?.id === id) resetToHome() }}
           onCollapse={() => setSidebarCollapsed(v => !v)}
+          onHome={resetToHome}
           collapsed={sidebarCollapsed}
           user={user ?? null}
           onSignOut={isLocalhost ? undefined : signOut}
@@ -944,16 +943,21 @@ function App() {
               <ColorPanels speed={0.5} scale={1.15} density={3} angle1={0} angle2={0} length={1.1} edges={false} blur={0} fadeIn={1} fadeOut={0.3} gradient={0} rotation={0} offsetX={0} offsetY={0} colors={['#FF9D00', '#FD4F30', '#809BFF', '#6D2EFF', '#333AFF', '#F15CFF', '#FFD557']} colorBack="#00000000" style={{ backgroundColor: '#000000', height: '100%', width: '100%' }} />
             </div>
             <div className="empty-state-card">
-              <h2 className="empty-state-title">Start writing, agents join automatically</h2>
-              <p className="empty-state-desc">Open a document or create a new one. Your AI team will read along and push back on what you missed.</p>
+              {sessions.length === 0 ? (
+                <>
+                  <h2 className="empty-state-headline">Four experts are<br />waiting to review.</h2>
+                  <p className="empty-state-desc">Create your first document. AI agents will read along, challenge assumptions, and fill gaps in real time.</p>
+                </>
+              ) : (
+                <>
+                  <h2 className="empty-state-headline">Pick up where<br />you left off.</h2>
+                  <p className="empty-state-desc">Select a document from the sidebar or start something new.</p>
+                </>
+              )}
               <button className="empty-state-cta" onClick={() => setShowTemplatePicker(true)}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="12" y1="5" x2="12" y2="19" />
-                  <line x1="5" y1="12" x2="19" y2="12" />
-                </svg>
                 New document
+                <span className="empty-state-key">{navigator.platform.includes('Mac') ? '\u2318' : 'Ctrl+'}N</span>
               </button>
-              <span className="empty-state-shortcut">{navigator.platform.includes('Mac') ? '\u2318' : 'Ctrl+'}N</span>
             </div>
           </div>
         )}
