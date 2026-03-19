@@ -96,9 +96,10 @@ export const DocMinimap = Extension.create<DocMinimapOptions>({
     // Poll on transactions AND observe DOM to detect when it appears.
     editor.on('transaction', tryInit)
 
-    // Also observe the document body for the editor element being reparented
+    // Observe #root for the editor element being reparented (not full document.body)
     const observer = new MutationObserver(() => tryInit())
-    observer.observe(document.body, { childList: true, subtree: true })
+    const root = document.getElementById('root') || document.body
+    observer.observe(root, { childList: true, subtree: true })
 
     // Try immediately in case doc-panel is already open
     requestAnimationFrame(tryInit)

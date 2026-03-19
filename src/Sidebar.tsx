@@ -60,9 +60,9 @@ export function Sidebar({ sessions, activeSessionId, onSelect, onNewDoc, user, o
               key={s.id}
               className={`sidebar-doc-item ${s.id === activeSessionId ? 'active' : ''}`}
               onClick={() => onSelect(s)}
-              title={relativeTime(s.updated_at)}
             >
               <span className="sidebar-doc-title">{s.title}</span>
+              <span className="sidebar-doc-time">{relativeTime(s.updated_at)}</span>
             </button>
           ))}
           {sessions.length === 0 && (
@@ -73,13 +73,16 @@ export function Sidebar({ sessions, activeSessionId, onSelect, onNewDoc, user, o
       <div className="sidebar-user" ref={menuRef}>
         {userMenuOpen && (
           <div className="sidebar-user-menu">
-            {onSignOut && (
-              <button className="sidebar-user-menu-item sidebar-user-menu-signout" onClick={() => { setUserMenuOpen(false); onSignOut() }}>
-                Sign out
-              </button>
-            )}
             <a href="/privacy" className="sidebar-user-menu-item">Privacy</a>
             <a href="/terms" className="sidebar-user-menu-item">Terms</a>
+            {onSignOut && (
+              <>
+                <div className="sidebar-user-menu-sep" />
+                <button className="sidebar-user-menu-item sidebar-user-menu-signout" onClick={() => { setUserMenuOpen(false); onSignOut() }}>
+                  Sign out
+                </button>
+              </>
+            )}
           </div>
         )}
         {user ? (

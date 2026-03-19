@@ -15,6 +15,9 @@
   --surface-3: #28282e;
   --surface-dim: #101012;
   --sidebar-bg: #161618;
+  --surface-editor: #1c1c1f;
+  --color-danger: #ff6961;
+  --color-danger-hover: #ff8a84;
 
   /* Text */
   --text-primary: #efefef;

@@ -308,8 +308,8 @@ function App() {
     onUpdate: ({ editor: ed }) => {
       // Debounced save to Supabase
       if (docSaveTimer.current) clearTimeout(docSaveTimer.current)
-      setSaveStatus('saving')
       docSaveTimer.current = window.setTimeout(() => {
+        setSaveStatus('saving')
         const session = activeSessionRef.current
         if (session) {
           saveDocument(session.id, ed.getHTML())
@@ -379,7 +379,7 @@ function App() {
       onDocAction: (agent, description) => {
         const agentCfg = activeAgents.find(a => a.name === agent)
         if (agentCfg) {
-          setTimeline(t => [...t, { id: uid(), color: agentCfg.color, tooltip: description }])
+          setTimeline(t => [...t, { id: uid(), color: agentCfg.color, tooltip: description }].slice(-50))
         }
       },
       onChatMessage: (from, text) => {
@@ -470,15 +470,6 @@ function App() {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  const openDocWithAgents = useCallback(() => {
-    const newStates: Record<string, AgentState> = {}
-    activeAgents.forEach(a => {
-      newStates[a.name] = { status: 'reading', inDoc: true }
-    })
-    setAgentStates(prev => ({ ...prev, ...newStates }))
-    orchestratorRef.current?.trigger('doc-opened')
-  }, [activeAgents])
-
   const sendMessage = useCallback(() => {
     if (!input.trim()) return
     const text = input.trim()
@@ -494,7 +485,7 @@ function App() {
 
     // Forward messages to orchestrator — agents respond in chat or doc
     orchestratorRef.current?.trigger('user-message', { instruction: text })
-  }, [input, activeAgents, openDocWithAgents, makeOrchestrator])
+  }, [input])
 
   const sendSuggestion = useCallback((text: string) => {
     setMessages(m => [...m, { id: uid(), from: 'You', text, time: now() }])
@@ -506,7 +497,7 @@ function App() {
       )
     }
     orchestratorRef.current?.trigger('user-message', { instruction: text })
-  }, [activeAgents])
+  }, [])
 
   // Load sessions list for sidebar
   useEffect(() => {
@@ -604,6 +595,16 @@ function App() {
   const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
   const params = new URLSearchParams(window.location.search)
 
+  const resetToHome = useCallback(() => {
+    setActiveSession(null)
+    activeSessionRef.current = null
+    setAgentStates({})
+    setMessages([])
+    setTimeline([])
+    setSaveStatus('idle')
+    history.pushState(null, '', '/')
+  }, [])
+
   // Legal pages — accessible without auth
   if (window.location.pathname === '/privacy') return <LegalPage page="privacy" />
   if (window.location.pathname === '/terms') return <LegalPage page="terms" />
@@ -617,7 +618,7 @@ function App() {
     <div className="app-shell">
       <div className="app-header">
         <div className="header-sidebar-zone">
-          <span className="header-wordmark" onClick={() => { setActiveSession(null); activeSessionRef.current = null; setAgentStates({}); setMessages([]); setTimeline([]); history.pushState(null, '', '/') }}>Collab</span>
+          <span className="header-wordmark" onClick={resetToHome}>Collab</span>
         </div>
         <div className="header-editor-zone">
           {activeSession && (
