@@ -13,7 +13,7 @@ export function LoginPage() {
       <div className="login-content">
         <nav className="login-nav">
           <div className="home-nav-logo">
-            <span className="home-nav-wordmark">Collab</span>
+            <span className="home-nav-wordmark">Markup</span>
           </div>
           <div className="home-nav-actions">
             <button className="login-google-btn login-google-btn--nav" onClick={signInWithGoogle}>

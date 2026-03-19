@@ -801,8 +801,8 @@ function App() {
   // Sync page title with active session
   useEffect(() => {
     document.title = activeSession?.title
-      ? `${activeSession.title} — Collab`
-      : 'Collab'
+      ? `${activeSession.title} — Markup`
+      : 'Markup'
   }, [activeSession?.title])
 
   const resetToHome = useCallback(() => {
