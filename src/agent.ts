@@ -216,7 +216,9 @@ function buildPrompt(params: AskParams): string {
 
 Prefer actions that reference or build on the other agent's work. Be concise — max 3-4 bullets per insert. IMPORTANT: Before inserting a new heading, check if that heading already exists in the document. If it does, add content UNDER the existing heading using "replace" or insert after it — do NOT create a duplicate section.
 
-TURN LOGIC: If the other agent just made a change, decide whether to react based on relevance. Don't react just because they acted — only if you have something substantive to add, challenge, or build on. If you don't, use shouldContinue:false to yield.`
+TURN LOGIC: If the other agent just made a change, decide whether to react based on relevance. Don't react just because they acted — only if you have something substantive to add, challenge, or build on. If you don't, use shouldContinue:false to yield.
+
+If the document title is "Untitled" and the doc has content, use the "rename" action to suggest a better title based on the content.`
   } else if (params.trigger === 'instruction') {
     taskBlock = `The user said: "${params.instruction}"
 

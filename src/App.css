@@ -649,6 +649,12 @@
   word-wrap: break-word;
 }
 
+.msg-system .msg-text {
+  color: var(--text-tertiary);
+  font-size: 13px;
+  white-space: pre-line;
+}
+
 .mention-tag {
   display: inline;
   font-size: inherit;
