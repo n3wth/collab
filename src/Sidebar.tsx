@@ -41,9 +41,10 @@ interface Props {
   user: User | null
   onSignOut?: () => void
   onHome?: () => void
+  onSettings?: () => void
 }
 
-export function Sidebar({ sessions, activeSessionId, onSelect, onNewDoc, onDelete, onRename, onCollapse, collapsed, user, onSignOut, onHome }: Props) {
+export function Sidebar({ sessions, activeSessionId, onSelect, onNewDoc, onDelete, onRename, onCollapse, collapsed, user, onSignOut, onHome, onSettings }: Props) {
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [renameValue, setRenameValue] = useState('')
   const [search, setSearch] = useState('')
@@ -187,20 +188,21 @@ export function Sidebar({ sessions, activeSessionId, onSelect, onNewDoc, onDelet
               src={user.user_metadata.avatar_url}
               alt=""
               className="sidebar-user-avatar"
-              onClick={() => onSignOut && setUserMenuOpen(v => !v)}
+              onClick={() => setUserMenuOpen(v => !v)}
             />
           ) : (
-            <div className="sidebar-user-avatar sidebar-user-avatar-placeholder" onClick={() => onSignOut && setUserMenuOpen(v => !v)}>
+            <div className="sidebar-user-avatar sidebar-user-avatar-placeholder" onClick={() => setUserMenuOpen(v => !v)}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
                 <circle cx="12" cy="7" r="4" />
               </svg>
             </div>
           )}
-          {userMenuOpen && onSignOut && (
+          {userMenuOpen && (
             <div className="sidebar-avatar-menu">
               <div className="sidebar-avatar-menu-name">{user?.user_metadata?.full_name || user?.email || 'Local user'}</div>
-              <button className="sidebar-avatar-menu-item" onClick={onSignOut}>Sign out</button>
+              <button className="sidebar-avatar-menu-item" onClick={() => { setUserMenuOpen(false); onSettings?.() }}>Settings</button>
+              {onSignOut && <button className="sidebar-avatar-menu-item" onClick={onSignOut}>Sign out</button>}
             </div>
           )}
         </div>

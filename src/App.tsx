@@ -12,6 +12,8 @@ import { Sidebar } from './Sidebar'
 import { TemplatePickerModal, type GoogleDocFile } from './TemplatePickerModal'
 import { CommandPalette, type Command } from './CommandPalette'
 import { AgentConfigurator } from './AgentConfigurator'
+import { SettingsModal } from './SettingsModal'
+import { loadUserSettings, saveGeminiApiKey } from './lib/settings-store'
 import { DOC_TEMPLATES } from './templates'
 import { supabase } from './lib/supabase'
 import { saveDocument, loadDocument, saveChatMessage, loadChatMessages, getSession, updateSessionTitle, listSessions, createSession, saveAgentPersonas, loadAgentPersonas } from './lib/session-store'
@@ -302,6 +304,8 @@ function App() {
   const [activeAgents, setActiveAgents] = useState<AgentConfig[]>(DEFAULT_AGENT_CONFIGS)
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'idle'>('idle')
   const [showConfigurator, setShowConfigurator] = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
+  const [geminiApiKey, setGeminiApiKey] = useState('')
   const [agentStates, setAgentStates] = useState<Record<string, AgentState>>({})
   const getAgentState = (name: string): AgentState => agentStates[name] || { status: 'idle', inDoc: false }
   const [messages, setMessages] = useState<Message[]>([])
@@ -734,6 +738,19 @@ function App() {
   const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
   const params = new URLSearchParams(window.location.search)
 
+  // Load user settings (API key) on auth
+  useEffect(() => {
+    if (user) {
+      loadUserSettings(user.id).then(settings => {
+        const key = settings.gemini_api_key || ''
+        setGeminiApiKey(key)
+        if (key) localStorage.setItem('collab-gemini-api-key', key)
+      })
+    } else {
+      setGeminiApiKey(localStorage.getItem('collab-gemini-api-key') || '')
+    }
+  }, [user])
+
   // Panel resize handlers
   useEffect(() => {
     const onMouseMove = (e: MouseEvent) => {
@@ -824,6 +841,7 @@ function App() {
           user={user ?? null}
           onSignOut={isLocalhost ? undefined : signOut}
           onHome={resetToHome}
+          onSettings={() => setShowSettings(true)}
         />
       </div>
       {!sidebarCollapsed && activeSession && (
@@ -1215,6 +1233,17 @@ function App() {
       </div>
       </div>
       </div>
+      {showSettings && (
+        <SettingsModal
+          apiKey={geminiApiKey}
+          onSave={async (key) => {
+            if (user) await saveGeminiApiKey(user.id, key)
+            localStorage.setItem('collab-gemini-api-key', key)
+            setGeminiApiKey(key)
+          }}
+          onClose={() => setShowSettings(false)}
+        />
+      )}
       {showTemplatePicker && (
         <TemplatePickerModal
           onSelect={handleTemplatePick}
