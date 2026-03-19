@@ -928,6 +928,22 @@
 .ac-preset-name { font-size: 13px; font-weight: 600; color: var(--text-primary); display: block; }
 .ac-preset-desc { font-size: 11px; color: var(--text-tertiary); display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+/* API key section */
+.ac-api-key { border-top: 1px solid var(--border-subtle); padding-top: 12px; min-width: 240px; }
+.ac-key-row { display: flex; gap: 6px; align-items: center; }
+.ac-key-input { flex: 1; font-size: 13px; padding: 6px 8px; border: 1px solid var(--border-subtle); border-radius: 6px; outline: none; font-family: inherit; background: var(--surface-1); color: var(--text-primary); transition: border-color var(--duration-fast, 150ms) ease; }
+.ac-key-input:focus { border-color: var(--accent); }
+.ac-key-input::placeholder { color: var(--text-tertiary); }
+.ac-key-saved { font-size: 11px; color: var(--accent); }
+.ac-key-hint { font-size: 11px; color: var(--text-tertiary); margin-top: 4px; display: block; }
+.ac-key-hint a { color: var(--accent); text-decoration: none; }
+.ac-key-hint a:hover { text-decoration: underline; }
+
+/* Header icon button */
+.header-icon-btn { display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border: 1px solid var(--border-subtle); border-radius: 8px; background: var(--surface-0); color: var(--text-tertiary); cursor: pointer; transition: all var(--duration-fast, 150ms) ease; }
+.header-icon-btn:hover { background: var(--surface-1); color: var(--text-primary); border-color: var(--border-default); }
+.header-icon-btn.active { background: var(--surface-1); color: var(--accent); border-color: var(--accent); }
+
 /* Session Picker */
 .session-picker { max-width: 480px; margin: 80px auto; padding: 0 20px; animation: pageEntrance 0.6s var(--ease-out-expo, ease-out) forwards; }
 @keyframes pageEntrance {
@@ -1386,6 +1402,23 @@
 .home-footer-copy {
   font-size: 12px;
   color: var(--text-disabled);
+}
+
+.home-footer-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.home-footer-link {
+  font-size: 12px;
+  color: var(--text-disabled);
+  text-decoration: none;
+  transition: color var(--duration-fast, 150ms) ease;
+}
+
+.home-footer-link:hover {
+  color: var(--text-tertiary);
 }
 
 @media (max-width: 720px) {

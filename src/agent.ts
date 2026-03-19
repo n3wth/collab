@@ -17,6 +17,8 @@ export class AgentError extends Error {
   }
 }
 
+import { getStoredApiKey } from './AgentConfigurator'
+
 // All API calls go through the server-side proxy to avoid exposing API keys in the client bundle.
 const API_URL = '/api/gemini'
 
@@ -378,9 +380,12 @@ export async function askAgent(params: AskParams): Promise<AgentAction> {
   for (let attempt = 0; attempt <= rateLimiter.maxRetries; attempt++) {
     try {
       const prompt = buildPrompt(params)
+      const clientKey = getStoredApiKey()
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+      if (clientKey) headers['X-Gemini-Key'] = clientKey
       const res = await fetch(API_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
           generationConfig: {
