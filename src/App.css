@@ -2231,7 +2231,7 @@
 }
 
 .sidebar-top {
-  padding: 0 12px 12px;
+  padding: 44px 12px 12px 12px;
 }
 
 .sidebar-new-btn {
@@ -2976,8 +2976,9 @@
   overflow: hidden;
 }
 
-.empty-state-brand {
-  position: absolute;
+/* Fixed Collab brand — always top-left */
+.app-brand {
+  position: fixed;
   top: 14px;
   left: 16px;
   font-size: 15px;
@@ -2985,10 +2986,10 @@
   color: var(--text-secondary);
   letter-spacing: -0.03em;
   cursor: pointer;
-  z-index: 2;
+  z-index: 50;
 }
 
-.empty-state-brand:hover {
+.app-brand:hover {
   color: var(--text-primary);
 }
 

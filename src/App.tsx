@@ -750,10 +750,10 @@ function App() {
 
   return (
     <div className={`app-shell ${activeSession ? 'app-shell-active' : ''}`}>
+      <span className="app-brand" onClick={resetToHome}>Collab</span>
       {activeSession && <div className="app-header">
-        <div className={`header-sidebar-zone ${sidebarCollapsed ? 'collapsed' : ''}`} style={!sidebarCollapsed ? { width: sidebarWidth + 4 } : undefined}>
-          <span className="header-wordmark" onClick={resetToHome}>Collab</span>
-        </div>
+        <div className={`header-sidebar-zone ${sidebarCollapsed ? 'collapsed' : ''}`} style={!sidebarCollapsed ? { width: sidebarWidth + 4 } : undefined} />
+
         <div className="header-editor-zone">
           {activeSession && (
             <>
@@ -1118,7 +1118,6 @@ function App() {
           </div>
         ) : (
           <div className="empty-state">
-            <span className="empty-state-brand" onClick={resetToHome}>Collab</span>
             <div className="empty-state-shader">
               <ColorPanels speed={0.5} scale={1.15} density={3} angle1={0} angle2={0} length={1.1} edges={false} blur={0} fadeIn={1} fadeOut={0.3} gradient={0} rotation={0} offsetX={0} offsetY={0} colors={['#FF9D00', '#FD4F30', '#809BFF', '#6D2EFF', '#333AFF', '#F15CFF', '#FFD557']} colorBack="#00000000" style={{ backgroundColor: '#000000', height: '100%', width: '100%' }} />
             </div>

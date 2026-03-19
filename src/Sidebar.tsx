@@ -84,9 +84,6 @@ export function Sidebar({ sessions, activeSessionId, onSelect, onNewDoc, onDelet
 
   return (
     <div className="sidebar">
-      <div className="sidebar-brand">
-        <span className="header-wordmark" onClick={onHome}>Collab</span>
-      </div>
       <div className="sidebar-top">
         <button className="sidebar-new-btn" onClick={onNewDoc}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
