@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { deleteSession } from './lib/session-store'
 import type { Session } from './types'
-import type { User } from '@supabase/supabase-js'
 
 function getDateGroup(dateStr: string): string {
   const now = new Date()
@@ -38,12 +37,9 @@ interface Props {
   onRename: (id: string, title: string) => void
   onCollapse: () => void
   collapsed: boolean
-  user: User | null
-  onSignOut?: () => void
 }
 
-export function Sidebar({ sessions, activeSessionId, onSelect, onNewDoc, onDelete, onRename, onCollapse, collapsed, user, onSignOut }: Props) {
-  const [editing, setEditing] = useState(false)
+export function Sidebar({ sessions, activeSessionId, onSelect, onNewDoc, onDelete, onRename, onCollapse, collapsed }: Props) {
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [renameValue, setRenameValue] = useState('')
   const [search, setSearch] = useState('')
@@ -53,7 +49,6 @@ export function Sidebar({ sessions, activeSessionId, onSelect, onNewDoc, onDelet
     await deleteSession(id)
     onDelete(id)
     setConfirmDelete(null)
-    if (editing && sessions.length <= 1) setEditing(false)
   }
 
   if (collapsed) {
@@ -68,30 +63,7 @@ export function Sidebar({ sessions, activeSessionId, onSelect, onNewDoc, onDelet
 
   return (
     <div className="sidebar">
-      <div className="sidebar-top">
-        <button className="sidebar-new-btn" onClick={onNewDoc}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="12" y1="5" x2="12" y2="19" />
-            <line x1="5" y1="12" x2="19" y2="12" />
-          </svg>
-          New document
-        </button>
-      </div>
-      <div className="sidebar-docs">
-        <div className="sidebar-section-header">
-          <span className="sidebar-section-label">Documents</span>
-          {editing ? (
-            <button className="sidebar-edit-btn" onClick={() => setEditing(false)}>Done</button>
-          ) : sessions.length > 0 ? (
-            <button className="sidebar-edit-btn" onClick={() => setEditing(true)} title="Manage">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="1" />
-                <circle cx="19" cy="12" r="1" />
-                <circle cx="5" cy="12" r="1" />
-              </svg>
-            </button>
-          ) : null}
-        </div>
+      <div className="sidebar-docs" style={{ paddingTop: 36 }}>
         {sessions.length > 5 && (
           <div className="sidebar-search">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -145,24 +117,22 @@ export function Sidebar({ sessions, activeSessionId, onSelect, onNewDoc, onDelet
                   ) : (
                     <button
                       className={`sidebar-doc-item ${s.id === activeSessionId ? 'active' : ''}`}
-                      onClick={() => !editing && onSelect(s)}
+                      onClick={() => onSelect(s)}
                       onDoubleClick={() => { setRenamingId(s.id); setRenameValue(s.title) }}
                     >
                       <span className="sidebar-doc-title">{s.title}</span>
                     </button>
                   )}
-                  {editing && (
-                    <button
-                      className="sidebar-doc-delete"
-                      onClick={() => setConfirmDelete(s.id)}
-                      title="Delete"
-                    >
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <line x1="18" y1="6" x2="6" y2="18" />
-                        <line x1="6" y1="6" x2="18" y2="18" />
-                      </svg>
-                    </button>
-                  )}
+                  <button
+                    className="sidebar-doc-delete"
+                    onClick={() => setConfirmDelete(s.id)}
+                    title="Delete"
+                  >
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="18" y1="6" x2="6" y2="18" />
+                      <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                  </button>
                 </div>
               ))}
             </div>
@@ -171,6 +141,14 @@ export function Sidebar({ sessions, activeSessionId, onSelect, onNewDoc, onDelet
         </div>
       </div>
       <div className="sidebar-bottom">
+        <button className="sidebar-new-btn" onClick={onNewDoc}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19" />
+            <line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
+          New document
+          <span className="sidebar-new-shortcut">{navigator.platform?.includes('Mac') ? '\u2318' : 'Ctrl+'}N</span>
+        </button>
         <button className="sidebar-collapse-btn" onClick={onCollapse} title="Collapse sidebar">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="15 18 9 12 15 6" />
