@@ -1,5 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
-import { BlobAvatar } from './blob-avatar'
+import { useState } from 'react'
 import { deleteSession } from './lib/session-store'
 import type { Session } from './types'
 import type { User } from '@supabase/supabase-js'
@@ -44,25 +43,11 @@ interface Props {
 }
 
 export function Sidebar({ sessions, activeSessionId, onSelect, onNewDoc, onDelete, onRename, onCollapse, collapsed, user, onSignOut }: Props) {
-  const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [editing, setEditing] = useState(false)
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [renameValue, setRenameValue] = useState('')
   const [search, setSearch] = useState('')
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
-  const [confirmDeleteAccount, setConfirmDeleteAccount] = useState(false)
-  const menuRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (!userMenuOpen) return
-    const onClick = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setUserMenuOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', onClick)
-    return () => document.removeEventListener('mousedown', onClick)
-  }, [userMenuOpen])
 
   const handleDelete = async (id: string) => {
     await deleteSession(id)
@@ -185,44 +170,7 @@ export function Sidebar({ sessions, activeSessionId, onSelect, onNewDoc, onDelet
           })()}
         </div>
       </div>
-      <div className="sidebar-user" ref={menuRef}>
-        {userMenuOpen && (
-          <div className="sidebar-user-menu">
-            <a href="/privacy" className="sidebar-user-menu-item">Privacy</a>
-            <a href="/terms" className="sidebar-user-menu-item">Terms</a>
-            {onSignOut && (
-              <>
-                <div className="sidebar-user-menu-sep" />
-                <button className="sidebar-user-menu-item" onClick={() => { setUserMenuOpen(false); onSignOut() }}>
-                  Sign out
-                </button>
-                <button className="sidebar-user-menu-item sidebar-user-menu-danger" onClick={() => { setUserMenuOpen(false); setConfirmDeleteAccount(true) }}>
-                  Delete account
-                </button>
-              </>
-            )}
-          </div>
-        )}
-        {user ? (
-          <button className="sidebar-user-btn" onClick={() => setUserMenuOpen(v => !v)}>
-            {user.user_metadata?.avatar_url ? (
-              <img src={user.user_metadata.avatar_url} alt="" className="sidebar-user-avatar" />
-            ) : (
-              <div className="sidebar-user-avatar sidebar-user-avatar-fallback" />
-            )}
-            <div className="sidebar-user-info">
-              <span className="sidebar-user-name">{user.user_metadata?.full_name || 'User'}</span>
-              <span className="sidebar-user-email">{user.email}</span>
-            </div>
-          </button>
-        ) : (
-          <button className="sidebar-user-btn" onClick={() => setUserMenuOpen(v => !v)}>
-            <BlobAvatar name="Collab" size={22} state="logo" color="#30d158" />
-            <div className="sidebar-user-info">
-              <span className="sidebar-user-name">Local mode</span>
-            </div>
-          </button>
-        )}
+      <div className="sidebar-bottom">
         <button className="sidebar-collapse-btn" onClick={onCollapse} title="Collapse sidebar">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="15 18 9 12 15 6" />
@@ -237,17 +185,6 @@ export function Sidebar({ sessions, activeSessionId, onSelect, onNewDoc, onDelet
             <div className="sidebar-confirm-actions">
               <button className="sidebar-confirm-cancel" onClick={() => setConfirmDelete(null)}>Cancel</button>
               <button className="sidebar-confirm-delete" onClick={() => handleDelete(confirmDelete)}>Delete</button>
-            </div>
-          </div>
-        </div>
-      )}
-      {confirmDeleteAccount && (
-        <div className="sidebar-confirm-overlay" onClick={() => setConfirmDeleteAccount(false)}>
-          <div className="sidebar-confirm-dialog" onClick={e => e.stopPropagation()}>
-            <p className="sidebar-confirm-text sidebar-confirm-text-danger">Delete your account and all documents? This can't be undone.</p>
-            <div className="sidebar-confirm-actions">
-              <button className="sidebar-confirm-cancel" onClick={() => setConfirmDeleteAccount(false)}>Cancel</button>
-              <button className="sidebar-confirm-delete" onClick={() => { setConfirmDeleteAccount(false) }}>Delete account</button>
             </div>
           </div>
         </div>

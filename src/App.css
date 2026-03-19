@@ -97,6 +97,20 @@
   height: 100%;
 }
 
+.header-user-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  object-fit: cover;
+  cursor: pointer;
+  margin-left: 10px;
+  opacity: 0.8;
+}
+
+.header-user-avatar:hover {
+  opacity: 1;
+}
+
 .header-pause-btn {
   display: flex;
   align-items: center;
@@ -2231,7 +2245,7 @@
 }
 
 .sidebar-top {
-  padding: 8px 10px 6px;
+  padding: 36px 10px 6px;
 }
 
 .sidebar-new-btn {
@@ -2570,6 +2584,13 @@
   font-size: 12px;
   color: var(--text-disabled);
   padding: 12px 10px;
+}
+
+.sidebar-bottom {
+  padding: 6px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
 }
 
 .sidebar-user {
