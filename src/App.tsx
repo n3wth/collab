@@ -750,9 +750,31 @@ function App() {
 
   return (
     <div className={`app-shell ${activeSession ? 'app-shell-active' : ''}`}>
+      <div className="app-layout">
+      <div className="app-sidebar-column" style={{ width: sidebarCollapsed ? 0 : sidebarWidth, flexShrink: 0, overflow: 'hidden' }}>
+        <Sidebar
+          sessions={sessions}
+          activeSessionId={activeSession?.id ?? null}
+          onSelect={handleSidebarSelect}
+          onNewDoc={() => setShowTemplatePicker(true)}
+          onDelete={(id) => { setSessions(s => s.filter(x => x.id !== id)); if (activeSession?.id === id) resetToHome() }}
+          onRename={(id, title) => {
+            updateSessionTitle(id, title).catch(console.error)
+            setSessions(s => s.map(x => x.id === id ? { ...x, title } : x))
+            if (activeSession?.id === id) setActiveSession(s => s ? { ...s, title } : s)
+          }}
+          onCollapse={() => setSidebarCollapsed(v => !v)}
+          collapsed={sidebarCollapsed}
+          user={user ?? null}
+          onSignOut={isLocalhost ? undefined : signOut}
+          onHome={resetToHome}
+        />
+      </div>
+      {!sidebarCollapsed && activeSession && (
+        <div className="resize-handle" onMouseDown={() => startResize('sidebar')} />
+      )}
+      <div className="app-main-column">
       {activeSession && <div className="app-header">
-        <div className={`header-sidebar-zone ${sidebarCollapsed ? 'collapsed' : ''}`} style={!sidebarCollapsed ? { width: sidebarWidth + 4 } : undefined} />
-
         <div className="header-editor-zone">
           {activeSession && (
             <>
@@ -866,28 +888,6 @@ function App() {
         </div>
       )}
       <div className="app-body">
-        <div style={{ width: sidebarCollapsed ? 0 : sidebarWidth, flexShrink: 0, overflow: 'hidden' }}>
-          <Sidebar
-            sessions={sessions}
-            activeSessionId={activeSession?.id ?? null}
-            onSelect={handleSidebarSelect}
-            onNewDoc={() => setShowTemplatePicker(true)}
-            onDelete={(id) => { setSessions(s => s.filter(x => x.id !== id)); if (activeSession?.id === id) resetToHome() }}
-            onRename={(id, title) => {
-              updateSessionTitle(id, title).catch(console.error)
-              setSessions(s => s.map(x => x.id === id ? { ...x, title } : x))
-              if (activeSession?.id === id) setActiveSession(s => s ? { ...s, title } : s)
-            }}
-            onCollapse={() => setSidebarCollapsed(v => !v)}
-            collapsed={sidebarCollapsed}
-            user={user ?? null}
-            onSignOut={isLocalhost ? undefined : signOut}
-            onHome={resetToHome}
-          />
-        </div>
-        {!sidebarCollapsed && activeSession && (
-          <div className="resize-handle" onMouseDown={() => startResize('sidebar')} />
-        )}
         {activeSession ? (
           <div className="workspace-area">
             <div className="workspace-content">
@@ -1140,6 +1140,8 @@ function App() {
             )}
           </div>
         )}
+      </div>
+      </div>
       </div>
       {showTemplatePicker && (
         <TemplatePickerModal
