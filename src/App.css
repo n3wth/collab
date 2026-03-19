@@ -89,23 +89,22 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
   border: none;
   background: none;
-  color: var(--text-tertiary);
+  color: var(--text-primary);
   cursor: pointer;
   border-radius: 4px;
-  margin-right: 4px;
+  margin-right: 6px;
 }
 
 .header-pause-btn:hover {
-  color: var(--text-primary);
   background: var(--surface-2);
 }
 
 .header-pause-btn.paused {
-  color: var(--agent-aiden);
+  color: var(--text-primary);
 }
 
 .header-add-agent {
