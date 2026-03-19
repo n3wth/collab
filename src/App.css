@@ -2783,6 +2783,26 @@
   margin: 0 0 12px;
 }
 
+.empty-state-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 18px;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  color: var(--surface-0);
+  background: var(--text-primary);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  margin-bottom: 10px;
+}
+
+.empty-state-cta:hover {
+  background: var(--text-secondary);
+}
+
 .empty-state-shortcut {
   font-size: 11px;
   color: var(--text-tertiary);

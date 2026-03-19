@@ -183,8 +183,8 @@ export function Sidebar({ sessions, activeSessionId, onSelect, onNewDoc, onDelet
       </div>
 
       {confirmDelete && (
-        <div className="sidebar-confirm-overlay">
-          <div className="sidebar-confirm-dialog">
+        <div className="sidebar-confirm-overlay" onClick={() => setConfirmDelete(null)}>
+          <div className="sidebar-confirm-dialog" onClick={e => e.stopPropagation()}>
             <p className="sidebar-confirm-text">Delete this document? This can't be undone.</p>
             <div className="sidebar-confirm-actions">
               <button className="sidebar-confirm-cancel" onClick={() => setConfirmDelete(null)}>Cancel</button>
@@ -194,8 +194,8 @@ export function Sidebar({ sessions, activeSessionId, onSelect, onNewDoc, onDelet
         </div>
       )}
       {confirmDeleteAccount && (
-        <div className="sidebar-confirm-overlay">
-          <div className="sidebar-confirm-dialog">
+        <div className="sidebar-confirm-overlay" onClick={() => setConfirmDeleteAccount(false)}>
+          <div className="sidebar-confirm-dialog" onClick={e => e.stopPropagation()}>
             <p className="sidebar-confirm-text sidebar-confirm-text-danger">Delete your account and all documents? This can't be undone.</p>
             <div className="sidebar-confirm-actions">
               <button className="sidebar-confirm-cancel" onClick={() => setConfirmDeleteAccount(false)}>Cancel</button>
