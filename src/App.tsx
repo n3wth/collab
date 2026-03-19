@@ -1037,6 +1037,7 @@ function App() {
                 <div className="doc-body">
                   <EditorContent editor={editor} />
                 </div>
+                <Timeline entries={timeline} />
               </div>
             )}
             <div className="resize-handle" onMouseDown={() => startResize('chat')} />
@@ -1185,7 +1186,6 @@ function App() {
               </div>
             </div>
             </div>
-            <Timeline entries={timeline} />
           </div>
         ) : (
           <div className="empty-state">
