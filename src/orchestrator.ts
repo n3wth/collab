@@ -1,5 +1,5 @@
 import type { Editor } from '@tiptap/react'
-import { askAgent, AgentError, resetRateLimiter, type AgentAction, type AskParams } from './agent'
+import { askAgent, AgentError, resetRateLimiter, extractDocStructure, type AgentAction, type AskParams } from './agent'
 import { executeAgentAction, type ActionCallbacks } from './agent-actions'
 import { generateObservation, resetHeartbeat } from './heartbeat'
 import { DEFAULT_LIMITS, type OrchestratorLimits } from './types'
@@ -126,10 +126,11 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
       const agentCfg = getAgentConfig(req.agent)
       const otherNames = agentNames.filter(n => n !== req.agent)
       const otherAgent = otherNames[0] || req.agent
+      const docText = config.getDocText()
       const action = await askAgent({
         agentName: req.agent,
         ownerName: agentCfg?.owner || 'You',
-        docText: config.getDocText(),
+        docText,
         chatHistory: config.getMessages().slice(-10),
         trigger: req.trigger,
         instruction: req.instruction,
@@ -138,6 +139,8 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
         lockHolder: editorLockRef.current,
         persona: agentCfg?.persona || '',
         otherAgents: agentNames,
+        sessionTemplate: config.sessionTemplate,
+        docStructure: extractDocStructure(docText),
       })
 
       // Emit reasoning before executing action

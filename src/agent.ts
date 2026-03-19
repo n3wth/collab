@@ -129,6 +129,8 @@ export interface AskParams {
   lockHolder?: string | null
   persona: string
   otherAgents: string[]
+  sessionTemplate?: string
+  docStructure?: { headings: string[], wordCounts: Record<string, number> }
 }
 
 // Default personas kept for backward compatibility
@@ -140,6 +142,30 @@ export const DEFAULT_PERSONAS: Record<string, string> = {
 function truncateDoc(text: string, maxChars = 2000): string {
   if (text.length <= maxChars) return text
   return text.slice(0, maxChars) + '\n[...truncated]'
+}
+
+export function extractDocStructure(docText: string): { headings: string[], wordCounts: Record<string, number> } {
+  const headings: string[] = []
+  const wordCounts: Record<string, number> = {}
+  const plain = docText.replace(/<[^>]+>/g, '')
+  const lines = plain.split('\n')
+  let currentHeading = ''
+  let currentWords = 0
+
+  for (const line of lines) {
+    const match = line.match(/^#{1,3}\s+(.+)/)
+    if (match) {
+      if (currentHeading) wordCounts[currentHeading] = currentWords
+      currentHeading = match[1].trim()
+      headings.push(currentHeading)
+      currentWords = 0
+    } else {
+      currentWords += line.trim().split(/\s+/).filter(Boolean).length
+    }
+  }
+  if (currentHeading) wordCounts[currentHeading] = currentWords
+
+  return { headings, wordCounts }
 }
 
 function buildPrompt(params: AskParams): string {
@@ -157,6 +183,15 @@ function buildPrompt(params: AskParams): string {
   }
   if (params.lockHolder) {
     contextBlock += `\nEDITOR LOCK: Currently held by ${params.lockHolder}`
+  }
+  if (params.sessionTemplate) {
+    contextBlock += `\nDOC TYPE: ${params.sessionTemplate}`
+  }
+  if (params.docStructure && params.docStructure.headings.length > 0) {
+    const outline = params.docStructure.headings
+      .map(h => `- ${h} (${params.docStructure!.wordCounts[h] || 0} words)`)
+      .join('\n')
+    contextBlock += `\nDOC OUTLINE:\n${outline}`
   }
 
   let taskBlock = ''

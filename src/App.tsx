@@ -371,6 +371,7 @@ function App() {
       getDocText: () => editorRef.current?.getText() || '',
       getMessages: () => messagesRef.current.slice(-10).map(m => ({ from: m.from, text: m.text })),
       agents: activeAgents,
+      sessionTemplate: activeSessionRef.current?.template,
       onAgentState: (agent, status, thought) => {
         setAgentStates(prev => ({
           ...prev,

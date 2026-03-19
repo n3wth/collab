@@ -15,6 +15,7 @@ vi.mock('../agent', () => ({
     }
   },
   resetRateLimiter: vi.fn(),
+  extractDocStructure: vi.fn().mockReturnValue({ headings: [], wordCounts: {} }),
 }))
 
 // Mock agent-actions module
