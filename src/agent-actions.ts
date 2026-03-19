@@ -593,6 +593,10 @@ export function executeAgentAction(
         releaseLockAndDone(true)
       })
 
+  } else if (action.type === 'rename') {
+    if (action.chatMessage) callbacks.onChatMessage(agentName, action.chatMessage)
+    releaseLockAndDone(true)
+
   } else if (action.type === 'chat') {
     callbacks.onChatMessage(agentName, action.chatMessage || 'Got it.')
     releaseLockAndDone(true)

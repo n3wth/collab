@@ -102,13 +102,14 @@ const rateLimiter = {
 }
 
 export interface AgentAction {
-  type: 'insert' | 'replace' | 'read' | 'chat' | 'search'
+  type: 'insert' | 'replace' | 'read' | 'chat' | 'search' | 'rename'
   position?: 'end' | 'after-heading' | 'cursor' | string
   content?: string
   searchText?: string
   replaceWith?: string
   highlightText?: string
   query?: string        // search query for web search action
+  newTitle?: string     // for rename action
   chatBefore?: string   // message sent BEFORE the action (intent)
   chatMessage?: string  // message sent AFTER the action (summary)
   thought?: string
@@ -226,6 +227,9 @@ To respond in chat only:
 To search the web for current information:
 {"type":"search","reasoning":["<step>","<step>"],"query":"<search query>","thought":"<4 words>","shouldContinue":true}
 Use search when the document needs current data, market info, or technical research. After search results appear, synthesize the key findings into a brief insight — never relay raw search results to the user.
+
+To rename the document when the title doesn't match its content:
+{"type":"rename","reasoning":["<step>","<step>"],"newTitle":"<better title>","chatMessage":"<explanation>"}
 
 Rules:
 - "reasoning" is REQUIRED — 2-3 short steps showing your thinking process. Each step MAX 8 words. Examples: ["Architecture section lacks specifics", "Need CRDT sync protocol details", "Adding data model and sync flow"]. Show what you noticed, what's missing, and what you'll do.

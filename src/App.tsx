@@ -402,6 +402,14 @@ function App() {
           )
         }
       },
+      onRenameSession: (title) => {
+        const session = activeSessionRef.current
+        if (session) {
+          updateSessionTitle(session.id, title).catch(console.error)
+          setSessions(s => s.map(x => x.id === session.id ? { ...x, title } : x))
+          setActiveSession(s => s ? { ...s, title } : s)
+        }
+      },
       onError: (_agent, error, failures) => {
         if (failures >= 3) {
           setMessages(m => [...m, {

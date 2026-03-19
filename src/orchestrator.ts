@@ -155,6 +155,10 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
           const actionDesc = describeAction(req.agent, action)
           lastActionDescription[req.agent] = actionDesc
           turnCount[req.agent]++
+          // Handle rename action
+          if (action.type === 'rename' && action.newTitle && config.onRenameSession) {
+            config.onRenameSession(action.newTitle)
+          }
           // Fire timeline callback for doc edits
           const didDocEdit = action.type === 'insert' || action.type === 'replace' || action.type === 'read'
           if (didDocEdit) {
@@ -235,6 +239,7 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
       case 'read': return `${agent} read: "${(action.highlightText || '').slice(0, 80)}"`
       case 'chat': return `${agent} sent a message`
       case 'search': return `${agent} searched: "${(action.query || '').slice(0, 80)}"`
+      case 'rename': return `${agent} renamed doc to "${action.newTitle || ''}"`
       default: return `${agent} acted`
     }
   }
