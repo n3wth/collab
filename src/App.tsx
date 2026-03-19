@@ -426,7 +426,8 @@ function App() {
         setMessages(m => {
           const last = m[m.length - 1]
           if (last && last.from === from && last.text === text) return m
-          return [...m, { id: uid(), from, text, time: now(), reasoning }]
+          const next = [...m, { id: uid(), from, text, time: now(), reasoning }]
+          return next.length > 200 ? next.slice(-200) : next
         })
         // Persist to Supabase
         const session = activeSessionRef.current
@@ -1035,7 +1036,10 @@ function App() {
                     className="doc-toolbar-btn"
                     onClick={async () => {
                       const token = (await supabase.auth.getSession()).data.session?.provider_token
-                      if (!token) { alert('Sign in with Google to save to Drive'); return }
+                      if (!token) {
+                        setMessages(prev => [...prev, { id: uid(), from: 'System', text: 'Sign in with Google to save to Drive.', time: now() }])
+                        return
+                      }
                       const html = editor.getHTML()
                       const title = activeSession?.title || 'Untitled'
                       const metadata = { name: `${title}.html`, mimeType: 'application/vnd.google-apps.document' }
@@ -1047,8 +1051,13 @@ function App() {
                         headers: { Authorization: `Bearer ${token}` },
                         body: form,
                       })
-                      if (res.ok) setSaveStatus('saved')
-                      else console.error('Drive save failed:', res.status)
+                      if (res.ok) {
+                        setSaveStatus('saved')
+                        setMessages(prev => [...prev, { id: uid(), from: 'System', text: `Saved "${title}" to Google Drive.`, time: now() }])
+                      } else {
+                        console.error('Drive save failed:', res.status)
+                        setMessages(prev => [...prev, { id: uid(), from: 'System', text: 'Drive save failed. Try signing in again.', time: now() }])
+                      }
                     }}
                     title="Save to Google Drive"
                   >
