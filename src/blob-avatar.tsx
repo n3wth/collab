@@ -1,7 +1,7 @@
 import { useEffect, useRef, memo } from 'react'
 import { createNoise3D } from 'simplex-noise'
 
-type BlobState = 'idle' | 'thinking' | 'reading' | 'typing' | 'editing'
+type BlobState = 'idle' | 'thinking' | 'reading' | 'typing' | 'editing' | 'logo'
 
 const AGENT_COLORS: Record<string, string> = {
   Aiden: '#30d158',
@@ -26,6 +26,7 @@ const STATE_CONFIG: Record<BlobState, { speed: number, distort: number, breath: 
   reading:  { speed: 0.30, distort: 0.08,  breath: 0.018, fill: 0.35 },
   typing:   { speed: 0.90, distort: 0.15,  breath: 0.008, fill: 1 },
   editing:  { speed: 0.90, distort: 0.15,  breath: 0.008, fill: 1 },
+  logo:     { speed: 0.15, distort: 0.04,  breath: 0.008, fill: 1 },
 }
 
 const REF_SIZE = 28
