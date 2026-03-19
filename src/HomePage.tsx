@@ -300,7 +300,11 @@ export function HomePage({ onSelect, onSignOut, demoMode, onDemoConsumed }: Prop
           <div className="home-footer-left">
             <span className="home-footer-brand">Collab</span>
           </div>
-          <span className="home-footer-copy">Built by n3wth</span>
+          <div className="home-footer-right">
+            <a href="/privacy.html" className="home-footer-link">Privacy</a>
+            <a href="/terms.html" className="home-footer-link">Terms</a>
+            <span className="home-footer-copy">Built by n3wth</span>
+          </div>
         </footer>
       </div>
     </div>

@@ -1404,6 +1404,23 @@
   color: var(--text-disabled);
 }
 
+.home-footer-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.home-footer-link {
+  font-size: 12px;
+  color: var(--text-disabled);
+  text-decoration: none;
+  transition: color var(--duration-fast, 150ms) ease;
+}
+
+.home-footer-link:hover {
+  color: var(--text-tertiary);
+}
+
 @media (max-width: 720px) {
   .home-starter-grid {
     grid-template-columns: 1fr 1fr;
