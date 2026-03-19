@@ -520,6 +520,13 @@ function App() {
   }, [])
 
   const handleSessionSelect = async (session: Session, agents: AgentConfig[]) => {
+    // Reset all session-specific state
+    setMessages([])
+    setTimeline([])
+    setAgentStates({})
+    setSaveStatus('idle')
+    lastProcessedMsg.current = 0
+
     setActiveSession(session)
     activeSessionRef.current = session
     // Update URL
@@ -539,21 +546,24 @@ function App() {
     ])
 
     if (savedDoc && editor) {
-      // Resume existing session
       editor.commands.setContent(savedDoc)
-      const restored: Message[] = savedMessages.map(m => ({
-        id: m.id, from: m.sender, text: m.text, time: new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), reasoning: m.reasoning || undefined,
-      }))
-      setMessages(restored)
-      lastProcessedMsg.current = restored.length
     } else {
       // New session — load template
       const template = DOC_TEMPLATES[session.template]
       if (template && editor) {
         editor.commands.setContent(template.content)
+      } else if (editor) {
+        editor.commands.setContent('<h1>Untitled</h1><p></p>')
       }
-      setMessages([])
-      lastProcessedMsg.current = 0
+    }
+
+    // Restore messages regardless of doc state
+    if (savedMessages.length > 0) {
+      const restored: Message[] = savedMessages.map(m => ({
+        id: m.id, from: m.sender, text: m.text, time: new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), reasoning: m.reasoning || undefined,
+      }))
+      setMessages(restored)
+      lastProcessedMsg.current = restored.length
     }
     lastDocSnapshot.current = editor?.getText() || ''
 
