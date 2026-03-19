@@ -270,6 +270,7 @@ function App() {
   const activeSessionRef = useRef<Session | null>(null)
   const [sessions, setSessions] = useState<Session[]>([])
   const [showTemplatePicker, setShowTemplatePicker] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [activeAgents, setActiveAgents] = useState<AgentConfig[]>(DEFAULT_AGENT_CONFIGS)
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'idle'>('idle')
   const [showConfigurator, setShowConfigurator] = useState(false)
@@ -619,6 +620,13 @@ function App() {
       <div className="app-header">
         <div className="header-sidebar-zone">
           <span className="header-wordmark" onClick={resetToHome}>Collab</span>
+          {!sidebarCollapsed && (
+            <button className="sidebar-collapse-btn" onClick={() => setSidebarCollapsed(true)} title="Collapse sidebar">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="15 18 9 12 15 6" />
+              </svg>
+            </button>
+          )}
         </div>
         <div className="header-editor-zone">
           {activeSession && (
@@ -692,6 +700,9 @@ function App() {
           activeSessionId={activeSession?.id ?? null}
           onSelect={handleSidebarSelect}
           onNewDoc={() => setShowTemplatePicker(true)}
+          onDelete={(id) => { setSessions(s => s.filter(x => x.id !== id)); if (activeSession?.id === id) resetToHome() }}
+          onCollapse={() => setSidebarCollapsed(v => !v)}
+          collapsed={sidebarCollapsed}
           user={user ?? null}
           onSignOut={isLocalhost ? undefined : signOut}
         />

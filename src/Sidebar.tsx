@@ -1,20 +1,33 @@
 import { useState, useRef, useEffect } from 'react'
 import { BlobAvatar } from './blob-avatar'
+import { deleteSession } from './lib/session-store'
 import type { Session } from './types'
 import type { User } from '@supabase/supabase-js'
 
-function relativeTime(dateStr: string): string {
-  const now = Date.now()
-  const then = new Date(dateStr).getTime()
-  const diff = now - then
-  const mins = Math.floor(diff / 60000)
-  if (mins < 1) return 'Just now'
-  if (mins < 60) return `${mins}m ago`
-  const hrs = Math.floor(mins / 60)
-  if (hrs < 24) return `${hrs}h ago`
-  const days = Math.floor(hrs / 24)
-  if (days < 30) return `${days}d ago`
-  return new Date(dateStr).toLocaleDateString()
+function getDateGroup(dateStr: string): string {
+  const now = new Date()
+  const then = new Date(dateStr)
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const yesterday = new Date(today.getTime() - 86400000)
+  const weekAgo = new Date(today.getTime() - 7 * 86400000)
+  if (then >= today) return 'Today'
+  if (then >= yesterday) return 'Yesterday'
+  if (then >= weekAgo) return 'This week'
+  return 'Older'
+}
+
+function groupSessions(sessions: Session[]): { label: string, items: Session[] }[] {
+  const groups: { label: string, items: Session[] }[] = []
+  let currentLabel = ''
+  for (const s of sessions) {
+    const label = getDateGroup(s.updated_at)
+    if (label !== currentLabel) {
+      groups.push({ label, items: [] })
+      currentLabel = label
+    }
+    groups[groups.length - 1].items.push(s)
+  }
+  return groups
 }
 
 interface Props {
@@ -22,12 +35,17 @@ interface Props {
   activeSessionId: string | null
   onSelect: (session: Session) => void
   onNewDoc: () => void
+  onDelete: (id: string) => void
+  onCollapse: () => void
+  collapsed: boolean
   user: User | null
   onSignOut?: () => void
 }
 
-export function Sidebar({ sessions, activeSessionId, onSelect, onNewDoc, user, onSignOut }: Props) {
+export function Sidebar({ sessions, activeSessionId, onSelect, onNewDoc, onDelete, onCollapse, collapsed, user, onSignOut }: Props) {
   const [userMenuOpen, setUserMenuOpen] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -41,6 +59,25 @@ export function Sidebar({ sessions, activeSessionId, onSelect, onNewDoc, user, o
     return () => document.removeEventListener('mousedown', onClick)
   }, [userMenuOpen])
 
+  const handleDelete = async (id: string) => {
+    await deleteSession(id)
+    onDelete(id)
+    setConfirmDelete(null)
+    if (editing && sessions.length <= 1) setEditing(false)
+  }
+
+  if (collapsed) {
+    return (
+      <div className="sidebar sidebar-collapsed">
+        <button className="sidebar-expand-btn" onClick={onCollapse} title="Expand sidebar">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="9 18 15 12 9 6" />
+          </svg>
+        </button>
+      </div>
+    )
+  }
+
   return (
     <div className="sidebar">
       <div className="sidebar-top">
@@ -53,21 +90,49 @@ export function Sidebar({ sessions, activeSessionId, onSelect, onNewDoc, user, o
         </button>
       </div>
       <div className="sidebar-docs">
-        <div className="sidebar-section-label">Documents</div>
-        <div className="sidebar-doc-list">
-          {sessions.map(s => (
-            <button
-              key={s.id}
-              className={`sidebar-doc-item ${s.id === activeSessionId ? 'active' : ''}`}
-              onClick={() => onSelect(s)}
-            >
-              <span className="sidebar-doc-title">{s.title}</span>
-              <span className="sidebar-doc-time">{relativeTime(s.updated_at)}</span>
+        <div className="sidebar-section-header">
+          <span className="sidebar-section-label">Documents</span>
+          {editing ? (
+            <button className="sidebar-edit-btn" onClick={() => setEditing(false)}>Done</button>
+          ) : sessions.length > 0 ? (
+            <button className="sidebar-edit-btn" onClick={() => setEditing(true)} title="Edit">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+              </svg>
             </button>
-          ))}
-          {sessions.length === 0 && (
+          ) : null}
+        </div>
+        <div className="sidebar-doc-list">
+          {sessions.length === 0 ? (
             <div className="sidebar-empty">No documents yet</div>
-          )}
+          ) : groupSessions(sessions).map(group => (
+            <div key={group.label} className="sidebar-doc-group">
+              <div className="sidebar-group-label">{group.label}</div>
+              {group.items.map(s => (
+                <div key={s.id} className="sidebar-doc-row">
+                  <button
+                    className={`sidebar-doc-item ${s.id === activeSessionId ? 'active' : ''}`}
+                    onClick={() => !editing && onSelect(s)}
+                  >
+                    <span className="sidebar-doc-title">{s.title}</span>
+                  </button>
+                  {editing && (
+                    <button
+                      className="sidebar-doc-delete"
+                      onClick={() => setConfirmDelete(s.id)}
+                      title="Delete"
+                    >
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18" />
+                        <line x1="6" y1="6" x2="18" y2="18" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          ))}
         </div>
       </div>
       <div className="sidebar-user" ref={menuRef}>
@@ -88,11 +153,7 @@ export function Sidebar({ sessions, activeSessionId, onSelect, onNewDoc, user, o
         {user ? (
           <button className="sidebar-user-btn" onClick={() => setUserMenuOpen(v => !v)}>
             {user.user_metadata?.avatar_url ? (
-              <img
-                src={user.user_metadata.avatar_url}
-                alt=""
-                className="sidebar-user-avatar"
-              />
+              <img src={user.user_metadata.avatar_url} alt="" className="sidebar-user-avatar" />
             ) : (
               <div className="sidebar-user-avatar sidebar-user-avatar-fallback" />
             )}
@@ -110,6 +171,18 @@ export function Sidebar({ sessions, activeSessionId, onSelect, onNewDoc, user, o
           </button>
         )}
       </div>
+
+      {confirmDelete && (
+        <div className="sidebar-confirm-overlay">
+          <div className="sidebar-confirm-dialog">
+            <p className="sidebar-confirm-text">Delete this document? This can't be undone.</p>
+            <div className="sidebar-confirm-actions">
+              <button className="sidebar-confirm-cancel" onClick={() => setConfirmDelete(null)}>Cancel</button>
+              <button className="sidebar-confirm-delete" onClick={() => handleDelete(confirmDelete)}>Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
