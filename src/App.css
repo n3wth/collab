@@ -97,6 +97,20 @@
   height: 100%;
 }
 
+.header-user-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  object-fit: cover;
+  cursor: pointer;
+  margin-left: 10px;
+  opacity: 0.8;
+}
+
+.header-user-avatar:hover {
+  opacity: 1;
+}
+
 .header-pause-btn {
   display: flex;
   align-items: center;
@@ -2230,29 +2244,32 @@
   display: none;
 }
 
-.sidebar-top {
-  padding: 8px 10px 6px;
-}
-
 .sidebar-new-btn {
   display: flex;
   align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 5px 10px;
+  gap: 6px;
+  flex: 1;
+  padding: 7px 14px;
   font-size: 13px;
   font-weight: 400;
   font-family: inherit;
-  color: var(--text-tertiary);
-  background: transparent;
+  color: var(--text-secondary);
+  background: var(--surface-2);
   border: none;
-  border-radius: 5px;
+  border-radius: 20px;
   cursor: pointer;
 }
 
 .sidebar-new-btn:hover {
-  background: var(--surface-2);
+  background: var(--surface-3);
   color: var(--text-primary);
+}
+
+.sidebar-new-shortcut {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--text-disabled);
+  margin-left: auto;
 }
 
 .sidebar-expand-btn {
@@ -2486,8 +2503,8 @@
 }
 
 .sidebar-doc-delete {
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2497,6 +2514,11 @@
   cursor: pointer;
   border-radius: 4px;
   flex-shrink: 0;
+  opacity: 0;
+}
+
+.sidebar-doc-row:hover .sidebar-doc-delete {
+  opacity: 1;
 }
 
 .sidebar-doc-delete:hover {
@@ -2570,6 +2592,13 @@
   font-size: 12px;
   color: var(--text-disabled);
   padding: 12px 10px;
+}
+
+.sidebar-bottom {
+  padding: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .sidebar-user {

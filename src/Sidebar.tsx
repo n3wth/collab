@@ -1,8 +1,6 @@
-import { useState, useRef, useEffect } from 'react'
-import { BlobAvatar } from './blob-avatar'
+import { useState } from 'react'
 import { deleteSession } from './lib/session-store'
 import type { Session } from './types'
-import type { User } from '@supabase/supabase-js'
 
 function getDateGroup(dateStr: string): string {
   const now = new Date()
@@ -39,36 +37,18 @@ interface Props {
   onRename: (id: string, title: string) => void
   onCollapse: () => void
   collapsed: boolean
-  user: User | null
-  onSignOut?: () => void
 }
 
-export function Sidebar({ sessions, activeSessionId, onSelect, onNewDoc, onDelete, onRename, onCollapse, collapsed, user, onSignOut }: Props) {
-  const [userMenuOpen, setUserMenuOpen] = useState(false)
-  const [editing, setEditing] = useState(false)
+export function Sidebar({ sessions, activeSessionId, onSelect, onNewDoc, onDelete, onRename, onCollapse, collapsed }: Props) {
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [renameValue, setRenameValue] = useState('')
   const [search, setSearch] = useState('')
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
-  const [confirmDeleteAccount, setConfirmDeleteAccount] = useState(false)
-  const menuRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (!userMenuOpen) return
-    const onClick = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setUserMenuOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', onClick)
-    return () => document.removeEventListener('mousedown', onClick)
-  }, [userMenuOpen])
 
   const handleDelete = async (id: string) => {
     await deleteSession(id)
     onDelete(id)
     setConfirmDelete(null)
-    if (editing && sessions.length <= 1) setEditing(false)
   }
 
   if (collapsed) {
@@ -83,30 +63,7 @@ export function Sidebar({ sessions, activeSessionId, onSelect, onNewDoc, onDelet
 
   return (
     <div className="sidebar">
-      <div className="sidebar-top">
-        <button className="sidebar-new-btn" onClick={onNewDoc}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="12" y1="5" x2="12" y2="19" />
-            <line x1="5" y1="12" x2="19" y2="12" />
-          </svg>
-          New document
-        </button>
-      </div>
-      <div className="sidebar-docs">
-        <div className="sidebar-section-header">
-          <span className="sidebar-section-label">Documents</span>
-          {editing ? (
-            <button className="sidebar-edit-btn" onClick={() => setEditing(false)}>Done</button>
-          ) : sessions.length > 0 ? (
-            <button className="sidebar-edit-btn" onClick={() => setEditing(true)} title="Manage">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="1" />
-                <circle cx="19" cy="12" r="1" />
-                <circle cx="5" cy="12" r="1" />
-              </svg>
-            </button>
-          ) : null}
-        </div>
+      <div className="sidebar-docs" style={{ paddingTop: 36 }}>
         {sessions.length > 5 && (
           <div className="sidebar-search">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -160,24 +117,22 @@ export function Sidebar({ sessions, activeSessionId, onSelect, onNewDoc, onDelet
                   ) : (
                     <button
                       className={`sidebar-doc-item ${s.id === activeSessionId ? 'active' : ''}`}
-                      onClick={() => !editing && onSelect(s)}
+                      onClick={() => onSelect(s)}
                       onDoubleClick={() => { setRenamingId(s.id); setRenameValue(s.title) }}
                     >
                       <span className="sidebar-doc-title">{s.title}</span>
                     </button>
                   )}
-                  {editing && (
-                    <button
-                      className="sidebar-doc-delete"
-                      onClick={() => setConfirmDelete(s.id)}
-                      title="Delete"
-                    >
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <line x1="18" y1="6" x2="6" y2="18" />
-                        <line x1="6" y1="6" x2="18" y2="18" />
-                      </svg>
-                    </button>
-                  )}
+                  <button
+                    className="sidebar-doc-delete"
+                    onClick={() => setConfirmDelete(s.id)}
+                    title="Delete"
+                  >
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="18" y1="6" x2="6" y2="18" />
+                      <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                  </button>
                 </div>
               ))}
             </div>
@@ -185,44 +140,15 @@ export function Sidebar({ sessions, activeSessionId, onSelect, onNewDoc, onDelet
           })()}
         </div>
       </div>
-      <div className="sidebar-user" ref={menuRef}>
-        {userMenuOpen && (
-          <div className="sidebar-user-menu">
-            <a href="/privacy" className="sidebar-user-menu-item">Privacy</a>
-            <a href="/terms" className="sidebar-user-menu-item">Terms</a>
-            {onSignOut && (
-              <>
-                <div className="sidebar-user-menu-sep" />
-                <button className="sidebar-user-menu-item" onClick={() => { setUserMenuOpen(false); onSignOut() }}>
-                  Sign out
-                </button>
-                <button className="sidebar-user-menu-item sidebar-user-menu-danger" onClick={() => { setUserMenuOpen(false); setConfirmDeleteAccount(true) }}>
-                  Delete account
-                </button>
-              </>
-            )}
-          </div>
-        )}
-        {user ? (
-          <button className="sidebar-user-btn" onClick={() => setUserMenuOpen(v => !v)}>
-            {user.user_metadata?.avatar_url ? (
-              <img src={user.user_metadata.avatar_url} alt="" className="sidebar-user-avatar" />
-            ) : (
-              <div className="sidebar-user-avatar sidebar-user-avatar-fallback" />
-            )}
-            <div className="sidebar-user-info">
-              <span className="sidebar-user-name">{user.user_metadata?.full_name || 'User'}</span>
-              <span className="sidebar-user-email">{user.email}</span>
-            </div>
-          </button>
-        ) : (
-          <button className="sidebar-user-btn" onClick={() => setUserMenuOpen(v => !v)}>
-            <BlobAvatar name="Collab" size={22} state="logo" color="#30d158" />
-            <div className="sidebar-user-info">
-              <span className="sidebar-user-name">Local mode</span>
-            </div>
-          </button>
-        )}
+      <div className="sidebar-bottom">
+        <button className="sidebar-new-btn" onClick={onNewDoc}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19" />
+            <line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
+          New document
+          <span className="sidebar-new-shortcut">{navigator.platform?.includes('Mac') ? '\u2318' : 'Ctrl+'}N</span>
+        </button>
         <button className="sidebar-collapse-btn" onClick={onCollapse} title="Collapse sidebar">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="15 18 9 12 15 6" />
@@ -237,17 +163,6 @@ export function Sidebar({ sessions, activeSessionId, onSelect, onNewDoc, onDelet
             <div className="sidebar-confirm-actions">
               <button className="sidebar-confirm-cancel" onClick={() => setConfirmDelete(null)}>Cancel</button>
               <button className="sidebar-confirm-delete" onClick={() => handleDelete(confirmDelete)}>Delete</button>
-            </div>
-          </div>
-        </div>
-      )}
-      {confirmDeleteAccount && (
-        <div className="sidebar-confirm-overlay" onClick={() => setConfirmDeleteAccount(false)}>
-          <div className="sidebar-confirm-dialog" onClick={e => e.stopPropagation()}>
-            <p className="sidebar-confirm-text sidebar-confirm-text-danger">Delete your account and all documents? This can't be undone.</p>
-            <div className="sidebar-confirm-actions">
-              <button className="sidebar-confirm-cancel" onClick={() => setConfirmDeleteAccount(false)}>Cancel</button>
-              <button className="sidebar-confirm-delete" onClick={() => { setConfirmDeleteAccount(false) }}>Delete account</button>
             </div>
           </div>
         </div>

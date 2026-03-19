@@ -19,11 +19,11 @@
   --color-danger: #ff6961;
   --color-danger-hover: #ff8a84;
 
-  /* Text — slightly warmer */
-  --text-primary: #f0f0f0;
-  --text-secondary: #a0a0a4;
-  --text-tertiary: #707074;
-  --text-disabled: #505054;
+  /* Text — Notion-style warm grays */
+  --text-primary: #ebebeb;
+  --text-secondary: #9b9b9b;
+  --text-tertiary: #787878;
+  --text-disabled: #5a5a5a;
 
   /* Borders — barely visible */
   --border-subtle: #ffffff0a;

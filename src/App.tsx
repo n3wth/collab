@@ -836,6 +836,9 @@ function App() {
                   </button>
                 )}
               </div>
+              {user?.user_metadata?.avatar_url && (
+                <img src={user.user_metadata.avatar_url} alt="" className="header-user-avatar" onClick={() => {}} />
+              )}
             </>
           )}
         </div>
@@ -881,8 +884,6 @@ function App() {
             }}
             onCollapse={() => setSidebarCollapsed(v => !v)}
             collapsed={sidebarCollapsed}
-            user={user ?? null}
-            onSignOut={isLocalhost ? undefined : signOut}
           />
         </div>
         {!sidebarCollapsed && activeSession && (
