@@ -331,7 +331,7 @@ function App() {
   const editor = useEditor({
     extensions: [
       StarterKit,
-      Placeholder.configure({ placeholder: 'Start writing...' }),
+      Placeholder.configure({ placeholder: 'Start writing here. Your AI team will review as you go.' }),
       AgentCursors,
       DocMinimap.configure({
         agentColors: { Aiden: '#30d158', Nova: '#ff6961', Lex: '#64d2ff', Mira: '#ffd60a' },
