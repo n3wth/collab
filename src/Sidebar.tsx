@@ -62,7 +62,6 @@ export function Sidebar({ sessions, activeSessionId, onSelect, onNewDoc, user, o
               onClick={() => onSelect(s)}
               title={relativeTime(s.updated_at)}
             >
-              <span className={`sidebar-doc-dot ${s.id === activeSessionId ? 'active' : ''}`} />
               <span className="sidebar-doc-title">{s.title}</span>
             </button>
           ))}
