@@ -21,7 +21,6 @@
 }
 
 .header-sidebar-zone {
-  width: 240px;
   flex-shrink: 0;
   padding: 0 16px;
   display: flex;
@@ -29,7 +28,7 @@
 }
 
 .header-sidebar-zone.collapsed {
-  width: 40px;
+  width: 44px;
   padding: 0 8px;
 }
 
@@ -85,7 +84,6 @@
 }
 
 .header-chat-zone {
-  width: 340px;
   flex-shrink: 0;
   padding: 0 16px;
   display: flex;
@@ -469,9 +467,7 @@
 }
 
 .chat-panel.chat-right {
-  flex: 0 0 340px;
-  max-width: 340px;
-  border-left: 1px solid var(--border-subtle);
+  flex-shrink: 0;
 }
 
 /* Messages area */
@@ -1915,7 +1911,10 @@
   padding: 6px 16px;
   border-top: 1px solid var(--border-subtle);
   flex-shrink: 0;
-  background: var(--surface-0);
+  height: 24px;
+  max-height: 24px;
+  overflow: hidden;
+  background: var(--sidebar-bg);
 }
 
 .timeline-dot {
@@ -2007,6 +2006,31 @@
 @keyframes blobBreathe {
   0%, 100% { transform: scale(1); }
   50% { transform: scale(1.03); }
+}
+
+/* Resize handle between panels */
+.resize-handle {
+  width: 4px;
+  flex-shrink: 0;
+  cursor: col-resize;
+  background: transparent;
+  position: relative;
+  z-index: 20;
+}
+
+.resize-handle::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 1px;
+  width: 2px;
+  background: var(--border-subtle);
+  transition: background var(--duration-fast) ease;
+}
+
+.resize-handle:hover::after {
+  background: var(--text-tertiary);
 }
 
 /* Workspace area — column with content row + timeline */
@@ -2162,8 +2186,8 @@
 
 /* Sidebar */
 .sidebar {
-  width: 240px;
-  flex-shrink: 0;
+  width: 100%;
+  height: 100%;
   background: var(--sidebar-bg);
   display: flex;
   flex-direction: column;
@@ -2825,5 +2849,5 @@
   font-size: 11px;
   font-weight: 500;
   font-family: var(--font-mono);
-  color: rgba(0, 0, 0, 0.35);
+  color: rgba(0, 0, 0, 0.55);
 }

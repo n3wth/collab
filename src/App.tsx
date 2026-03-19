@@ -253,8 +253,11 @@ function App() {
   const [sessions, setSessions] = useState<Session[]>([])
   const [showTemplatePicker, setShowTemplatePicker] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [sidebarWidth, setSidebarWidth] = useState(240)
+  const [chatWidth, setChatWidth] = useState(340)
   const [agentsPaused, setAgentsPaused] = useState(false)
   const agentsPausedRef = useRef(false)
+  const resizingRef = useRef<'sidebar' | 'chat' | null>(null)
   const [activeAgents, setActiveAgents] = useState<AgentConfig[]>(DEFAULT_AGENT_CONFIGS)
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'idle'>('idle')
   const [showConfigurator, setShowConfigurator] = useState(false)
@@ -584,6 +587,45 @@ function App() {
   const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
   const params = new URLSearchParams(window.location.search)
 
+  // Panel resize handlers
+  useEffect(() => {
+    const onMouseMove = (e: MouseEvent) => {
+      if (!resizingRef.current) return
+      e.preventDefault()
+      if (resizingRef.current === 'sidebar') {
+        const w = e.clientX
+        if (w < 120) {
+          setSidebarCollapsed(true)
+          setSidebarWidth(240)
+          resizingRef.current = null
+          document.body.style.cursor = ''
+        } else {
+          setSidebarWidth(Math.max(180, Math.min(400, w)))
+        }
+      } else if (resizingRef.current === 'chat') {
+        const w = window.innerWidth - e.clientX
+        setChatWidth(Math.max(260, Math.min(500, w)))
+      }
+    }
+    const onMouseUp = () => {
+      resizingRef.current = null
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+    window.addEventListener('mousemove', onMouseMove)
+    window.addEventListener('mouseup', onMouseUp)
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove)
+      window.removeEventListener('mouseup', onMouseUp)
+    }
+  }, [])
+
+  const startResize = (panel: 'sidebar' | 'chat') => {
+    resizingRef.current = panel
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+  }
+
   // Sync page title with active session
   useEffect(() => {
     document.title = activeSession?.title
@@ -613,7 +655,7 @@ function App() {
   return (
     <div className={`app-shell ${activeSession ? 'app-shell-active' : ''}`}>
       {activeSession && <div className="app-header">
-        <div className={`header-sidebar-zone ${sidebarCollapsed ? 'collapsed' : ''}`}>
+        <div className={`header-sidebar-zone ${sidebarCollapsed ? 'collapsed' : ''}`} style={!sidebarCollapsed ? { width: sidebarWidth + 4 } : undefined}>
           <span className="header-wordmark" onClick={resetToHome}>Collab</span>
         </div>
         <div className="header-editor-zone">
@@ -625,7 +667,7 @@ function App() {
             </>
           )}
         </div>
-        <div className="header-chat-zone">
+        <div className="header-chat-zone" style={{ width: chatWidth + 4 }}>
           {activeSession && (
             <>
               <button
@@ -715,18 +757,23 @@ function App() {
         </div>
       )}
       <div className="app-body">
-        <Sidebar
-          sessions={sessions}
-          activeSessionId={activeSession?.id ?? null}
-          onSelect={handleSidebarSelect}
-          onNewDoc={() => setShowTemplatePicker(true)}
-          onDelete={(id) => { setSessions(s => s.filter(x => x.id !== id)); if (activeSession?.id === id) resetToHome() }}
-          onCollapse={() => setSidebarCollapsed(v => !v)}
-          onHome={resetToHome}
-          collapsed={sidebarCollapsed}
-          user={user ?? null}
-          onSignOut={isLocalhost ? undefined : signOut}
-        />
+        <div style={{ width: sidebarCollapsed ? 40 : sidebarWidth, flexShrink: 0 }}>
+          <Sidebar
+            sessions={sessions}
+            activeSessionId={activeSession?.id ?? null}
+            onSelect={handleSidebarSelect}
+            onNewDoc={() => setShowTemplatePicker(true)}
+            onDelete={(id) => { setSessions(s => s.filter(x => x.id !== id)); if (activeSession?.id === id) resetToHome() }}
+            onCollapse={() => setSidebarCollapsed(v => !v)}
+            onHome={resetToHome}
+            collapsed={sidebarCollapsed}
+            user={user ?? null}
+            onSignOut={isLocalhost ? undefined : signOut}
+          />
+        </div>
+        {!sidebarCollapsed && activeSession && (
+          <div className="resize-handle" onMouseDown={() => startResize('sidebar')} />
+        )}
         {activeSession ? (
           <div className="workspace-area">
             <div className="workspace-content">
@@ -822,7 +869,8 @@ function App() {
                 </div>
               </div>
             )}
-            <div className="chat-panel chat-right">
+            <div className="resize-handle" onMouseDown={() => startResize('chat')} />
+            <div className="chat-panel chat-right" style={{ width: chatWidth, maxWidth: chatWidth, flexBasis: chatWidth }}>
               <div className="chat-messages">
                 <div className="chat-messages-inner">
                 {messages.filter(m => !m.text.startsWith('Couldn\'t find that text')).map((m, i, arr) => {
