@@ -41,6 +41,14 @@ export async function getSession(id: string): Promise<Session | null> {
   return data
 }
 
+export async function updateSessionTitle(id: string, title: string): Promise<void> {
+  const { error } = await supabase
+    .from('sessions')
+    .update({ title, updated_at: new Date().toISOString() })
+    .eq('id', id)
+  if (error) throw error
+}
+
 export async function deleteSession(id: string): Promise<void> {
   const { error } = await supabase.from('sessions').delete().eq('id', id)
   if (error) throw error

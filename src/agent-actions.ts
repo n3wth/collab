@@ -1,9 +1,16 @@
 import type { Editor } from '@tiptap/react'
 import type { AgentAction } from './agent'
 
+export interface DocChangeInfo {
+  type: 'insert' | 'replace' | 'delete'
+  summary: string
+  added?: string
+  removed?: string
+}
+
 export interface ActionCallbacks {
   onStateChange: (status: 'idle' | 'thinking' | 'typing' | 'reading' | 'editing', thought?: string) => void
-  onChatMessage: (from: string, text: string) => void
+  onChatMessage: (from: string, text: string, docChange?: DocChangeInfo) => void
   onDone: (success?: boolean) => void
 }
 
@@ -238,23 +245,62 @@ export function executeAgentAction(
   }
 
   if (action.type === 'read') {
-    const found = action.highlightText ? findTextPos(editor, action.highlightText) : null
-    const pos = found ? found.to : Math.min(10, editor.state.doc.content.size)
     callbacks.onStateChange('reading')
-    safeCursor(editor, {
-      name: agentName,
-      color: agentColor,
-      pos,
-      selectionFrom: found?.from,
-      selectionTo: found?.to,
-      thought: action.thought || 'Reading...',
-    }, true) // scroll to reading position
-    timers[agentName] = window.setTimeout(() => {
-      callbacks.onStateChange('idle')
-      safeRemoveCursor(editor, agentName)
-      postChatAfter()
-      releaseLockAndDone(true)
-    }, 3500)
+
+    // Collect block positions to scan through
+    const positions: number[] = []
+    editor.state.doc.descendants((node, pos) => {
+      if (node.isBlock && node.textContent.length > 0) {
+        positions.push(pos + 1) // +1 to enter the block
+      }
+    })
+    // If we have a specific target, scan up to it; otherwise scan the whole doc
+    const found = action.highlightText ? findTextPos(editor, action.highlightText) : null
+    const targetPos = found ? found.from : positions[positions.length - 1] || 1
+
+    // Pick waypoints leading to the target — more points = smoother movement
+    const waypoints = positions.filter(p => p <= targetPos)
+    const maxPoints = 12
+    const step = Math.max(1, Math.floor(waypoints.length / maxPoints))
+    const scanPoints = waypoints.filter((_, i) => i % step === 0)
+    if (found) scanPoints.push(found.from) // always end at target
+
+    let scanIdx = 0
+    const SCAN_INTERVAL = 280
+
+    function advanceScan() {
+      if (scanIdx >= scanPoints.length) {
+        // Done scanning — hold on target briefly, then finish
+        if (found) {
+          safeCursor(editor, {
+            name: agentName,
+            color: agentColor,
+            pos: found.to,
+            selectionFrom: found.from,
+            selectionTo: found.to,
+            thought: action.thought || 'Found it',
+          }, true)
+        }
+        timers[agentName] = window.setTimeout(() => {
+          callbacks.onStateChange('idle')
+          safeRemoveCursor(editor, agentName)
+          postChatAfter()
+          releaseLockAndDone(true)
+        }, 1200)
+        return
+      }
+      const p = scanPoints[scanIdx]
+      safeCursor(editor, {
+        name: agentName,
+        color: agentColor,
+        pos: p,
+        thought: scanIdx < scanPoints.length - 1 ? 'Scanning...' : (action.thought || 'Reading...'),
+      }, true)
+      scanIdx++
+      timers[agentName] = window.setTimeout(advanceScan, SCAN_INTERVAL)
+    }
+
+    advanceScan()
 
   } else if (action.type === 'insert') {
     postChatBefore()
