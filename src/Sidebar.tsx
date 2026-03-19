@@ -46,6 +46,7 @@ export function Sidebar({ sessions, activeSessionId, onSelect, onNewDoc, onDelet
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [editing, setEditing] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
+  const [confirmDeleteAccount, setConfirmDeleteAccount] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -136,6 +137,11 @@ export function Sidebar({ sessions, activeSessionId, onSelect, onNewDoc, onDelet
         </div>
       </div>
       <div className="sidebar-user" ref={menuRef}>
+        <button className="sidebar-collapse-btn" onClick={onCollapse} title="Collapse sidebar">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="15 18 9 12 15 6" />
+          </svg>
+        </button>
         {userMenuOpen && (
           <div className="sidebar-user-menu">
             <a href="/privacy" className="sidebar-user-menu-item">Privacy</a>
@@ -143,8 +149,11 @@ export function Sidebar({ sessions, activeSessionId, onSelect, onNewDoc, onDelet
             {onSignOut && (
               <>
                 <div className="sidebar-user-menu-sep" />
-                <button className="sidebar-user-menu-item sidebar-user-menu-signout" onClick={() => { setUserMenuOpen(false); onSignOut() }}>
+                <button className="sidebar-user-menu-item" onClick={() => { setUserMenuOpen(false); onSignOut() }}>
                   Sign out
+                </button>
+                <button className="sidebar-user-menu-item sidebar-user-menu-danger" onClick={() => { setUserMenuOpen(false); setConfirmDeleteAccount(true) }}>
+                  Delete account
                 </button>
               </>
             )}
@@ -179,6 +188,17 @@ export function Sidebar({ sessions, activeSessionId, onSelect, onNewDoc, onDelet
             <div className="sidebar-confirm-actions">
               <button className="sidebar-confirm-cancel" onClick={() => setConfirmDelete(null)}>Cancel</button>
               <button className="sidebar-confirm-delete" onClick={() => handleDelete(confirmDelete)}>Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {confirmDeleteAccount && (
+        <div className="sidebar-confirm-overlay">
+          <div className="sidebar-confirm-dialog">
+            <p className="sidebar-confirm-text sidebar-confirm-text-danger">Delete your account and all documents? This can't be undone.</p>
+            <div className="sidebar-confirm-actions">
+              <button className="sidebar-confirm-cancel" onClick={() => setConfirmDeleteAccount(false)}>Cancel</button>
+              <button className="sidebar-confirm-delete" onClick={() => { setConfirmDeleteAccount(false); /* TODO: call account delete API */ }}>Delete account</button>
             </div>
           </div>
         </div>

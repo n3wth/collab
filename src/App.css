@@ -26,7 +26,6 @@
   padding: 0 16px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
 }
 
 .header-wordmark {
@@ -2181,14 +2180,14 @@
   align-items: center;
   justify-content: center;
   border: none;
-  background: none;
-  color: var(--text-tertiary);
+  background: var(--surface-2);
+  color: var(--text-secondary);
   cursor: pointer;
   border-radius: 6px;
 }
 
 .sidebar-expand-btn:hover {
-  background: var(--surface-2);
+  background: var(--surface-3);
   color: var(--text-primary);
 }
 
@@ -2243,17 +2242,17 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   border: none;
   background: none;
-  color: var(--text-disabled);
+  color: var(--text-tertiary);
   cursor: pointer;
   border-radius: 4px;
 }
 
 .sidebar-collapse-btn:hover {
-  color: var(--text-secondary);
+  color: var(--text-primary);
   background: var(--surface-2);
 }
 
@@ -2434,6 +2433,9 @@
   border-top: 1px solid var(--border-subtle);
   padding: 10px 12px;
   position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .sidebar-user-menu {
@@ -2477,31 +2479,41 @@
   margin: 4px 0;
 }
 
-.sidebar-user-menu-signout {
+.sidebar-user-menu-danger {
   color: var(--color-danger);
 }
 
-.sidebar-user-menu-signout:hover {
+.sidebar-user-menu-danger:hover {
   color: var(--color-danger-hover);
   background: rgba(255, 105, 97, 0.08);
+}
+
+.sidebar-confirm-text-danger {
+  color: var(--color-danger);
 }
 
 .sidebar-user-btn {
   display: flex;
   align-items: center;
   gap: 10px;
-  width: 100%;
-  padding: 0;
+  flex: 1;
+  min-width: 0;
+  padding: 4px 6px;
   background: none;
   border: none;
   cursor: pointer;
   font-family: inherit;
   text-align: left;
+  border-radius: 6px;
+}
+
+.sidebar-user-btn:hover {
+  background: var(--surface-2);
 }
 
 .sidebar-user-avatar {
-  width: 22px;
-  height: 22px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   flex-shrink: 0;
   object-fit: cover;

@@ -620,13 +620,6 @@ function App() {
       <div className="app-header">
         <div className="header-sidebar-zone">
           <span className="header-wordmark" onClick={resetToHome}>Collab</span>
-          {!sidebarCollapsed && (
-            <button className="sidebar-collapse-btn" onClick={() => setSidebarCollapsed(true)} title="Collapse sidebar">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="15 18 9 12 15 6" />
-              </svg>
-            </button>
-          )}
         </div>
         <div className="header-editor-zone">
           {activeSession && (
