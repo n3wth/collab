@@ -111,7 +111,7 @@ export const DocMinimap = Extension.create<DocMinimapOptions>({
     // Create minimap strip
     const strip = document.createElement('div')
     strip.className = 'doc-minimap'
-    docPanel.appendChild(strip)
+    docBody.appendChild(strip)
 
     // Tooltip element
     const tooltip = document.createElement('div')
