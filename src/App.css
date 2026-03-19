@@ -58,10 +58,10 @@
 }
 
 .header-doc-title {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 400;
-  color: var(--text-secondary);
-  letter-spacing: -0.01em;
+  color: var(--text-tertiary);
+  letter-spacing: -0.005em;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2295,11 +2295,10 @@
 }
 
 .sidebar-section-label {
-  font-size: 10px;
-  font-weight: 600;
-  color: var(--text-tertiary);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-disabled);
+  letter-spacing: 0;
 }
 
 .sidebar-section-actions {
@@ -2359,9 +2358,9 @@
 
 .sidebar-group-label {
   font-size: 11px;
-  font-weight: 500;
-  color: var(--text-tertiary);
-  padding: 14px 10px 5px;
+  font-weight: 400;
+  color: var(--text-disabled);
+  padding: 16px 10px 4px;
 }
 
 .sidebar-doc-item {
@@ -2369,14 +2368,14 @@
   align-items: center;
   gap: 8px;
   width: 100%;
-  padding: 7px 10px;
+  padding: 6px 10px;
   font-size: 13px;
   font-weight: 400;
   font-family: inherit;
   color: var(--text-secondary);
   background: transparent;
   border: none;
-  border-radius: 6px;
+  border-radius: 5px;
   cursor: pointer;
   text-align: left;
   overflow: hidden;
@@ -2391,7 +2390,7 @@
 .sidebar-doc-item.active {
   background: var(--surface-2);
   color: var(--text-primary);
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .sidebar-doc-dot {

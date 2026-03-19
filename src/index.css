@@ -8,26 +8,26 @@
   --font-mono: 'JetBrains Mono', 'SF Mono', monospace;
   --font-serif: 'Instrument Serif', Georgia, serif;
 
-  /* Surfaces */
-  --surface-0: #0c0c0e;
-  --surface-1: #161618;
-  --surface-2: #1e1e22;
-  --surface-3: #28282e;
-  --surface-dim: #101012;
-  --sidebar-bg: #161618;
-  --surface-editor: #1c1c1f;
+  /* Surfaces — warmer, closer tones */
+  --surface-0: #0f0f11;
+  --surface-1: #191919;
+  --surface-2: #212121;
+  --surface-3: #2a2a2a;
+  --surface-dim: #0c0c0e;
+  --sidebar-bg: #191919;
+  --surface-editor: #1f1f1f;
   --color-danger: #ff6961;
   --color-danger-hover: #ff8a84;
 
-  /* Text */
-  --text-primary: #efefef;
-  --text-secondary: #b0b0b4;
-  --text-tertiary: #8a8a8f;
-  --text-disabled: #626268;
+  /* Text — slightly warmer */
+  --text-primary: #f0f0f0;
+  --text-secondary: #a0a0a4;
+  --text-tertiary: #707074;
+  --text-disabled: #505054;
 
-  /* Borders */
-  --border-subtle: #2a2a2e;
-  --border-default: #3a3a3f;
+  /* Borders — barely visible */
+  --border-subtle: #ffffff0a;
+  --border-default: #ffffff12;
 
   /* Agent colors — n3wth palette */
   --agent-aiden: #30d158;
