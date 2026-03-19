@@ -884,6 +884,8 @@ function App() {
             }}
             onCollapse={() => setSidebarCollapsed(v => !v)}
             collapsed={sidebarCollapsed}
+            user={user ?? null}
+            onSignOut={isLocalhost ? undefined : signOut}
           />
         </div>
         {!sidebarCollapsed && activeSession && (

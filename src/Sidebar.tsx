@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { deleteSession } from './lib/session-store'
 import type { Session } from './types'
+import type { User } from '@supabase/supabase-js'
 
 function getDateGroup(dateStr: string): string {
   const now = new Date()
@@ -37,13 +38,34 @@ interface Props {
   onRename: (id: string, title: string) => void
   onCollapse: () => void
   collapsed: boolean
+  user: User | null
+  onSignOut?: () => void
 }
 
-export function Sidebar({ sessions, activeSessionId, onSelect, onNewDoc, onDelete, onRename, onCollapse, collapsed }: Props) {
+export function Sidebar({ sessions, activeSessionId, onSelect, onNewDoc, onDelete, onRename, onCollapse, collapsed, user, onSignOut }: Props) {
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [renameValue, setRenameValue] = useState('')
   const [search, setSearch] = useState('')
+  const [searchOpen, setSearchOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
+  const [userMenuOpen, setUserMenuOpen] = useState(false)
+  const searchInputRef = useRef<HTMLInputElement>(null)
+  const userMenuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (searchOpen) searchInputRef.current?.focus()
+  }, [searchOpen])
+
+  useEffect(() => {
+    if (!userMenuOpen) return
+    const handleClick = (e: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setUserMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [userMenuOpen])
 
   const handleDelete = async (id: string) => {
     await deleteSession(id)
@@ -63,21 +85,24 @@ export function Sidebar({ sessions, activeSessionId, onSelect, onNewDoc, onDelet
 
   return (
     <div className="sidebar">
-      <div className="sidebar-docs" style={{ paddingTop: 36 }}>
-        {sessions.length > 5 && (
-          <div className="sidebar-search">
+      <div className="sidebar-top-bar">
+        {searchOpen ? (
+          <div className="sidebar-search-inline">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="11" cy="11" r="8" />
               <line x1="21" y1="21" x2="16.65" y2="16.65" />
             </svg>
             <input
+              ref={searchInputRef}
               className="sidebar-search-input"
-              placeholder="Search documents..."
+              placeholder="Search..."
               value={search}
               onChange={e => setSearch(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Escape') { setSearch(''); setSearchOpen(false) } }}
+              onBlur={() => { if (!search) setSearchOpen(false) }}
             />
             {search && (
-              <button className="sidebar-search-clear" onClick={() => setSearch('')}>
+              <button className="sidebar-search-clear" onClick={() => { setSearch(''); setSearchOpen(false) }}>
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="18" y1="6" x2="6" y2="18" />
                   <line x1="6" y1="6" x2="18" y2="18" />
@@ -85,7 +110,16 @@ export function Sidebar({ sessions, activeSessionId, onSelect, onNewDoc, onDelet
               </button>
             )}
           </div>
+        ) : (
+          <button className="sidebar-search-btn" onClick={() => setSearchOpen(true)} title="Search documents">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+          </button>
         )}
+      </div>
+      <div className="sidebar-docs">
         <div className="sidebar-doc-list">
           {(() => {
             const filtered = search
@@ -141,6 +175,24 @@ export function Sidebar({ sessions, activeSessionId, onSelect, onNewDoc, onDelet
         </div>
       </div>
       <div className="sidebar-bottom">
+        {user?.user_metadata?.avatar_url ? (
+          <div className="sidebar-avatar-wrap" ref={userMenuRef}>
+            <img
+              src={user.user_metadata.avatar_url}
+              alt=""
+              className="sidebar-user-avatar"
+              onClick={() => setUserMenuOpen(v => !v)}
+            />
+            {userMenuOpen && onSignOut && (
+              <div className="sidebar-avatar-menu">
+                <div className="sidebar-avatar-menu-name">{user.user_metadata.full_name || user.email}</div>
+                <button className="sidebar-avatar-menu-item" onClick={onSignOut}>Sign out</button>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div style={{ width: 28 }} />
+        )}
         <button className="sidebar-new-btn" onClick={onNewDoc}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
             <line x1="12" y1="5" x2="12" y2="19" />
