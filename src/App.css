@@ -1335,6 +1335,7 @@
 }
 
 .home-nav-wordmark {
+  font-family: var(--font-display);
   font-size: 16px;
   font-weight: 700;
   color: var(--text-primary);
@@ -1448,18 +1449,18 @@
 }
 
 .home-headline-main {
-  font-family: var(--font-serif);
+  font-family: var(--font-display);
   font-size: 72px;
-  font-weight: 400;
+  font-weight: 800;
   color: var(--text-primary);
   letter-spacing: -0.03em;
   line-height: 1.0;
 }
 
 .home-headline-italic {
-  font-family: var(--font-serif);
+  font-family: var(--font-display);
   font-size: 72px;
-  font-weight: 400;
+  font-weight: 800;
   font-style: italic;
   color: var(--text-secondary);
   letter-spacing: -0.03em;
@@ -2281,8 +2282,9 @@
   top: 20%;
   left: 50%;
   transform: translateX(-50%);
+  font-family: var(--font-display);
   font-size: 48px;
-  font-weight: 700;
+  font-weight: 800;
   color: var(--text-primary);
   letter-spacing: -0.04em;
   opacity: 0;
@@ -2346,8 +2348,9 @@
 }
 
 .sidebar-brand-label {
+  font-family: var(--font-display);
   font-size: 15px;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--text-secondary);
   letter-spacing: -0.03em;
   flex: 1;
@@ -3412,9 +3415,9 @@
 }
 
 .empty-state-headline {
-  font-family: var(--font-serif);
+  font-family: var(--font-display);
   font-size: 72px;
-  font-weight: 400;
+  font-weight: 800;
   color: #fff;
   letter-spacing: -0.03em;
   line-height: 1.0;
