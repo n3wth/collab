@@ -403,10 +403,12 @@ function App() {
   // URL routing: /s/{sessionId}
   const navigateToSession = useCallback((session: Session) => {
     history.pushState({ sessionId: session.id }, '', `/s/${session.id}`)
+    window.scrollTo(0, 0)
   }, [])
 
   const navigateToHome = useCallback(() => {
     history.pushState(null, '', '/')
+    window.scrollTo(0, 0)
   }, [])
 
   // Load session from URL on mount
@@ -424,6 +426,7 @@ function App() {
     }
 
     const onPopState = () => {
+      window.scrollTo(0, 0)
       const m = window.location.pathname.match(/^\/s\/([a-f0-9-]+)$/)
       if (m) {
         getSession(m[1]).then(session => {
