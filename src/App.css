@@ -2242,14 +2242,6 @@
   display: none;
 }
 
-.sidebar-top-bar {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  padding: 8px 8px 0;
-  flex-shrink: 0;
-}
-
 .sidebar-search-btn {
   display: flex;
   align-items: center;
@@ -2257,26 +2249,29 @@
   width: 28px;
   height: 28px;
   border: none;
-  background: var(--surface-2);
-  color: var(--text-secondary);
+  background: none;
+  color: var(--text-disabled);
   cursor: pointer;
-  border-radius: 7px;
+  border-radius: 50%;
+  margin: 4px 4px 4px auto;
+  flex-shrink: 0;
 }
 
 .sidebar-search-btn:hover {
-  color: var(--text-primary);
-  background: var(--surface-3);
+  color: var(--text-secondary);
+  background: var(--surface-2);
 }
 
 .sidebar-search-inline {
   display: flex;
   align-items: center;
   gap: 6px;
-  flex: 1;
   padding: 4px 10px;
+  margin: 4px 6px 4px;
   background: var(--surface-2);
   border-radius: 7px;
   color: var(--text-tertiary);
+  flex-shrink: 0;
 }
 
 .sidebar-new-btn {
@@ -2285,14 +2280,15 @@
   gap: 6px;
   flex: 1;
   min-width: 0;
-  padding: 7px 14px;
+  height: 28px;
+  padding: 0 12px;
   font-size: 13px;
   font-weight: 400;
   font-family: inherit;
   color: var(--text-secondary);
   background: var(--surface-2);
   border: none;
-  border-radius: 20px;
+  border-radius: 14px;
   cursor: pointer;
   white-space: nowrap;
 }
@@ -2334,7 +2330,7 @@
 .sidebar-docs {
   flex: 1;
   overflow-y: auto;
-  padding: 0 6px;
+  padding: 6px 6px 0;
 }
 
 .sidebar-section-header {
@@ -2381,13 +2377,13 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   border: none;
   background: var(--surface-2);
   color: var(--text-secondary);
   cursor: pointer;
-  border-radius: 5px;
+  border-radius: 7px;
   flex-shrink: 0;
 }
 
@@ -2625,7 +2621,7 @@
 }
 
 .sidebar-bottom {
-  padding: 10px;
+  padding: 8px;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -2642,12 +2638,27 @@
   border-radius: 50%;
   object-fit: cover;
   cursor: pointer;
-  opacity: 0.8;
+  opacity: 0.7;
   display: block;
+  transition: opacity 0.15s ease;
 }
 
 .sidebar-user-avatar:hover {
   opacity: 1;
+}
+
+.sidebar-user-avatar-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-2);
+  color: var(--text-disabled);
+  opacity: 1;
+}
+
+.sidebar-user-avatar-placeholder:hover {
+  color: var(--text-secondary);
+  background: var(--surface-3);
 }
 
 .sidebar-avatar-menu {

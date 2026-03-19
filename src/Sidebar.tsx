@@ -85,7 +85,7 @@ export function Sidebar({ sessions, activeSessionId, onSelect, onNewDoc, onDelet
 
   return (
     <div className="sidebar">
-      <div className="sidebar-top-bar">
+      <div className="sidebar-docs">
         {searchOpen ? (
           <div className="sidebar-search-inline">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -110,16 +110,14 @@ export function Sidebar({ sessions, activeSessionId, onSelect, onNewDoc, onDelet
               </button>
             )}
           </div>
-        ) : (
+        ) : sessions.length > 3 ? (
           <button className="sidebar-search-btn" onClick={() => setSearchOpen(true)} title="Search documents">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="11" cy="11" r="8" />
               <line x1="21" y1="21" x2="16.65" y2="16.65" />
             </svg>
           </button>
-        )}
-      </div>
-      <div className="sidebar-docs">
+        ) : null}
         <div className="sidebar-doc-list">
           {(() => {
             const filtered = search
@@ -175,24 +173,29 @@ export function Sidebar({ sessions, activeSessionId, onSelect, onNewDoc, onDelet
         </div>
       </div>
       <div className="sidebar-bottom">
-        {user?.user_metadata?.avatar_url ? (
-          <div className="sidebar-avatar-wrap" ref={userMenuRef}>
+        <div className="sidebar-avatar-wrap" ref={userMenuRef}>
+          {user?.user_metadata?.avatar_url ? (
             <img
               src={user.user_metadata.avatar_url}
               alt=""
               className="sidebar-user-avatar"
-              onClick={() => setUserMenuOpen(v => !v)}
+              onClick={() => onSignOut && setUserMenuOpen(v => !v)}
             />
-            {userMenuOpen && onSignOut && (
-              <div className="sidebar-avatar-menu">
-                <div className="sidebar-avatar-menu-name">{user.user_metadata.full_name || user.email}</div>
-                <button className="sidebar-avatar-menu-item" onClick={onSignOut}>Sign out</button>
-              </div>
-            )}
-          </div>
-        ) : (
-          <div style={{ width: 28 }} />
-        )}
+          ) : (
+            <div className="sidebar-user-avatar sidebar-user-avatar-placeholder" onClick={() => onSignOut && setUserMenuOpen(v => !v)}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                <circle cx="12" cy="7" r="4" />
+              </svg>
+            </div>
+          )}
+          {userMenuOpen && onSignOut && (
+            <div className="sidebar-avatar-menu">
+              <div className="sidebar-avatar-menu-name">{user?.user_metadata?.full_name || user?.email || 'Local user'}</div>
+              <button className="sidebar-avatar-menu-item" onClick={onSignOut}>Sign out</button>
+            </div>
+          )}
+        </div>
         <button className="sidebar-new-btn" onClick={onNewDoc}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
             <line x1="12" y1="5" x2="12" y2="19" />
