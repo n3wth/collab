@@ -1240,6 +1240,18 @@ function App() {
               }},
               { id: 'home', label: 'Go home', action: resetToHome },
             ] as Command[] : []),
+            { id: 'help', label: 'Agent help — what can agents do?', shortcut: '?', action: () => {
+              const helpText = activeAgents.map(a => {
+                const role = a.persona.split('.')[0].replace(/^You are \w+, /, '')
+                return `${a.name}: ${role}`
+              }).join('\n')
+              setMessages(prev => [...prev, {
+                id: uid(),
+                from: 'System',
+                text: `Your AI team:\n${helpText}\n\nAgents can: edit documents, chat, search the web, rename docs, and observe document quality. @mention any agent to direct them.`,
+                time: now(),
+              }])
+            }},
             ...(!isLocalhost && user ? [{ id: 'signout', label: 'Sign out', action: signOut }] as Command[] : []),
           ]}
         />
