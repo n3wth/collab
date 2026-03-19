@@ -40,9 +40,10 @@ interface Props {
   collapsed: boolean
   user: User | null
   onSignOut?: () => void
+  onHome?: () => void
 }
 
-export function Sidebar({ sessions, activeSessionId, onSelect, onNewDoc, onDelete, onRename, onCollapse, collapsed, user, onSignOut }: Props) {
+export function Sidebar({ sessions, activeSessionId, onSelect, onNewDoc, onDelete, onRename, onCollapse, collapsed, user, onSignOut, onHome }: Props) {
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [renameValue, setRenameValue] = useState('')
   const [search, setSearch] = useState('')
@@ -84,8 +85,8 @@ export function Sidebar({ sessions, activeSessionId, onSelect, onNewDoc, onDelet
   }
 
   return (
-    <div className="sidebar">
-      <div className="sidebar-docs">
+    <div className={`sidebar ${searchOpen ? 'sidebar-searching' : ''}`}>
+      <div className="sidebar-header">
         {searchOpen ? (
           <div className="sidebar-search-inline">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -110,14 +111,21 @@ export function Sidebar({ sessions, activeSessionId, onSelect, onNewDoc, onDelet
               </button>
             )}
           </div>
-        ) : sessions.length > 3 ? (
-          <button className="sidebar-search-btn" onClick={() => setSearchOpen(true)} title="Search documents">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="11" cy="11" r="8" />
-              <line x1="21" y1="21" x2="16.65" y2="16.65" />
-            </svg>
-          </button>
-        ) : null}
+        ) : (
+          <>
+            <span className="sidebar-brand-label" onClick={onHome} style={{ cursor: onHome ? 'pointer' : undefined }}>Collab</span>
+            {sessions.length > 3 && (
+              <button className="sidebar-search-btn" onClick={() => setSearchOpen(true)} title="Search documents">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="11" cy="11" r="8" />
+                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+              </button>
+            )}
+          </>
+        )}
+      </div>
+      <div className="sidebar-docs">
         <div className="sidebar-doc-list">
           {(() => {
             const filtered = search
