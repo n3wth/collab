@@ -10,6 +10,7 @@ import { LoginPage } from './LoginPage'
 import { LegalPage } from './LegalPage'
 import { Sidebar } from './Sidebar'
 import { TemplatePickerModal, type GoogleDocFile } from './TemplatePickerModal'
+import { CommandPalette, type Command } from './CommandPalette'
 import { AgentConfigurator } from './AgentConfigurator'
 import { DOC_TEMPLATES } from './templates'
 import { supabase } from './lib/supabase'
@@ -265,6 +266,7 @@ function App() {
   const [sessions, setSessions] = useState<Session[]>([])
   const [sessionsLoaded, setSessionsLoaded] = useState(false)
   const [showTemplatePicker, setShowTemplatePicker] = useState(false)
+  const [showCommandPalette, setShowCommandPalette] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [sidebarWidth, setSidebarWidth] = useState(240)
   const [chatWidth, setChatWidth] = useState(340)
@@ -663,6 +665,10 @@ function App() {
       if ((e.metaKey || e.ctrlKey) && e.key === 'n') {
         e.preventDefault()
         setShowTemplatePicker(true)
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault()
+        setShowCommandPalette(v => !v)
       }
     }
     window.addEventListener('keydown', onKey)
@@ -1142,6 +1148,27 @@ function App() {
           onImport={handleGoogleImport}
           onClose={() => setShowTemplatePicker(false)}
           importAvailable={!!user}
+        />
+      )}
+      {showCommandPalette && (
+        <CommandPalette
+          onClose={() => setShowCommandPalette(false)}
+          commands={[
+            { id: 'new-doc', label: 'New document', shortcut: '\u2318N', action: () => setShowTemplatePicker(true) },
+            { id: 'toggle-sidebar', label: sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar', action: () => setSidebarCollapsed(v => !v) },
+            ...(activeSession ? [
+              { id: 'download-md', label: 'Download as Markdown', action: () => {
+                const text = editorRef.current?.getText() || ''
+                const title = activeSession.title || 'document'
+                const blob = new Blob([text], { type: 'text/markdown' })
+                const url = URL.createObjectURL(blob)
+                const a = document.createElement('a'); a.href = url; a.download = `${title.slice(0, 40)}.md`; a.click()
+                URL.revokeObjectURL(url)
+              }},
+              { id: 'home', label: 'Go home', action: resetToHome },
+            ] as Command[] : []),
+            ...(!isLocalhost && user ? [{ id: 'signout', label: 'Sign out', action: signOut }] as Command[] : []),
+          ]}
         />
       )}
     </div>
