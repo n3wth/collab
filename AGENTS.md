@@ -7,7 +7,7 @@ Instructions for AI coding agents working in this repository.
 - Read `CLAUDE.md` for build commands and architecture overview
 - Read the file you're editing before changing it
 - Run `npm run build` after every change — the build must pass before committing
-- Push only to `origin` (https://github.com/n3wth/collab.git)
+- Push only to `origin` (https://github.com/n3wth/markup.git)
 
 ## Code style
 
