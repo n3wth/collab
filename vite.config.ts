@@ -13,8 +13,14 @@ export default defineConfig(({ mode }) => {
     plugins: [
       react(),
       {
-        name: 'gemini-image-proxy',
+        name: 'api-dev-middleware',
         configureServer(server) {
+          // Score endpoint: no-op in dev (scores are optional)
+          server.middlewares.use('/api/score', (_req, res) => {
+            res.writeHead(200, { 'Content-Type': 'application/json' })
+            res.end(JSON.stringify({ ok: true, skipped: true, reason: 'dev mode' }))
+          })
+
           server.middlewares.use('/api/gemini-image', async (req, res) => {
             if (req.method !== 'POST') {
               res.writeHead(405, { 'Content-Type': 'application/json' })
