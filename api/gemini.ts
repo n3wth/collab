@@ -1,10 +1,33 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import './instrumentation'
+import { createGoogleGenerativeAI } from '@ai-sdk/google'
+import { generateObject } from 'ai'
+import { LangfuseSpanProcessor } from '@langfuse/otel'
+import { NodeTracerProvider } from '@opentelemetry/sdk-trace-node'
 import { startActiveObservation, propagateAttributes } from '@langfuse/tracing'
-import { langfuseSpanProcessor } from './instrumentation'
+import { PostHog } from 'posthog-node'
+import { agentActionSchema } from '../src/agent-schema'
 
-const MODEL = 'gemini-2.5-flash'
-const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`
+const langfusePublicKey = (process.env.LANGFUSE_PUBLIC_KEY || '').trim()
+const langfuseSecretKey = (process.env.LANGFUSE_SECRET_KEY || '').trim()
+const langfuseBaseUrl = (process.env.LANGFUSE_BASE_URL || 'https://us.cloud.langfuse.com').trim()
+const langfuseEnabled = !!(langfusePublicKey && langfuseSecretKey)
+
+let langfuseSpanProcessor: LangfuseSpanProcessor | null = null
+if (langfuseEnabled) {
+  langfuseSpanProcessor = new LangfuseSpanProcessor({
+    publicKey: langfusePublicKey,
+    secretKey: langfuseSecretKey,
+    baseUrl: langfuseBaseUrl,
+  })
+  const tracerProvider = new NodeTracerProvider({ spanProcessors: [langfuseSpanProcessor] })
+  tracerProvider.register()
+}
+
+const posthog = new PostHog(process.env.VITE_PUBLIC_POSTHOG_KEY || '', {
+  host: process.env.VITE_PUBLIC_POSTHOG_HOST || 'https://elephant.markup.so',
+})
+
+const MODEL_ID = 'gemini-2.5-flash'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
@@ -20,90 +43,124 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const userId = req.headers['x-user-id'] as string | undefined
   const agentName = req.headers['x-agent-name'] as string | undefined
 
+  const { prompt } = req.body || {}
+  if (!prompt || typeof prompt !== 'string') {
+    return res.status(400).json({ error: 'Missing prompt in request body', code: 'BAD_REQUEST', status: 400 })
+  }
+
+  const google = createGoogleGenerativeAI({ apiKey })
+
   try {
-    const data = await propagateAttributes(
-      { sessionId, userId, traceName: agentName ? `${agentName}-generation` : 'gemini-generation' },
-      () => startActiveObservation('gemini-generate', async (generation) => {
-        const startMs = Date.now()
+    const callAI = async () => {
+      const startMs = Date.now()
+      const result = await generateObject({
+        model: google(MODEL_ID),
+        schema: agentActionSchema,
+        prompt,
+        temperature: 0.7,
+        maxRetries: 3,
+        providerOptions: {
+          google: {
+            safetySettings: [
+              { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
+              { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
+              { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
+              { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
+              { category: 'HARM_CATEGORY_CIVIC_INTEGRITY', threshold: 'BLOCK_NONE' },
+            ],
+          },
+        },
+      })
+      const latencyMs = Date.now() - startMs
+      return { action: result.object, usage: result.usage, latencyMs }
+    }
 
-        generation.update({
-          model: MODEL,
-          input: req.body,
-          metadata: { agentName, sessionId },
-        })
+    let data: Awaited<ReturnType<typeof callAI>>
 
-        const response = await fetch(`${API_URL}?key=${apiKey}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(req.body),
-        })
-
-        const result = await response.json()
-        const latencyMs = Date.now() - startMs
-
-        if (!response.ok) {
+    if (langfuseEnabled) {
+      data = await propagateAttributes(
+        { sessionId, userId, traceName: agentName ? `${agentName}-generation` : 'gemini-generation' },
+        () => startActiveObservation('gemini-generate', async (generation) => {
+          generation.update({ model: MODEL_ID, input: prompt, metadata: { agentName, sessionId } })
+          const d = await callAI()
           generation.update({
-            output: result,
-            level: 'ERROR',
-            statusMessage: result?.error?.message || `API error ${response.status}`,
-            metadata: { agentName, sessionId, latencyMs, httpStatus: response.status },
+            output: d.action,
+            usageDetails: {
+              input: d.usage.inputTokens ?? 0,
+              output: d.usage.outputTokens ?? 0,
+              total: (d.usage.inputTokens ?? 0) + (d.usage.outputTokens ?? 0),
+            },
+            metadata: { agentName, sessionId, latencyMs: d.latencyMs },
           })
-          return { ok: false, status: response.status, result }
-        }
+          return d
+        }, { asType: 'generation' }),
+      )
+      await langfuseSpanProcessor!.forceFlush()
+    } else {
+      data = await callAI()
+    }
 
-        const outputText = result?.candidates?.[0]?.content?.parts?.[0]?.text
-        const usage = result?.usageMetadata
+    // PostHog LLM analytics
+    posthog.capture({
+      distinctId: userId || 'anonymous',
+      event: '$ai_generation',
+      properties: {
+        $ai_model: MODEL_ID,
+        $ai_provider: 'google',
+        $ai_input_tokens: data.usage.inputTokens ?? 0,
+        $ai_output_tokens: data.usage.outputTokens ?? 0,
+        $ai_latency: data.latencyMs ? data.latencyMs / 1000 : undefined,
+        $ai_trace_id: sessionId,
+        $ai_is_error: false,
+        $ai_stream: false,
+        $ai_output: JSON.stringify(data.action).slice(0, 1000),
+        agent_name: agentName,
+        session_id: sessionId,
+      },
+    })
+    await posthog.flush()
 
-        generation.update({
-          output: outputText || result,
-          usageDetails: usage ? {
-            input: usage.promptTokenCount ?? 0,
-            output: usage.candidatesTokenCount ?? 0,
-            total: usage.totalTokenCount ?? 0,
-          } : undefined,
-          metadata: { agentName, sessionId, latencyMs },
-        })
+    return res.status(200).json({
+      action: data.action,
+      usage: {
+        input: data.usage.inputTokens ?? 0,
+        output: data.usage.outputTokens ?? 0,
+      },
+    })
+  } catch (err) {
+    console.error('[gemini-proxy] Request failed:', err)
 
-        return { ok: true, status: 200, result }
-      }, { asType: 'generation' }),
-    )
+    // PostHog error tracking
+    posthog.capture({
+      distinctId: userId || 'anonymous',
+      event: '$ai_generation',
+      properties: {
+        $ai_model: MODEL_ID,
+        $ai_provider: 'google',
+        $ai_is_error: true,
+        $ai_trace_id: sessionId,
+        agent_name: agentName,
+        session_id: sessionId,
+        error: String(err),
+      },
+    })
+    await posthog.flush()
 
-    await langfuseSpanProcessor.forceFlush()
-
-    if (!data.ok) {
-      const errorMessage = data.result?.error?.message || 'Unknown API error'
-      const errorCode = data.result?.error?.code || data.status
-      console.error(`[gemini-proxy] API error ${data.status}: ${errorMessage}`)
-      return res.status(data.status).json({
-        error: errorMessage,
-        code: errorCode,
-        status: data.status,
+    // Detect rate limiting from AI SDK errors
+    const errMsg = err instanceof Error ? err.message : String(err)
+    if (errMsg.includes('429') || errMsg.toLowerCase().includes('rate limit')) {
+      return res.status(429).json({
+        error: 'Rate limit exceeded',
+        code: 'RATE_LIMIT',
+        status: 429,
       })
     }
 
-    // Validate response has expected structure
-    const hasContent = data.result?.candidates?.[0]?.content?.parts?.[0]?.text
-    if (!hasContent) {
-      const blockReason = data.result?.promptFeedback?.blockReason
-      if (blockReason) {
-        console.error(`[gemini-proxy] Content blocked: ${blockReason}`)
-        return res.status(400).json({
-          error: `Content blocked by safety filter: ${blockReason}`,
-          code: 'CONTENT_BLOCKED',
-          status: 400,
-        })
-      }
-      // Still forward -- the client handles empty candidates too
-    }
-
-    return res.status(200).json(data.result)
-  } catch (err) {
-    console.error('[gemini-proxy] Request failed:', err)
     return res.status(500).json({
       error: 'Proxy request failed',
       code: 'PROXY_ERROR',
       status: 500,
-      detail: String(err),
+      detail: errMsg,
     })
   }
 }

@@ -19,10 +19,12 @@ export class AgentError extends Error {
 
 import { getStoredApiKey } from './AgentConfigurator'
 
-// All API calls go through the server-side proxy to avoid exposing API keys in the client bundle.
+// All API calls go through the server-side proxy which uses the Vercel AI SDK.
 const API_URL = '/api/gemini'
 
-// Rate limiter: tracks calls, enforces spacing, handles 429 backoff
+// Client-side rate limiter: enforces minimum spacing between calls to stay within free tier limits.
+// The server handles retries for transient errors via AI SDK's maxRetries.
+// This limiter prevents the client from overwhelming the server with concurrent requests.
 const rateLimiter = {
   lastCallTime: 0,
   minIntervalMs: 7000,  // min 7s between calls (~8 RPM, safe under 10 RPM free tier)
@@ -105,28 +107,31 @@ export type AgentActionType = 'insert' | 'replace' | 'read' | 'chat' | 'search' 
 
 export interface AgentAction {
   type: AgentActionType
-  position?: 'end' | 'after-heading' | 'cursor' | string
+  position?: string
   content?: string
   searchText?: string
   replaceWith?: string
   highlightText?: string
-  query?: string        // search query for web search action
-  newTitle?: string     // for rename action
-  deleteText?: string   // text to delete (for delete action)
-  proposal?: string     // what the agent proposes (for propose action)
+  query?: string
+  newTitle?: string
+  deleteText?: string
+  proposal?: string
   proposalType?: 'create-doc' | 'delete-doc' | 'add-agent' | 'remove-agent'
-  steps?: string[]      // planned steps (for plan action)
-  question?: string     // clarifying question (for ask action)
-  imagePrompt?: string  // detailed description of the image to generate
-  imageCaption?: string // caption for the generated image
-  chatBefore?: string   // message sent BEFORE the action (intent)
-  chatMessage?: string  // message sent AFTER the action (summary)
+  steps?: string[]
+  question?: string
+  imagePrompt?: string
+  imageCaption?: string
+  chatBefore?: string
+  chatMessage?: string
   thought?: string
-  reasoning?: string[]  // chain of thought steps shown transparently
+  reasoning?: string[]
   shouldContinue?: boolean
 }
 
-export type SessionPhase = 'planning' | 'active' | 'reviewing'
+import type { SessionPhase } from './phase-machine'
+import type { AgentMode } from './agent-modes'
+
+export type { SessionPhase }
 
 export interface AskParams {
   agentName: string
@@ -144,6 +149,7 @@ export interface AskParams {
   docStructure?: DocStructure
   phase?: SessionPhase
   docState?: 'blank' | 'template' | 'sparse' | 'content'
+  agentMode?: AgentMode
 }
 
 // Default personas kept for backward compatibility
@@ -162,10 +168,10 @@ export interface DocStructure {
   wordCounts: Record<string, number>
   totalWords: number
   avgSectionWords: number
-  thinSections: string[]       // sections with <30% of average word count
-  emptySections: string[]      // sections with 0 words
-  headingLevels: Record<string, number>  // heading name -> depth (1, 2, 3)
-  hasIntro: boolean            // content before first heading
+  thinSections: string[]
+  emptySections: string[]
+  headingLevels: Record<string, number>
+  hasIntro: boolean
   introWords: number
 }
 
@@ -218,7 +224,7 @@ export function extractDocStructure(docText: string): DocStructure {
   }
 }
 
-function buildPrompt(params: AskParams): string {
+export function buildPrompt(params: AskParams): string {
   const persona = params.persona || DEFAULT_PERSONAS[params.agentName] || DEFAULT_PERSONAS.Aiden
   const otherAgentList = params.otherAgents.filter(n => n !== params.agentName)
   const otherAgent = otherAgentList.length > 0 ? otherAgentList.join(', ') : 'the other agents'
@@ -268,8 +274,8 @@ function buildPrompt(params: AskParams): string {
     contextBlock += `\nRECENT CONTRIBUTIONS FROM COLLEAGUES:\n${otherAgentMessages.map(m => `  ${m.from}: ${m.text}`).join('\n')}`
   }
 
-  // Planning phase: override task block to prevent doc edits and guide discovery
-  const isPlanning = params.phase === 'planning'
+  // Discovery/planning phases: override task block to prevent doc edits and guide discovery
+  const isPlanning = params.phase === 'discovery' || params.phase === 'planning'
 
   let taskBlock = ''
   if (isPlanning) {
@@ -347,7 +353,12 @@ IMPORTANT: Always respond to the most recent context. Look at the LAST 2-3 chat 
 Act on it — add content, expand, rewrite, whatever they're asking. The instruction text itself should NOT appear in the document.`
   }
 
-  return `${persona}
+  // Inject agent mode modifier if available
+  const modeBlock = params.agentMode
+    ? `\n\nCURRENT MODE: ${params.agentMode.label}\n${params.agentMode.promptModifier}`
+    : ''
+
+  return `${persona}${modeBlock}
 
 You are ${params.agentName} in a shared document workspace with ${otherAgent} and the user (${params.ownerName}). You are a team — reference each other's work, build on it, and push back when needed.
 
@@ -386,456 +397,97 @@ ${contextBlock}
 
 ${taskBlock}
 
-Respond with a JSON object. Choose ONE action:
-${isPlanning ? `
-PLANNING PHASE — You may ONLY use these action types:
+Choose ONE action. Use the following field names:
+- type: one of insert, replace, read, chat, search, rename, delete, propose, plan, ask, image
+- reasoning: array of 2-3 short steps (max 8 words each) showing your thinking
+- thought: max 4 words
+- For insert: position (e.g. "after:Heading" or "end"), content (plain text, ## for headings, - for bullets)
+- For replace: searchText (exact match from doc), replaceWith
+- For chat: chatMessage
+- For search: query, shouldContinue (true)
+- For read: highlightText
+- For rename: newTitle
+- For delete: deleteText
+- For propose: proposalType (create-doc|delete-doc|add-agent|remove-agent), proposal
+- For plan: steps (array), shouldContinue (true)
+- For ask: question, chatMessage
+- For image: imagePrompt, imageCaption, position
+- chatBefore: REQUIRED for insert/replace (max 15 words)
+- shouldContinue: usually false
 
-To respond in chat only:
-{"type":"chat","reasoning":["<step>","<step>"],"chatMessage":"<your message>","shouldContinue":false}
-
-To ask the user a clarifying question:
-{"type":"ask","reasoning":["<step>","<step>"],"question":"<your question>","chatMessage":"<context for the question>"}
-
-To outline a plan before making changes:
-{"type":"plan","reasoning":["<step>","<step>"],"steps":["Step 1: ...","Step 2: ..."],"chatMessage":"<summary of plan>","shouldContinue":false}
-
-DO NOT use insert, replace, delete, read, search, rename, or propose during planning.` : `
-To read/highlight a section (no edit):
-{"type":"read","reasoning":["<step>","<step>"],"highlightText":"<exact text from doc to highlight>","thought":"<4 words>","shouldContinue":false}
-
-To insert new content:
-{"type":"insert","reasoning":["<step>","<step>"],"position":"<end OR after:Exact Heading Text>","content":"<text to insert — use \\n for new lines, ## for headings, - for bullets. NO ### or **bold** — only ## and plain text>","thought":"<4 words>","chatBefore":"<what you're about to do>","chatMessage":"<optional summary>","shouldContinue":false}
-
-To replace existing text:
-{"type":"replace","reasoning":["<step>","<step>"],"searchText":"<exact text to find in doc>","replaceWith":"<replacement text>","thought":"<4 words>","chatBefore":"<what you're about to change>","chatMessage":"<optional summary>","shouldContinue":false}
-
-To respond in chat only:
-{"type":"chat","reasoning":["<step>","<step>"],"chatMessage":"<your message>","shouldContinue":false}
-
-To search the web for current information:
-{"type":"search","reasoning":["<step>","<step>"],"query":"<search query>","thought":"<4 words>","shouldContinue":true}
-Use search when the document needs current data, market info, or technical research. After search results appear, synthesize the key findings into a brief insight — never relay raw search results to the user.
-
-To rename the document when the title doesn't match its content:
-{"type":"rename","reasoning":["<step>","<step>"],"newTitle":"<better title>","chatMessage":"<explanation>"}
-
-To delete specific text from the document:
-{"type":"delete","reasoning":["<step>","<step>"],"deleteText":"<exact text to remove>","chatBefore":"<what you're removing and why>"}
-
-To propose an action that needs user approval (create doc, add/remove agent):
-{"type":"propose","reasoning":["<step>","<step>"],"proposalType":"<create-doc|delete-doc|add-agent|remove-agent>","proposal":"<what you're proposing and why>","chatMessage":"<ask for approval>"}
-
-To outline a plan before making multiple changes:
-{"type":"plan","reasoning":["<step>","<step>"],"steps":["Step 1: ...","Step 2: ..."],"chatMessage":"<summary of plan>","shouldContinue":true}
-
-To ask the user a clarifying question before proceeding:
-{"type":"ask","reasoning":["<step>","<step>"],"question":"<your question>","chatMessage":"<context for the question>"}
-
-To generate and insert an image:
-{"type":"image","reasoning":["<step>","<step>"],"imagePrompt":"<detailed description of the image to generate>","imageCaption":"<optional caption>","position":"<end OR after:Heading>","chatBefore":"<what you're generating>","shouldContinue":false}
-Use image generation sparingly — only when a visual genuinely adds value: architecture diagrams, UI mockups, flowcharts, or when the user explicitly asks for an image.`}
+${isPlanning ? 'PLANNING PHASE: Only use chat, ask, or plan actions. NO doc edits.' : ''}
 
 Rules:
-- "reasoning" is REQUIRED — 2-3 short steps showing your thinking. Each step MAX 8 words. Show: what you noticed -> what's missing -> what you'll do.
-- "thought" must be MAX 4 words.
-- "content" for inserts: plain text only. "## " for headings (NEVER ### or #). "- " for bullets. "  - " for sub-bullets. NEVER use **bold** or *italic*. MAX 3-4 bullets per action. Single \\n between lines. No extra whitespace.
-- "chatBefore" is REQUIRED for insert/replace — announce intent. Be specific about WHAT and WHERE. MAX 15 words. Vary phrasing.
-- "chatMessage" is optional. Only if you have something NEW to say after. MAX 15 words.
-- "searchText" must be an EXACT substring from the document.
-- "shouldContinue" usually false.
-- "position": "after:Heading Text" to insert under a section. "end" to append. Prefer targeting a section.
-- NEVER create a heading that already exists in the document.
-- When mentioning someone in chat, no comma after the name.
-- CRITICAL: Keep total JSON under 600 chars. Be terse.
-- Return ONLY the JSON object`
-}
-
-const VALID_ACTION_TYPES = new Set(['insert', 'replace', 'read', 'chat', 'search', 'rename', 'delete', 'propose', 'plan', 'ask', 'image'])
-
-// Strip markdown code fences and other wrapper noise that Gemini sometimes adds
-function stripCodeFences(text: string): string {
-  let s = text.trim()
-  // Remove ```json or ``` prefix and trailing ```
-  s = s.replace(/^```(?:json)?\s*\n?/, '').replace(/\n?```\s*$/, '')
-  // Remove leading prose before the JSON object (e.g. "Here is the response:\n{...")
-  const firstBrace = s.indexOf('{')
-  if (firstBrace > 0 && firstBrace < 80) {
-    s = s.slice(firstBrace)
-  }
-  // Remove trailing prose after the JSON object
-  const lastBrace = s.lastIndexOf('}')
-  if (lastBrace >= 0 && lastBrace < s.length - 1) {
-    s = s.slice(0, lastBrace + 1)
-  }
-  return s.trim()
-}
-
-// Normalize common LLM quirks in field names/values before validation
-function normalizeAction(record: Record<string, unknown>): Record<string, unknown> {
-  // Fix common type aliases
-  if (record.type === 'comment' || record.type === 'message' || record.type === 'respond') {
-    record.type = 'chat'
-  }
-  if (record.type === 'add' || record.type === 'write' || record.type === 'append') {
-    record.type = 'insert'
-  }
-  if (record.type === 'edit' || record.type === 'update' || record.type === 'rewrite') {
-    record.type = 'replace'
-  }
-  if (record.type === 'highlight' || record.type === 'observe' || record.type === 'review') {
-    record.type = 'read'
-  }
-  if (record.type === 'question') {
-    record.type = 'ask'
-  }
-  if (record.type === 'remove') {
-    record.type = 'delete'
-  }
-
-  // Fix common field name typos
-  if (record.search_text && !record.searchText) record.searchText = record.search_text
-  if (record.replace_with && !record.replaceWith) record.replaceWith = record.replace_with
-  if (record.chat_message && !record.chatMessage) record.chatMessage = record.chat_message
-  if (record.chat_before && !record.chatBefore) record.chatBefore = record.chat_before
-  if (record.highlight_text && !record.highlightText) record.highlightText = record.highlight_text
-  if (record.should_continue !== undefined && record.shouldContinue === undefined) record.shouldContinue = record.should_continue
-  if (record.new_title && !record.newTitle) record.newTitle = record.new_title
-  if (record.delete_text && !record.deleteText) record.deleteText = record.delete_text
-  if (record.proposal_type && !record.proposalType) record.proposalType = record.proposal_type
-
-  // If chat type has content but no chatMessage, promote content to chatMessage
-  if (record.type === 'chat' && !record.chatMessage && typeof record.content === 'string') {
-    record.chatMessage = record.content
-  }
-  // If replace has content but no replaceWith, promote content to replaceWith
-  if (record.type === 'replace' && !record.replaceWith && typeof record.content === 'string') {
-    record.replaceWith = record.content
-  }
-  // If ask type has chatMessage but no question, promote it
-  if (record.type === 'ask' && !record.question && typeof record.chatMessage === 'string') {
-    record.question = record.chatMessage
-  }
-
-  return record
-}
-
-// Validate that a parsed object has required fields for its action type
-function validateAction(obj: unknown): AgentAction | null {
-  if (typeof obj !== 'object' || obj === null) return null
-
-  const record = normalizeAction(obj as Record<string, unknown>)
-
-  if (typeof record.type !== 'string') return null
-
-  if (!VALID_ACTION_TYPES.has(record.type)) {
-    // Last resort: if there's a chatMessage, treat as chat
-    if (typeof record.chatMessage === 'string' && record.chatMessage) {
-      record.type = 'chat'
-    } else {
-      console.warn('[agent] unknown action type, skipping:', record.type)
-      return null
-    }
-  }
-
-  // Validate required fields per action type
-  switch (record.type) {
-    case 'insert':
-      if (typeof record.content !== 'string' || !record.content) {
-        console.warn('[agent] insert action missing content')
-        return null
-      }
-      if (record.position !== undefined && typeof record.position !== 'string') {
-        console.warn('[agent] insert action has invalid position')
-        return null
-      }
-      break
-    case 'replace':
-      if (typeof record.searchText !== 'string' || !record.searchText) {
-        console.warn('[agent] replace action missing searchText')
-        return null
-      }
-      if (typeof record.replaceWith !== 'string') {
-        console.warn('[agent] replace action missing replaceWith')
-        return null
-      }
-      break
-    case 'read':
-      if (record.highlightText !== undefined && typeof record.highlightText !== 'string') {
-        console.warn('[agent] read action has invalid highlightText')
-        return null
-      }
-      break
-    case 'chat':
-      if (typeof record.chatMessage !== 'string' || !record.chatMessage) {
-        console.warn('[agent] chat action missing chatMessage')
-        return null
-      }
-      break
-    case 'search':
-      if (typeof record.query !== 'string' || !record.query) {
-        console.warn('[agent] search action missing query')
-        return null
-      }
-      break
-    case 'rename':
-      if (typeof record.newTitle !== 'string' || !record.newTitle) {
-        console.warn('[agent] rename action missing newTitle')
-        return null
-      }
-      break
-    case 'delete':
-      if (typeof record.deleteText !== 'string' || !record.deleteText) {
-        console.warn('[agent] delete action missing deleteText')
-        return null
-      }
-      break
-    case 'propose':
-      if (typeof record.proposal !== 'string' || !record.proposal) {
-        console.warn('[agent] propose action missing proposal')
-        return null
-      }
-      break
-    case 'plan':
-      if (!Array.isArray(record.steps) || record.steps.length === 0) {
-        console.warn('[agent] plan action missing steps')
-        return null
-      }
-      break
-    case 'ask':
-      if (typeof record.question !== 'string' || !record.question) {
-        console.warn('[agent] ask action missing question')
-        return null
-      }
-      break
-    case 'image':
-      if (typeof record.imagePrompt !== 'string' || !record.imagePrompt) {
-        console.warn('[agent] image action missing imagePrompt')
-        return null
-      }
-      break
-  }
-
-  return record as unknown as AgentAction
-}
-
-// Attempt to repair truncated JSON (close open strings/objects/arrays)
-function repairJSON(raw: string): AgentAction | null {
-  const text = stripCodeFences(raw)
-
-  // Try as-is first
-  try {
-    const parsed = JSON.parse(text)
-    return validateAction(parsed)
-  } catch { /* continue */ }
-
-  let fixed = text.trim()
-
-  // Strategy 1: truncated mid-string — close open quotes, brackets, braces
-  const quoteCount = (fixed.match(/(?<!\\)"/g) || []).length
-  if (quoteCount % 2 !== 0) {
-    fixed += '"'
-  }
-
-  // Close any open square brackets (arrays)
-  const openBrackets = (fixed.match(/\[/g) || []).length
-  const closeBrackets = (fixed.match(/\]/g) || []).length
-  for (let i = 0; i < openBrackets - closeBrackets; i++) fixed += ']'
-
-  // Close any open braces
-  const opens = (fixed.match(/\{/g) || []).length
-  const closes = (fixed.match(/\}/g) || []).length
-  for (let i = 0; i < opens - closes; i++) fixed += '}'
-
-  try {
-    const parsed = JSON.parse(fixed)
-    const validated = validateAction(parsed)
-    if (validated) return validated
-  } catch { /* continue */ }
-
-  // Strategy 2: remove trailing comma before closing brace (common LLM mistake)
-  fixed = text.trim().replace(/,\s*$/, '')
-  const q2 = (fixed.match(/(?<!\\)"/g) || []).length
-  if (q2 % 2 !== 0) fixed += '"'
-  const ob2 = (fixed.match(/\[/g) || []).length
-  const cb2 = (fixed.match(/\]/g) || []).length
-  for (let i = 0; i < ob2 - cb2; i++) fixed += ']'
-  const o2 = (fixed.match(/\{/g) || []).length
-  const c2 = (fixed.match(/\}/g) || []).length
-  for (let i = 0; i < o2 - c2; i++) fixed += '}'
-
-  try {
-    const parsed = JSON.parse(fixed)
-    const validated = validateAction(parsed)
-    if (validated) return validated
-  } catch { /* continue */ }
-
-  // Strategy 3: truncated after a comma or colon — cut at last complete pair
-  fixed = text.trim()
-  const lastCompleteValue = fixed.lastIndexOf('","')
-  if (lastCompleteValue > 0) {
-    const afterComma = fixed.indexOf('"', lastCompleteValue + 2)
-    if (afterComma > 0) {
-      const afterColon = fixed.indexOf(':', afterComma)
-      if (afterColon > 0) {
-        const valueStart = fixed.indexOf('"', afterColon)
-        if (valueStart > 0) {
-          const valueEnd = fixed.indexOf('"', valueStart + 1)
-          if (valueEnd < 0) {
-            fixed = fixed.slice(0, lastCompleteValue + 1) + '}'
-            try {
-              const parsed = JSON.parse(fixed)
-              const validated = validateAction(parsed)
-              if (validated) return validated
-            } catch { /* continue */ }
-          }
-        }
-      }
-    }
-  }
-
-  // Strategy 4: extract just the type and any chat content for a minimal fallback
-  const typeMatch = text.match(/"type"\s*:\s*"(\w+)"/)
-  const msgMatch = text.match(/"chatMessage"\s*:\s*"((?:[^"\\]|\\.)*)"/)
-  if (typeMatch) {
-    const fallback: Record<string, unknown> = { type: typeMatch[1] }
-    if (msgMatch) fallback.chatMessage = msgMatch[1]
-    const contentMatch = text.match(/"content"\s*:\s*"((?:[^"\\]|\\.)*)"/)
-    if (contentMatch) fallback.content = contentMatch[1]
-    const searchMatch = text.match(/"searchText"\s*:\s*"((?:[^"\\]|\\.)*)"/)
-    if (searchMatch) fallback.searchText = searchMatch[1]
-    const replaceMatch = text.match(/"replaceWith"\s*:\s*"((?:[^"\\]|\\.)*)"/)
-    if (replaceMatch) fallback.replaceWith = replaceMatch[1]
-    const posMatch = text.match(/"position"\s*:\s*"((?:[^"\\]|\\.)*)"/)
-    if (posMatch) fallback.position = posMatch[1]
-    const highlightMatch = text.match(/"highlightText"\s*:\s*"((?:[^"\\]|\\.)*)"/)
-    if (highlightMatch) fallback.highlightText = highlightMatch[1]
-    const queryMatch = text.match(/"query"\s*:\s*"((?:[^"\\]|\\.)*)"/)
-    if (queryMatch) fallback.query = queryMatch[1]
-    const validated = validateAction(fallback)
-    if (validated) {
-      console.warn('[agent] recovered action via regex fallback:', validated.type)
-      return validated
-    }
-  }
-
-  return null
+- Keep content terse. MAX 3-4 bullets per insert.
+- NEVER create a heading that already exists.
+- Keep total response concise.`
 }
 
 export async function askAgent(params: AskParams): Promise<AgentAction> {
   const ready = await rateLimiter.waitForSlot()
   if (!ready) throw new AgentError('Rate limiter disposed', 'rate_limit')
 
-  for (let attempt = 0; attempt <= rateLimiter.maxRetries; attempt++) {
-    try {
-      const prompt = buildPrompt(params)
-      const clientKey = getStoredApiKey()
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-      if (clientKey) headers['X-Gemini-Key'] = clientKey
-      // Pass session context for server-side Langfuse tracing
-      const sessionMatch = window.location.pathname.match(/\/s\/([^/]+)/)
-      if (sessionMatch) headers['X-Session-Id'] = sessionMatch[1]
-      if (params.agentName) headers['X-Agent-Name'] = params.agentName
-      const res = await fetch(API_URL, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            responseMimeType: 'application/json',
-            temperature: 0.7,
-            maxOutputTokens: 1200,
-          },
-          safetySettings: [
-            { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
-            { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
-            { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
-            { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
-            { category: 'HARM_CATEGORY_CIVIC_INTEGRITY', threshold: 'BLOCK_NONE' },
-          ],
-        }),
-      })
+  const prompt = buildPrompt(params)
+  const clientKey = getStoredApiKey()
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  if (clientKey) headers['X-Gemini-Key'] = clientKey
+  // Pass session context for server-side tracing
+  const sessionMatch = window.location.pathname.match(/\/s\/([^/]+)/)
+  if (sessionMatch) headers['X-Session-Id'] = sessionMatch[1]
+  if (params.agentName) headers['X-Agent-Name'] = params.agentName
 
-      if (res.status === 429) {
-        // Parse retryDelay from error body if available
-        try {
-          const errBody = await res.json()
-          const retryDetail = errBody?.error?.details?.find((d: Record<string, unknown>) => d.retryDelay)
-          if (retryDetail?.retryDelay) {
-            const delaySec = parseFloat(retryDetail.retryDelay) || 10
-            rateLimiter.backoffUntil = Date.now() + delaySec * 1000
-            console.warn(`[rate] server says retry after ${delaySec}s`)
-          }
-        } catch { /* ignore parse errors */ }
-        rateLimiter.onRateLimit()
-        if (rateLimiter.shouldRetry()) {
-          await rateLimiter.waitForSlot()
-          continue
-        }
-        throw new AgentError('Rate limit exhausted after retries', 'rate_limit', 429)
-      }
+  try {
+    const res = await fetch(API_URL, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ prompt }),
+    })
 
-      if (!res.ok) {
-        const errText = await res.text()
-        console.error('[agent] API error:', res.status, errText.slice(0, 200))
-        rateLimiter.onError()
-        if (rateLimiter.shouldRetry()) {
-          await rateLimiter.waitForSlot()
-          continue
-        }
-        throw new AgentError(
-          `API error ${res.status}: ${errText.slice(0, 200)}`,
-          'api_error',
-          res.status,
-        )
-      }
+    if (res.status === 429) {
+      rateLimiter.onRateLimit()
+      throw new AgentError('Rate limit exceeded', 'rate_limit', 429, true)
+    }
 
-      rateLimiter.onSuccess()
-
-      const data = await res.json()
-      const text = data.candidates?.[0]?.content?.parts?.[0]?.text
-      if (!text) {
-        const detail = JSON.stringify(data).slice(0, 200)
-        console.warn('[agent] no text in response', detail)
-        throw new AgentError(`Empty response from API: ${detail}`, 'api_error')
-      }
-
-      const action = repairJSON(text)
-      if (!action || !action.type) {
-        console.warn('[agent] unparseable response:', text.slice(0, 200))
-        throw new AgentError(`Unparseable response: ${text.slice(0, 100)}`, 'parse_error')
-      }
-      console.log('[agent]', params.agentName, action.type, action.thought, action.reasoning)
-      if (action.thought) {
-        action.thought = action.thought.split(/\s+/).slice(0, 4).join(' ')
-      }
-      if (action.reasoning && Array.isArray(action.reasoning)) {
-        action.reasoning = action.reasoning.slice(0, 3).map(s => String(s).slice(0, 60))
-      }
-      return action
-    } catch (err) {
-      if (err instanceof AgentError) throw err
-      console.error('[agent] catch error:', err)
-      if (err instanceof TypeError && (err as TypeError).message === 'Failed to fetch') {
-        console.error(
-          '[agent] Could not reach the API proxy at /api/gemini. ' +
-          'Make sure the server-side proxy is running and GEMINI_API_KEY is set in your environment.'
-        )
-      }
+    if (!res.ok) {
+      const errBody = await res.json().catch(() => ({}))
       rateLimiter.onError()
-      if (attempt < rateLimiter.maxRetries) {
-        await rateLimiter.waitForSlot()
-        continue
-      }
       throw new AgentError(
-        `Network error: ${err instanceof Error ? err.message : String(err)}`,
-        'network_error',
-        undefined,
-        true,
+        errBody.error || `API error ${res.status}`,
+        'api_error',
+        res.status,
       )
     }
-  }
 
-  throw new AgentError('All retry attempts exhausted', 'api_error')
+    rateLimiter.onSuccess()
+
+    const data = await res.json()
+    const action = data.action as AgentAction
+
+    if (!action || !action.type) {
+      throw new AgentError('Empty action from API', 'parse_error')
+    }
+
+    console.log('[agent]', params.agentName, action.type, action.thought, action.reasoning)
+
+    // Post-process: trim thought and reasoning
+    if (action.thought) {
+      action.thought = action.thought.split(/\s+/).slice(0, 4).join(' ')
+    }
+    if (action.reasoning && Array.isArray(action.reasoning)) {
+      action.reasoning = action.reasoning.slice(0, 3).map(s => String(s).slice(0, 60))
+    }
+
+    return action
+  } catch (err) {
+    if (err instanceof AgentError) throw err
+    console.error('[agent] catch error:', err)
+    throw new AgentError(
+      `Network error: ${err instanceof Error ? err.message : String(err)}`,
+      'network_error',
+      undefined,
+      true,
+    )
+  }
 }
 
 export function disposeRateLimiter() {
