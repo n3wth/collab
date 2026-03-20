@@ -99,8 +99,8 @@ export function ChatPanel({
   }, [messages, chatVisibleCount])
 
   return (
-    <div className="chat-panel chat-right" style={{ width: chatWidth, maxWidth: chatWidth, flexBasis: chatWidth }}>
-      <div className="chat-messages">
+    <div className="chat-panel chat-right" style={{ width: chatWidth, maxWidth: chatWidth, flexBasis: chatWidth }} aria-label="Chat panel">
+      <div className="chat-messages" role="log" aria-label="Chat messages" aria-live="polite">
         <div className="chat-messages-inner">
           {hiddenCount > 0 && (
             <button className="load-older-btn" onClick={() => setChatVisibleCount(c => c + 50)}>

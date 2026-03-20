@@ -39,6 +39,7 @@ export const ChatMessage = memo(({ m, sameSender, agentState, userAvatarUrl, onA
             <span className="msg-time">{m.time}</span>
           </div>
         )}
+        {sameSender && <span className="msg-time-hover">{m.time}</span>}
         {isAgent && m.reasoning && m.reasoning.length > 0 && (
           <ReasoningChain steps={m.reasoning} />
         )}

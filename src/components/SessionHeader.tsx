@@ -59,13 +59,14 @@ export function SessionHeader({
             className={`header-pause-btn ${agentsPaused ? 'paused' : ''}`}
             onClick={onTogglePause}
             title={agentsPaused ? 'Resume agents' : 'Pause agents'}
+            aria-label={agentsPaused ? 'Resume agents' : 'Pause agents'}
           >
             {agentsPaused ? (
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden="true">
                 <polygon points="6,4 20,12 6,20" />
               </svg>
             ) : (
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden="true">
                 <rect x="5" y="4" width="5" height="16" rx="1" />
                 <rect x="14" y="4" width="5" height="16" rx="1" />
               </svg>
@@ -98,8 +99,9 @@ export function SessionHeader({
                 className="header-add-agent"
                 onClick={onToggleConfigurator}
                 title="Add agent"
+                aria-label="Add agent"
               >
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <line x1="12" y1="5" x2="12" y2="19" />
                   <line x1="5" y1="12" x2="19" y2="12" />
                 </svg>

@@ -227,13 +227,27 @@ export function HomePage({ onSelect, onSignOut, demoMode, onDemoConsumed }: Prop
           </div>
           <div className="home-nav-actions">
             {onSignOut && (
-              <button className="home-nav-btn" onClick={onSignOut}>Sign out</button>
+              <button className="home-nav-btn" onClick={onSignOut} aria-label="Sign out">Sign out</button>
             )}
             {!onSignOut && sessions.length === 0 && (
-              <button className="home-nav-cta" onClick={() => handleStarter(DEMO_STARTER)}>Try demo</button>
+              <button className="home-nav-cta" onClick={() => handleStarter(DEMO_STARTER)} aria-label="Try demo">Try demo</button>
             )}
           </div>
         </nav>
+
+        {loading && (
+          <section className="home-recent" style={{ opacity: 1 }}>
+            <div className="home-recent-header">Your documents</div>
+            <div className="home-recent-list">
+              {[1, 2, 3].map(i => (
+                <div key={i} className="skeleton-row" style={{ animationDelay: `${i * 100}ms` }}>
+                  <div className="skeleton-text skeleton-text-title" />
+                  <div className="skeleton-text skeleton-text-meta" />
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
         {!loading && sessions.length === 0 && (
           <header className="home-hero">
@@ -265,6 +279,10 @@ export function HomePage({ onSelect, onSignOut, demoMode, onDemoConsumed }: Prop
                     <span
                       className="home-recent-delete"
                       onClick={e => handleDeleteSession(e, s.id)}
+                      role="button"
+                      aria-label={`Remove ${s.title}`}
+                      tabIndex={0}
+                      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleDeleteSession(e as unknown as React.MouseEvent, s.id) } }}
                     >
                       Remove
                     </span>

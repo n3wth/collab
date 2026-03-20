@@ -77,8 +77,8 @@ export function Sidebar({ sessions, activeSessionId, onSelect, onNewDoc, onDelet
 
   if (collapsed) {
     return (
-      <button className="sidebar-expand-btn" onClick={onCollapse} title="Expand sidebar">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <button className="sidebar-expand-btn" onClick={onCollapse} title="Expand sidebar" aria-label="Expand sidebar">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <polyline points="9 18 15 12 9 6" />
         </svg>
       </button>
@@ -86,7 +86,7 @@ export function Sidebar({ sessions, activeSessionId, onSelect, onNewDoc, onDelet
   }
 
   return (
-    <div className={`sidebar ${searchOpen ? 'sidebar-searching' : ''}`}>
+    <nav className={`sidebar ${searchOpen ? 'sidebar-searching' : ''}`} aria-label="Document sidebar">
       <div className="sidebar-header">
         {searchOpen ? (
           <div className="sidebar-search-inline">
@@ -104,8 +104,8 @@ export function Sidebar({ sessions, activeSessionId, onSelect, onNewDoc, onDelet
               onBlur={() => { if (!search) setSearchOpen(false) }}
             />
             {search && (
-              <button className="sidebar-search-clear" onClick={() => { setSearch(''); setSearchOpen(false) }}>
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <button className="sidebar-search-clear" onClick={() => { setSearch(''); setSearchOpen(false) }} aria-label="Clear search">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <line x1="18" y1="6" x2="6" y2="18" />
                   <line x1="6" y1="6" x2="18" y2="18" />
                 </svg>
@@ -116,8 +116,8 @@ export function Sidebar({ sessions, activeSessionId, onSelect, onNewDoc, onDelet
           <>
             <span className="sidebar-brand-label" onClick={onHome} style={{ cursor: onHome ? 'pointer' : undefined }}>Markup</span>
             {sessions.length > 3 && (
-              <button className="sidebar-search-btn" onClick={() => setSearchOpen(true)} title="Search documents">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <button className="sidebar-search-btn" onClick={() => setSearchOpen(true)} title="Search documents" aria-label="Search documents">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <circle cx="11" cy="11" r="8" />
                   <line x1="21" y1="21" x2="16.65" y2="16.65" />
                 </svg>
@@ -168,8 +168,9 @@ export function Sidebar({ sessions, activeSessionId, onSelect, onNewDoc, onDelet
                     className="sidebar-doc-delete"
                     onClick={() => setConfirmDelete(s.id)}
                     title="Delete"
+                    aria-label={`Delete ${s.title}`}
                   >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                       <line x1="18" y1="6" x2="6" y2="18" />
                       <line x1="6" y1="6" x2="18" y2="18" />
                     </svg>
@@ -186,13 +187,16 @@ export function Sidebar({ sessions, activeSessionId, onSelect, onNewDoc, onDelet
           {user?.user_metadata?.avatar_url ? (
             <img
               src={user.user_metadata.avatar_url}
-              alt=""
+              alt="User avatar"
               className="sidebar-user-avatar"
               onClick={() => setUserMenuOpen(v => !v)}
+              role="button"
+              aria-label="Open user menu"
+              aria-expanded={userMenuOpen}
             />
           ) : (
-            <div className="sidebar-user-avatar sidebar-user-avatar-placeholder" onClick={() => setUserMenuOpen(v => !v)}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <div className="sidebar-user-avatar sidebar-user-avatar-placeholder" onClick={() => setUserMenuOpen(v => !v)} role="button" aria-label="Open user menu" aria-expanded={userMenuOpen} tabIndex={0} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setUserMenuOpen(v => !v) } }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
                 <circle cx="12" cy="7" r="4" />
               </svg>
@@ -206,22 +210,22 @@ export function Sidebar({ sessions, activeSessionId, onSelect, onNewDoc, onDelet
             </div>
           )}
         </div>
-        <button className="sidebar-new-btn" onClick={onNewDoc}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <button className="sidebar-new-btn" onClick={onNewDoc} aria-label="Create new document">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <line x1="12" y1="5" x2="12" y2="19" />
             <line x1="5" y1="12" x2="19" y2="12" />
           </svg>
           New document
         </button>
-        <button className="sidebar-collapse-btn" onClick={onCollapse} title="Collapse sidebar">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <button className="sidebar-collapse-btn" onClick={onCollapse} title="Collapse sidebar" aria-label="Collapse sidebar">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <polyline points="15 18 9 12 15 6" />
           </svg>
         </button>
       </div>
 
       {confirmDelete && (
-        <div className="sidebar-confirm-overlay" onClick={() => setConfirmDelete(null)}>
+        <div className="sidebar-confirm-overlay" onClick={() => setConfirmDelete(null)} role="dialog" aria-label="Confirm delete">
           <div className="sidebar-confirm-dialog" onClick={e => e.stopPropagation()}>
             <p className="sidebar-confirm-text">Delete this document? This can't be undone.</p>
             <div className="sidebar-confirm-actions">
@@ -231,6 +235,6 @@ export function Sidebar({ sessions, activeSessionId, onSelect, onNewDoc, onDelet
           </div>
         </div>
       )}
-    </div>
+    </nav>
   )
 }

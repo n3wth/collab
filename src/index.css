@@ -31,7 +31,7 @@
   --text-primary: #ebebeb;
   --text-secondary: #9b9b9b;
   --text-tertiary: #8a8a8a;
-  --text-disabled: #6b6b6b;
+  --text-disabled: #7a7a7a;
 
   /* Borders — barely visible */
   --border-subtle: #ffffff0a;
@@ -97,7 +97,7 @@ body {
 
 /* Replace native focus outlines */
 *:focus { outline: none; }
-*:focus-visible { outline: 1px solid var(--text-tertiary); outline-offset: 1px; border-radius: 4px; }
+*:focus-visible { outline: 2px solid var(--text-secondary); outline-offset: 2px; border-radius: 4px; }
 
 /* Hide native scrollbars globally */
 ::-webkit-scrollbar { width: 0; height: 0; }

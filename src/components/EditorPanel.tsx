@@ -32,12 +32,14 @@ export function EditorPanel({
   uid,
 }: EditorPanelProps) {
   return (
-    <div className="doc-panel">
-      <div className="doc-toolbar">
+    <div className="doc-panel" role="main" aria-label="Document editor">
+      <div className="doc-toolbar" role="toolbar" aria-label="Formatting options">
         <button
           className={`doc-toolbar-btn ${editor.isActive('bold') ? 'active' : ''}`}
           onClick={() => editor.chain().focus().toggleBold().run()}
           title="Bold (Ctrl+B)"
+          aria-label="Bold"
+          aria-pressed={editor.isActive('bold')}
         >
           B
         </button>
@@ -45,14 +47,18 @@ export function EditorPanel({
           className={`doc-toolbar-btn ${editor.isActive('italic') ? 'active' : ''}`}
           onClick={() => editor.chain().focus().toggleItalic().run()}
           title="Italic (Ctrl+I)"
+          aria-label="Italic"
+          aria-pressed={editor.isActive('italic')}
         >
           <em>I</em>
         </button>
-        <span className="doc-toolbar-sep" />
+        <span className="doc-toolbar-sep" role="separator" />
         <button
           className={`doc-toolbar-btn ${editor.isActive('heading', { level: 1 }) ? 'active' : ''}`}
           onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
           title="Heading 1"
+          aria-label="Heading 1"
+          aria-pressed={editor.isActive('heading', { level: 1 })}
         >
           H1
         </button>
@@ -60,23 +66,29 @@ export function EditorPanel({
           className={`doc-toolbar-btn ${editor.isActive('heading', { level: 2 }) ? 'active' : ''}`}
           onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
           title="Heading 2"
+          aria-label="Heading 2"
+          aria-pressed={editor.isActive('heading', { level: 2 })}
         >
           H2
         </button>
-        <span className="doc-toolbar-sep" />
+        <span className="doc-toolbar-sep" role="separator" />
         <button
           className={`doc-toolbar-btn ${editor.isActive('bulletList') ? 'active' : ''}`}
           onClick={() => editor.chain().focus().toggleBulletList().run()}
           title="Bullet List"
+          aria-label="Bullet list"
+          aria-pressed={editor.isActive('bulletList')}
         >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="3" cy="6" r="1.5" fill="currentColor" stroke="none"/><circle cx="3" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="3" cy="18" r="1.5" fill="currentColor" stroke="none"/></svg>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="3" cy="6" r="1.5" fill="currentColor" stroke="none"/><circle cx="3" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="3" cy="18" r="1.5" fill="currentColor" stroke="none"/></svg>
         </button>
         <button
           className={`doc-toolbar-btn ${editor.isActive('orderedList') ? 'active' : ''}`}
           onClick={() => editor.chain().focus().toggleOrderedList().run()}
           title="Ordered List"
+          aria-label="Ordered list"
+          aria-pressed={editor.isActive('orderedList')}
         >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="10" y1="6" x2="21" y2="6"/><line x1="10" y1="12" x2="21" y2="12"/><line x1="10" y1="18" x2="21" y2="18"/><text x="1" y="8" fontSize="8" fill="currentColor" stroke="none" fontFamily="sans-serif">1</text><text x="1" y="14" fontSize="8" fill="currentColor" stroke="none" fontFamily="sans-serif">2</text><text x="1" y="20" fontSize="8" fill="currentColor" stroke="none" fontFamily="sans-serif">3</text></svg>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><line x1="10" y1="6" x2="21" y2="6"/><line x1="10" y1="12" x2="21" y2="12"/><line x1="10" y1="18" x2="21" y2="18"/><text x="1" y="8" fontSize="8" fill="currentColor" stroke="none" fontFamily="sans-serif">1</text><text x="1" y="14" fontSize="8" fill="currentColor" stroke="none" fontFamily="sans-serif">2</text><text x="1" y="20" fontSize="8" fill="currentColor" stroke="none" fontFamily="sans-serif">3</text></svg>
         </button>
         <span className="doc-toolbar-spacer" />
         <button
@@ -91,8 +103,9 @@ export function EditorPanel({
             URL.revokeObjectURL(url)
           }}
           title="Download as Markdown"
+          aria-label="Download as Markdown"
         >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         </button>
         <button
           className="doc-toolbar-btn"
@@ -127,6 +140,7 @@ export function EditorPanel({
             }
           }}
           title={driveStatus === 'saved' ? 'Saved to Drive' : driveStatus === 'error' ? 'Save failed' : 'Save to Google Drive'}
+          aria-label={driveStatus === 'saved' ? 'Saved to Drive' : driveStatus === 'error' ? 'Save failed' : 'Save to Google Drive'}
           disabled={driveStatus === 'saving'}
         >
           {driveStatus === 'saving' ? (
