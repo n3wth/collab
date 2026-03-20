@@ -4,6 +4,7 @@ import { DOC_TEMPLATES } from '../templates'
 import { supabase } from '../lib/supabase'
 import { DEFAULT_PERSONAS } from '../agent'
 import { agentConfigsToPersonas } from '../components/SessionHeader'
+import { events } from '../lib/analytics'
 import type { Session, AgentConfig, Message, AgentState } from '../types'
 import type { Editor } from '@tiptap/react'
 import type { GoogleDocFile } from '../TemplatePickerModal'
@@ -79,6 +80,7 @@ export function useSession({
 
     setActiveSession(session)
     activeSessionRef.current = session
+    events.sessionOpened(session.id, session.template)
     // Update URL
     if (window.location.pathname !== `/s/${session.id}`) {
       navigateToSession(session)
@@ -166,6 +168,8 @@ export function useSession({
 
   const handleTemplatePick = async (starter: { title: string, template: import('../types').DocTemplate, agents: AgentConfig[] }) => {
     const session = await createSession(starter.title, starter.template)
+    events.sessionCreated(starter.template, starter.agents.length)
+    events.templatePicked(starter.template, starter.agents.map(a => a.name))
     return handleSessionSelect(session, starter.agents)
   }
 

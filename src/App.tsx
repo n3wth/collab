@@ -16,6 +16,7 @@ const TemplatePickerModal = lazy(() => import('./TemplatePickerModal').then(m =>
 import type { GoogleDocFile } from './TemplatePickerModal'
 const SettingsModal = lazy(() => import('./SettingsModal').then(m => ({ default: m.SettingsModal })))
 import { saveDocument, updateSessionTitle, saveChatMessage } from './lib/session-store'
+import { identify, events } from './lib/analytics'
 import { useAuth } from './lib/auth'
 import type { Session, AgentState, TimelineEntry } from './types'
 const ColorPanels = lazy(() => import('@paper-design/shaders-react').then(m => ({ default: m.ColorPanels })))
@@ -36,6 +37,12 @@ const EMPTY_DOC = '<h1>Untitled</h1><p></p>'
 
 function App() {
   const { user, loading: authLoading, signOut, providerToken, signInWithGoogle } = useAuth()
+
+  // PostHog user identification (init handled by PostHogProvider in main.tsx)
+  useEffect(() => {
+    if (user) identify(user.id, { email: user.email })
+  }, [user])
+
   const [showTemplatePicker, setShowTemplatePicker] = useState(false)
   const [showCommandPalette, setShowCommandPalette] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
@@ -190,8 +197,10 @@ function App() {
         console.error('[App] saveChatMessage error:', err)
       )
     }
+    const mentioned = activeAgents.filter(a => text.toLowerCase().includes(a.name.toLowerCase())).map(a => a.name)
+    events.messageSent(session?.id || '', mentioned)
     orchestratorRef.current?.trigger('user-message', { instruction: text })
-  }, [input, activeSessionRef, orchestratorRef])
+  }, [input, activeSessionRef, orchestratorRef, activeAgents])
 
   const handleSendSuggestion = useCallback((text: string) => {
     setMessages(m => [...m, { id: uid(), from: 'You', text, time: now() }])
