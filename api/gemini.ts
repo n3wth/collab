@@ -4,7 +4,7 @@ import { generateObject } from 'ai'
 import { LangfuseSpanProcessor } from '@langfuse/otel'
 import { NodeTracerProvider } from '@opentelemetry/sdk-trace-node'
 import { startActiveObservation, propagateAttributes } from '@langfuse/tracing'
-import { agentActionSchema } from './agent-schema'
+import { agentActionSchema } from './agent-schema.js'
 
 // Langfuse tracing setup (inline to avoid cross-file import issues in Vercel serverless)
 const langfuseSpanProcessor = new LangfuseSpanProcessor({
