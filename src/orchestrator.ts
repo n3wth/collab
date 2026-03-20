@@ -1,7 +1,8 @@
 import type { Editor } from '@tiptap/react'
-import { askAgent, AgentError, resetRateLimiter, extractDocStructure, type AgentAction, type AskParams } from './agent'
+import { askAgent, AgentError, resetRateLimiter, extractDocStructure, type AgentAction, type AskParams, type SessionPhase } from './agent'
 import { executeAgentAction, type ActionCallbacks } from './agent-actions'
 import { generateObservation, resetHeartbeat } from './heartbeat'
+import { classifyDocState, type DocState } from './templates'
 import { DEFAULT_LIMITS, type OrchestratorLimits, type AgentConfig } from './types'
 
 export type { AgentConfig }
@@ -73,6 +74,10 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
   const scheduledTimers = new Set<number>()
   // Heartbeat timer for proactive agent behaviors
   let heartbeatTimer: number | null = null
+  // Session phase: planning (discovery) -> active (editing) -> reviewing
+  let sessionPhase: SessionPhase = 'planning'
+  // Doc state classification cached on doc-opened
+  let currentDocState: DocState = 'blank'
 
   function scheduleTimeout(fn: () => void, ms: number): number {
     const id = window.setTimeout(() => {
@@ -138,7 +143,25 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
         otherAgents: agentNames,
         sessionTemplate: config.sessionTemplate,
         docStructure: extractDocStructure(docText),
+        phase: sessionPhase,
+        docState: currentDocState,
       })
+
+      // Planning phase safety net: if the LLM ignores the prompt constraint
+      // and returns a doc-editing action, downgrade it to chat
+      const DOC_EDIT_TYPES = new Set(['insert', 'replace', 'delete', 'rename'])
+      if (sessionPhase === 'planning' && DOC_EDIT_TYPES.has(action.type)) {
+        log('planning phase: blocked doc edit action', action.type, '-> downgrading to chat')
+        action.type = 'chat'
+        action.chatMessage = action.chatBefore || action.chatMessage || action.content?.slice(0, 120) || 'Let me know what direction you want to take this.'
+        // Clear doc-edit fields
+        delete action.content
+        delete action.searchText
+        delete action.replaceWith
+        delete action.deleteText
+        delete action.newTitle
+        delete action.position
+      }
 
       // Emit reasoning before executing action
       if (action.reasoning && action.reasoning.length > 0) {
@@ -270,26 +293,66 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
     if (destroyed) return
 
     switch (type) {
-      case 'doc-opened':
+      case 'doc-opened': {
         for (const name of agentNames) {
           turnCount[name] = 0
         }
         exchangeCount = 0
         pendingReaction = null
-        startHeartbeat()
-        config.agents.forEach((a, i) => {
-          scheduleTimeout(() => enqueue({
-            agent: a.name,
-            trigger: 'instruction',
-            instruction: `Review the doc and contribute from your area of expertise. Use your background in: ${a.persona.slice(0, 100)}`,
-          }), config.demoMode ? 1500 + i * 2500 : 2500 + i * 3500)
-        })
+
+        // Classify doc state and decide session phase
+        const docText = config.getDocText()
+        const template = config.sessionTemplate as import('./types').DocTemplate | undefined
+        currentDocState = classifyDocState(docText, template)
+        log('doc-opened', 'docState:', currentDocState, 'template:', template)
+
+        if (currentDocState === 'content') {
+          // Existing content: skip planning, go straight to active
+          sessionPhase = 'active'
+          startHeartbeat()
+          config.agents.forEach((a, i) => {
+            scheduleTimeout(() => enqueue({
+              agent: a.name,
+              trigger: 'instruction',
+              instruction: `Review the doc and contribute from your area of expertise. Use your background in: ${a.persona.slice(0, 100)}`,
+            }), config.demoMode ? 1500 + i * 2500 : 2500 + i * 3500)
+          })
+        } else {
+          // Blank, template, or sparse: enter planning phase
+          sessionPhase = 'planning'
+          // Only trigger the FIRST agent to ask a question — don't dogpile
+          const lead = config.agents[0]
+          if (lead) {
+            scheduleTimeout(() => enqueue({
+              agent: lead.name,
+              trigger: 'instruction',
+              instruction: currentDocState === 'template'
+                ? `A ${template || 'document'} template is loaded but the sections are still placeholder text. Ask the user what they want to work on. Suggest which section to start with.`
+                : currentDocState === 'sparse'
+                  ? `The doc has a little content but is mostly empty. Ask the user what direction they want to take it. Comment on what's there so far.`
+                  : `The doc is blank. Ask the user what they want to create. Offer 2-3 concrete options based on your expertise.`,
+            }), config.demoMode ? 1500 : 2500)
+          }
+          startHeartbeat()
+        }
         break
+      }
 
       case 'user-message': {
         startHeartbeat() // reset heartbeat timer on user activity
         const instruction = payload?.instruction || ''
         const lower = instruction.toLowerCase()
+
+        // Transition from planning to active when user provides substantive input
+        if (sessionPhase === 'planning') {
+          const words = instruction.trim().split(/\s+/).filter(Boolean)
+          const trivialGreetings = ['hi', 'hey', 'hello', 'yo', 'sup', 'thanks', 'ok', 'okay', 'sure', 'yes', 'no', 'yep', 'nope']
+          const isSubstantive = words.length > 2 || (words.length > 0 && !trivialGreetings.includes(lower.trim()))
+          if (isSubstantive) {
+            sessionPhase = 'active'
+            log('phase transition: planning -> active (user gave direction)')
+          }
+        }
         const mentionedAgents = agentNames.filter(n => lower.includes(n.toLowerCase()) || lower.includes('@' + n.toLowerCase()))
         const mentionsBoth = mentionedAgents.length === 0
 
@@ -417,6 +480,8 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
     exchangeCount = 0
     pendingReaction = null
     pausedAgents.clear()
+    sessionPhase = 'planning'
+    currentDocState = 'blank'
   }
 
   return { trigger, onMessage, destroy }

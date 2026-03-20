@@ -1,5 +1,49 @@
 import type { DocTemplate } from './types'
 
+/** Known placeholder phrases from templates — if the doc still contains these, it hasn't been filled in yet. */
+const TEMPLATE_PLACEHOLDERS = [
+  'What problem are we solving?',
+  'Who has this problem?',
+  'What does success look like?',
+  'How will we solve it?',
+  'As a [user], I want [goal] so that [benefit]',
+  'Metric 1: target value',
+  'What is being built and why?',
+  'System design and component boundaries.',
+  'Key entities and relationships.',
+  'Endpoints, request/response formats.',
+  'Phase 1:',
+  'Phase 2:',
+]
+
+export type DocState = 'blank' | 'template' | 'sparse' | 'content'
+
+/**
+ * Classify the current doc state so the orchestrator can pick the right behavior.
+ * - blank: virtually empty (just an h1 title and whitespace)
+ * - template: still has template placeholder text the user hasn't replaced
+ * - sparse: has some real content but very little (<100 words beyond headings)
+ * - content: has substantive content the user or agents have written
+ */
+export function classifyDocState(docText: string, template?: DocTemplate): DocState {
+  const plain = docText.replace(/<[^>]+>/g, '').trim()
+  const words = plain.split(/\s+/).filter(Boolean)
+
+  // Blank: less than ~5 real words (covers "Untitled" + whitespace)
+  if (words.length < 5) return 'blank'
+
+  // Template: check for placeholder phrases
+  if (template && template !== 'blank') {
+    const matchCount = TEMPLATE_PLACEHOLDERS.filter(p => plain.includes(p)).length
+    if (matchCount >= 2) return 'template'
+  }
+
+  // Sparse: some content but under 100 words of body text
+  if (words.length < 100) return 'sparse'
+
+  return 'content'
+}
+
 export const DOC_TEMPLATES: Record<DocTemplate, { label: string, content: string }> = {
   blank: {
     label: 'Blank',

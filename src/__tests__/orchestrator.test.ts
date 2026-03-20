@@ -85,13 +85,27 @@ describe('createOrchestrator', () => {
     orch.destroy()
   })
 
-  it('trigger doc-opened schedules both agents', () => {
+  it('trigger doc-opened enters planning phase for blank docs', () => {
     const config = makeConfig()
     const orch = createOrchestrator(config)
     orch.trigger('doc-opened')
-    // Should have scheduled 3 timers (heartbeat + Aiden at 2500ms + Nova at 6000ms)
+    // Blank doc: planning phase schedules 1 lead agent + heartbeat = 2 timers
+    expect(timers.length).toBe(2)
+    // Lead agent timer (Aiden) at 2500ms
+    expect(timers[0].ms).toBe(2500)
+    // Heartbeat timer (20-30s range)
+    expect(timers[1].ms).toBeGreaterThanOrEqual(20000)
+    orch.destroy()
+  })
+
+  it('trigger doc-opened schedules all agents for content-rich docs', () => {
+    // Provide enough words (100+) to classify as 'content'
+    const longContent = Array(120).fill('word').join(' ')
+    const config = makeConfig({ getDocText: vi.fn(() => longContent) })
+    const orch = createOrchestrator(config)
+    orch.trigger('doc-opened')
+    // Content doc: active phase schedules all agents + heartbeat = 3 timers
     expect(timers.length).toBe(3)
-    // First timer is the heartbeat (20-30s range)
     expect(timers[0].ms).toBeGreaterThanOrEqual(20000)
     expect(timers[1].ms).toBe(2500)
     expect(timers[2].ms).toBe(6000)
@@ -167,7 +181,9 @@ describe('createOrchestrator', () => {
   })
 
   it('accepts custom limits via config', () => {
+    const longContent = Array(120).fill('word').join(' ')
     const config = makeConfig({
+      getDocText: vi.fn(() => longContent),
       limits: { maxTurns: 10, heartbeatDelayMs: [5000, 8000] },
     })
     const orch = createOrchestrator(config)
