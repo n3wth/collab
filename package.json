@@ -11,6 +11,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@ai-sdk/google": "^3.0.43",
     "@langfuse/client": "^5.0.1",
     "@langfuse/otel": "^5.0.1",
     "@langfuse/tracing": "^5.0.1",
@@ -22,10 +23,12 @@
     "@tiptap/react": "^3.20.1",
     "@tiptap/starter-kit": "^3.20.1",
     "@vercel/analytics": "^2.0.1",
+    "ai": "^6.0.116",
     "posthog-js": "^1.363.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "simplex-noise": "^4.0.3"
+    "simplex-noise": "^4.0.3",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { BlobAvatar } from './blob-avatar'
+import { MarkupLogo } from './MarkupLogo'
 import { AGENT_PRESETS } from './AgentConfigurator'
 
 interface Props {
@@ -255,7 +256,7 @@ export function AwakenSequence({ onComplete }: Props) {
 
       {/* Wordmark — celebration moment when blobs converge */}
       <div className={`awaken-wordmark ${showWordmark ? 'visible' : ''}`}>
-        Markup
+        <MarkupLogo height={32} />
       </div>
 
       {/* Tagline */}

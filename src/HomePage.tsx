@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { BlobAvatar } from './blob-avatar'
+import { MarkupLogo } from './MarkupLogo'
 import { listSessions, createSession, deleteSession } from './lib/session-store'
 import { DOC_TEMPLATES } from './templates'
 import type { Session, DocTemplate, AgentConfig } from './types'
@@ -213,10 +214,7 @@ export function HomePage({ onSelect, onSignOut, demoMode, onDemoConsumed }: Prop
       <div className="home-inner">
         <nav className="home-nav">
           <div className="home-nav-logo">
-            <div className="home-nav-blob-wrap">
-              <BlobAvatar name="Markup" size={24} state="logo" color="#30d158" />
-            </div>
-            <span className="home-nav-wordmark">Markup</span>
+            <MarkupLogo height={20} className="home-nav-logo-img" />
           </div>
           <div className="home-nav-agents">
             {AGENT_PRESETS.map((p, i) => (
@@ -254,7 +252,7 @@ export function HomePage({ onSelect, onSignOut, demoMode, onDemoConsumed }: Prop
             <div className="home-hero-glow" />
             <h1 className="home-headline">
               <span className="home-headline-main">Every draft reviewed</span>
-              <span className="home-headline-italic">by four experts.</span>
+              <span className="home-headline-main">by four experts.</span>
             </h1>
             <p className="home-subtitle">
               AI agents that read your docs and push back on what you missed.
@@ -324,7 +322,7 @@ export function HomePage({ onSelect, onSignOut, demoMode, onDemoConsumed }: Prop
 
         <footer className="home-footer">
           <div className="home-footer-left">
-            <span className="home-footer-brand">Markup</span>
+            <MarkupLogo height={14} className="home-footer-logo" />
           </div>
           <div className="home-footer-right">
             <a href="/privacy" className="home-footer-link">Privacy</a>
