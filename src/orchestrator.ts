@@ -149,7 +149,7 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
 
       // Planning phase safety net: if the LLM ignores the prompt constraint
       // and returns a doc-editing action, downgrade it to chat
-      const DOC_EDIT_TYPES = new Set(['insert', 'replace', 'delete', 'rename'])
+      const DOC_EDIT_TYPES = new Set(['insert', 'replace', 'delete', 'rename', 'image'])
       if (sessionPhase === 'planning' && DOC_EDIT_TYPES.has(action.type)) {
         log('planning phase: blocked doc edit action', action.type, '-> downgrading to chat')
         action.type = 'chat'

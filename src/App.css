@@ -107,7 +107,7 @@
 }
 
 .header-save-status.error {
-  color: #ff6961;
+  color: var(--color-danger);
 }
 
 @keyframes savedFade {
@@ -1697,7 +1697,7 @@
 }
 
 .home-recent-item:hover .home-recent-title {
-  color: #fff;
+  color: var(--accent-active);
 }
 
 .home-recent-meta {

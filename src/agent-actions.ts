@@ -672,6 +672,8 @@ export function executeAgentAction(
 
       callbacks.onStateChange('editing', 'Inserting image...')
 
+      if (!isEditorAlive(editor)) { releaseLockAndDone(false); return }
+
       // Determine insert position (same logic as insert action)
       let insertPos = editor.state.doc.content.size
       if (action.position && action.position.startsWith('after:')) {
@@ -705,8 +707,8 @@ export function executeAgentAction(
 
       // Build HTML for the figure with image
       const alt = caption || imagePrompt.slice(0, 100)
-      const figcaptionHtml = caption ? `<figcaption>${caption}</figcaption>` : ''
-      const html = `<figure class="agent-image"><img src="${result.dataUrl}" alt="${alt.replace(/"/g, '&quot;')}" />${figcaptionHtml}</figure>`
+      const figcaptionHtml = caption ? `<figcaption>${caption.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</figcaption>` : ''
+      const html = `<figure class="agent-image"><img src="${result.dataUrl}" alt="${alt.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')}" />${figcaptionHtml}</figure>`
 
       try {
         editor.commands.insertContentAt(clampPos(editor, insertPos), html)
