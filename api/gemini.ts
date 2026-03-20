@@ -7,10 +7,11 @@ import { startActiveObservation, propagateAttributes } from '@langfuse/tracing'
 import { agentActionSchema } from './agent-schema.js'
 
 // Langfuse tracing setup (inline to avoid cross-file import issues in Vercel serverless)
+// Trim env vars to handle trailing whitespace/newlines from Vercel env config
 const langfuseSpanProcessor = new LangfuseSpanProcessor({
-  publicKey: process.env.LANGFUSE_PUBLIC_KEY,
-  secretKey: process.env.LANGFUSE_SECRET_KEY,
-  baseUrl: process.env.LANGFUSE_BASE_URL || 'https://us.cloud.langfuse.com',
+  publicKey: (process.env.LANGFUSE_PUBLIC_KEY || '').trim(),
+  secretKey: (process.env.LANGFUSE_SECRET_KEY || '').trim(),
+  baseUrl: (process.env.LANGFUSE_BASE_URL || 'https://us.cloud.langfuse.com').trim(),
 })
 const tracerProvider = new NodeTracerProvider({ spanProcessors: [langfuseSpanProcessor] })
 tracerProvider.register()
