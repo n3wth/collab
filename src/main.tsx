@@ -1,6 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { PostHogProvider } from '@posthog/react'
+import { Analytics } from '@vercel/analytics/react'
 import './index.css'
 import { AuthProvider } from './lib/auth.tsx'
 import App from './App.tsx'
@@ -18,6 +19,7 @@ if (posthogKey) {
           <App />
         </AuthProvider>
       </PostHogProvider>
+      <Analytics />
     </StrictMode>,
   )
 } else {
@@ -26,6 +28,7 @@ if (posthogKey) {
       <AuthProvider>
         <App />
       </AuthProvider>
+      <Analytics />
     </StrictMode>,
   )
 }

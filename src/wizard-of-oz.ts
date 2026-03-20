@@ -3,7 +3,7 @@
  * Detects doc/chat patterns and surfaces observations without LLM calls.
  */
 
-import type { SessionPhase } from './agent'
+import type { SessionPhase } from './phase-machine'
 
 export interface WizardObservation {
   agent: string
@@ -173,9 +173,9 @@ export function detectObservations(
   const first = agentNames[0]
   const second = agentNames[1] || first
 
-  // During planning phase, suppress generic greetings — the orchestrator
+  // During discovery/planning phase, suppress generic greetings — the orchestrator
   // already triggered a focused planning prompt via the LLM
-  if (phase === 'planning') {
+  if (phase === 'discovery' || phase === 'planning') {
     const agentMessages = messages.filter(m => agentNames.includes(m.from))
     const userMessages = messages.filter(m => !agentNames.includes(m.from))
     if (agentMessages.length >= 1 && userMessages.length === 0 && messages.length >= 2) {
@@ -193,7 +193,7 @@ export function detectObservations(
 
   // Empty doc, few messages — skip during active phase if user already gave direction
   if (plain.trim().length < 30 && messages.length <= 2) {
-    if (phase === 'active') {
+    if (phase === 'drafting') {
       // no-op: user already directed agents
     } else {
       emit({

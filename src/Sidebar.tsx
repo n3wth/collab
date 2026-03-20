@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { deleteSession } from './lib/session-store'
+import { MarkupLogo } from './MarkupLogo'
 import type { Session } from './types'
 import type { User } from '@supabase/supabase-js'
 
@@ -90,7 +91,7 @@ export function Sidebar({ sessions, activeSessionId, onSelect, onNewDoc, onDelet
       <div className="sidebar-header">
         {searchOpen ? (
           <div className="sidebar-search-inline">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="11" cy="11" r="8" />
               <line x1="21" y1="21" x2="16.65" y2="16.65" />
             </svg>
@@ -104,8 +105,8 @@ export function Sidebar({ sessions, activeSessionId, onSelect, onNewDoc, onDelet
               onBlur={() => { if (!search) setSearchOpen(false) }}
             />
             {search && (
-              <button className="sidebar-search-clear" onClick={() => { setSearch(''); setSearchOpen(false) }} aria-label="Clear search">
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <button className="sidebar-search-clear" onClick={() => { setSearch(''); setSearchOpen(false) }}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="18" y1="6" x2="6" y2="18" />
                   <line x1="6" y1="6" x2="18" y2="18" />
                 </svg>
@@ -114,7 +115,9 @@ export function Sidebar({ sessions, activeSessionId, onSelect, onNewDoc, onDelet
           </div>
         ) : (
           <>
-            <span className="sidebar-brand-label" onClick={onHome} style={{ cursor: onHome ? 'pointer' : undefined }}>Markup</span>
+            <span className="sidebar-brand-logo-wrap" onClick={onHome} style={{ cursor: onHome ? 'pointer' : undefined }}>
+              <MarkupLogo height={16} className="sidebar-brand-logo" />
+            </span>
             {sessions.length > 3 && (
               <button className="sidebar-search-btn" onClick={() => setSearchOpen(true)} title="Search documents" aria-label="Search documents">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

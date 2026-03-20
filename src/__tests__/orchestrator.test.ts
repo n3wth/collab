@@ -419,3 +419,196 @@ describe('error handling and resilience', () => {
     orch.destroy()
   })
 })
+
+describe('phase-machine integration', () => {
+  beforeEach(() => {
+    timers.length = 0
+    nextTimerId = 1
+    vi.clearAllMocks()
+  })
+
+  it('blank doc starts in discovery phase', async () => {
+    const { askAgent } = await import('../agent')
+    const mockAskAgent = vi.mocked(askAgent)
+    const config = makeConfig({ onPhaseChange: vi.fn() })
+    const orch = createOrchestrator(config)
+    orch.trigger('doc-opened')
+
+    // Fire the lead agent timer
+    const agentTimer = timers.find(t => t.ms < 5000)
+    agentTimer?.fn()
+
+    await vi.waitFor(() => {
+      expect(mockAskAgent).toHaveBeenCalledWith(
+        expect.objectContaining({ phase: 'discovery' })
+      )
+    })
+    orch.destroy()
+  })
+
+  it('content-rich doc starts in drafting phase', async () => {
+    const { askAgent } = await import('../agent')
+    const mockAskAgent = vi.mocked(askAgent)
+    const longContent = Array(120).fill('word').join(' ')
+    const config = makeConfig({
+      getDocText: vi.fn(() => longContent),
+      onPhaseChange: vi.fn(),
+    })
+    const orch = createOrchestrator(config)
+    orch.trigger('doc-opened')
+
+    // Fire an agent timer
+    const agentTimer = timers.find(t => t.ms < 10000 && t.ms >= 2000)
+    agentTimer?.fn()
+
+    await vi.waitFor(() => {
+      expect(mockAskAgent).toHaveBeenCalledWith(
+        expect.objectContaining({ phase: 'drafting' })
+      )
+    })
+    orch.destroy()
+  })
+
+  it('blocks disallowed actions per phase using isActionAllowed', async () => {
+    const { askAgent } = await import('../agent')
+    const { executeAgentAction } = await import('../agent-actions')
+    const mockAskAgent = vi.mocked(askAgent)
+    const mockExecute = vi.mocked(executeAgentAction)
+    // In discovery phase, insert is not allowed — should be downgraded to chat
+    mockAskAgent.mockResolvedValueOnce({
+      type: 'insert',
+      content: 'Some content',
+      position: 'end',
+      chatMessage: 'Adding content',
+      shouldContinue: false,
+    })
+
+    const config = makeConfig({ onPhaseChange: vi.fn() })
+    const orch = createOrchestrator(config)
+    orch.trigger('doc-opened') // blank doc -> discovery phase
+
+    // Fire the lead agent timer to get agent to act in discovery phase
+    const agentTimer = timers.find(t => t.ms < 5000)
+    agentTimer?.fn()
+
+    await vi.waitFor(() => {
+      expect(mockExecute).toHaveBeenCalledWith(
+        expect.anything(),
+        'Aiden',
+        expect.any(String),
+        expect.objectContaining({ type: 'chat' }), // insert downgraded to chat
+        expect.anything(),
+        expect.anything(),
+        expect.anything(),
+      )
+    })
+    orch.destroy()
+  })
+
+  it('allows insert actions in drafting phase', async () => {
+    const { askAgent } = await import('../agent')
+    const { executeAgentAction } = await import('../agent-actions')
+    const mockAskAgent = vi.mocked(askAgent)
+    const mockExecute = vi.mocked(executeAgentAction)
+    mockAskAgent.mockResolvedValueOnce({
+      type: 'insert',
+      content: 'New content',
+      position: 'end',
+      shouldContinue: false,
+    })
+
+    const longContent = Array(120).fill('word').join(' ')
+    const config = makeConfig({
+      getDocText: vi.fn(() => longContent),
+      onPhaseChange: vi.fn(),
+    })
+    const orch = createOrchestrator(config)
+    orch.trigger('doc-opened') // content doc -> drafting phase
+
+    orch.trigger('user-message', { instruction: '@aiden add a section' })
+
+    await vi.waitFor(() => {
+      expect(mockExecute).toHaveBeenCalledWith(
+        expect.anything(), // editor
+        'Aiden',
+        expect.any(String), // color
+        expect.objectContaining({ type: 'insert' }), // action NOT downgraded
+        expect.anything(),
+        expect.anything(),
+        expect.anything(),
+      )
+    })
+    orch.destroy()
+  })
+
+  it('onPhaseChange fires when phase transitions on user message', async () => {
+    const { askAgent } = await import('../agent')
+    vi.mocked(askAgent).mockResolvedValue({
+      type: 'chat', chatMessage: 'ok', shouldContinue: false,
+    })
+
+    const onPhaseChange = vi.fn()
+    const config = makeConfig({ onPhaseChange })
+    const orch = createOrchestrator(config)
+    orch.trigger('doc-opened') // discovery phase
+
+    // Substantive user message should advance to planning
+    orch.trigger('user-message', { instruction: 'I want to build a product requirements document for a new mobile app' })
+
+    await vi.waitFor(() => {
+      expect(onPhaseChange).toHaveBeenCalledWith(
+        expect.objectContaining({ current: 'planning' })
+      )
+    })
+    orch.destroy()
+  })
+
+  it('passes agent mode to askAgent based on phase', async () => {
+    const { askAgent } = await import('../agent')
+    const mockAskAgent = vi.mocked(askAgent)
+    mockAskAgent.mockResolvedValueOnce({
+      type: 'chat', chatMessage: 'hello', shouldContinue: false,
+    })
+
+    const config = makeConfig({ onPhaseChange: vi.fn() })
+    const orch = createOrchestrator(config)
+    orch.trigger('doc-opened') // discovery phase
+
+    // Fire the lead agent timer
+    const agentTimer = timers.find(t => t.ms < 5000)
+    agentTimer?.fn()
+
+    await vi.waitFor(() => {
+      expect(mockAskAgent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          agentMode: expect.objectContaining({
+            label: expect.any(String),
+            promptModifier: expect.any(String),
+          }),
+        })
+      )
+    })
+    orch.destroy()
+  })
+
+  it('destroy resets phase state', () => {
+    const onPhaseChange = vi.fn()
+    const config = makeConfig({ onPhaseChange })
+    const orch = createOrchestrator(config)
+
+    // Open doc and trigger a transition
+    orch.trigger('doc-opened')
+    orch.trigger('user-message', { instruction: 'Build a PRD for a payment system' })
+
+    orch.destroy()
+
+    // After destroy + re-create, should start fresh in discovery
+    const orch2 = createOrchestrator(config)
+    orch2.trigger('doc-opened') // blank doc -> discovery
+
+    // The lead agent timer should exist (discovery phase behavior)
+    const agentTimer = timers.find(t => t.ms < 5000)
+    expect(agentTimer).toBeDefined()
+    orch2.destroy()
+  })
+})
