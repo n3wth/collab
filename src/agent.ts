@@ -731,6 +731,10 @@ export async function askAgent(params: AskParams): Promise<AgentAction> {
       const clientKey = getStoredApiKey()
       const headers: Record<string, string> = { 'Content-Type': 'application/json' }
       if (clientKey) headers['X-Gemini-Key'] = clientKey
+      // Pass session context for server-side Langfuse tracing
+      const sessionMatch = window.location.pathname.match(/\/s\/([^/]+)/)
+      if (sessionMatch) headers['X-Session-Id'] = sessionMatch[1]
+      if (params.agentName) headers['X-Agent-Name'] = params.agentName
       const res = await fetch(API_URL, {
         method: 'POST',
         headers,

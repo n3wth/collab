@@ -1,6 +1,7 @@
 import { useCallback, useRef, useEffect } from 'react'
 import { createOrchestrator } from '../orchestrator'
 import { saveChatMessage, updateSessionTitle } from '../lib/session-store'
+import { events } from '../lib/analytics'
 import type { AgentConfig, AgentState, Message, TimelineEntry, Session } from '../types'
 import type { Editor } from '@tiptap/react'
 import { now, uid } from './useSession'
@@ -55,6 +56,10 @@ export function useOrchestrator({
         if (agentCfg) {
           setTimeline(t => [...t, { id: uid(), color: agentCfg.color, tooltip: description }].slice(-50))
         }
+        const sessionId = activeSessionRef.current?.id || ''
+        // Extract action type from description (e.g. "Aiden inserted content after:...")
+        const actionType = description.match(/\b(insert|replace|read|image)\b/i)?.[1]?.toLowerCase() || 'edit'
+        events.agentAction(sessionId, agent, actionType, true)
       },
       onChatMessage: (from, text) => {
         const reasoning = pendingReasoning.current[from]
@@ -89,7 +94,9 @@ export function useOrchestrator({
           setActiveSession(s => s ? { ...s, title } : s)
         }
       },
-      onError: (_agent, error, failures) => {
+      onError: (agent, error, failures) => {
+        const sessionId = activeSessionRef.current?.id || ''
+        events.agentError(sessionId, agent, error.code)
         if (failures >= 3) {
           setMessages(m => [...m, {
             id: uid(),
