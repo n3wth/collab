@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { AGENT_PRESETS } from './AgentConfigurator'
 import { supabase } from './lib/supabase'
-import type { AgentConfig } from './orchestrator'
-import type { DocTemplate } from './types'
+import type { AgentConfig, DocTemplate } from './types'
 
 const AGENT_DESCRIPTIONS: Record<string, string> = {
   Aiden: 'Technical architecture and engineering',

@@ -2,8 +2,7 @@ import { useState, useEffect } from 'react'
 import { BlobAvatar } from './blob-avatar'
 import { listSessions, createSession, deleteSession } from './lib/session-store'
 import { DOC_TEMPLATES } from './templates'
-import type { Session, DocTemplate } from './types'
-import type { AgentConfig } from './orchestrator'
+import type { Session, DocTemplate, AgentConfig } from './types'
 import { AGENT_PRESETS } from './AgentConfigurator'
 interface Starter {
   id: string

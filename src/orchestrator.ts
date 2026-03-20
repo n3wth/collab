@@ -2,17 +2,12 @@ import type { Editor } from '@tiptap/react'
 import { askAgent, AgentError, resetRateLimiter, extractDocStructure, type AgentAction, type AskParams } from './agent'
 import { executeAgentAction, type ActionCallbacks } from './agent-actions'
 import { generateObservation, resetHeartbeat } from './heartbeat'
-import { DEFAULT_LIMITS, type OrchestratorLimits } from './types'
+import { DEFAULT_LIMITS, type OrchestratorLimits, type AgentConfig } from './types'
+
+export type { AgentConfig }
 
 type AgentName = string
 type TriggerType = 'doc-opened' | 'user-message' | 'agent-tagged' | 'turn-complete' | 'heartbeat'
-
-export interface AgentConfig {
-  name: string
-  persona: string
-  owner: string
-  color: string
-}
 
 interface TurnRequest {
   agent: AgentName
