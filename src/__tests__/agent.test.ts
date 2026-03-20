@@ -219,3 +219,130 @@ describe('rateLimiter', () => {
     expect(rl.backoffUntil).toBeGreaterThanOrEqual(before + 30000)
   })
 })
+
+describe('validateAction (replicated from agent.ts)', () => {
+  // Replicate the full VALID_ACTION_TYPES set and validateAction logic
+  const VALID_ACTION_TYPES = new Set(['insert', 'replace', 'read', 'chat', 'search', 'rename', 'delete', 'propose', 'plan', 'ask'])
+
+  function validateAction(obj: unknown): Record<string, unknown> | null {
+    if (typeof obj !== 'object' || obj === null) return null
+    const record = obj as Record<string, unknown>
+    if (typeof record.type !== 'string') return null
+    if (!VALID_ACTION_TYPES.has(record.type)) return null
+    switch (record.type) {
+      case 'insert':
+        if (typeof record.content !== 'string' || !record.content) return null
+        break
+      case 'replace':
+        if (typeof record.searchText !== 'string' || !record.searchText) return null
+        if (typeof record.replaceWith !== 'string') return null
+        break
+      case 'chat':
+        if (typeof record.chatMessage !== 'string' || !record.chatMessage) return null
+        break
+      case 'search':
+        if (typeof record.query !== 'string' || !record.query) return null
+        break
+      case 'rename':
+        if (typeof record.newTitle !== 'string' || !record.newTitle) return null
+        break
+      case 'delete':
+        if (typeof record.deleteText !== 'string' || !record.deleteText) return null
+        break
+      case 'propose':
+        if (typeof record.proposal !== 'string' || !record.proposal) return null
+        break
+      case 'ask':
+        if (typeof record.question !== 'string' || !record.question) return null
+        break
+    }
+    return record
+  }
+
+  it('accepts all 10 valid action types', () => {
+    expect(validateAction({ type: 'insert', content: 'text' })).not.toBeNull()
+    expect(validateAction({ type: 'replace', searchText: 'a', replaceWith: 'b' })).not.toBeNull()
+    expect(validateAction({ type: 'read' })).not.toBeNull()
+    expect(validateAction({ type: 'chat', chatMessage: 'hi' })).not.toBeNull()
+    expect(validateAction({ type: 'search', query: 'test' })).not.toBeNull()
+    expect(validateAction({ type: 'rename', newTitle: 'New' })).not.toBeNull()
+    expect(validateAction({ type: 'delete', deleteText: 'rm' })).not.toBeNull()
+    expect(validateAction({ type: 'propose', proposal: 'idea' })).not.toBeNull()
+    expect(validateAction({ type: 'plan' })).not.toBeNull()
+    expect(validateAction({ type: 'ask', question: 'why?' })).not.toBeNull()
+  })
+
+  it('rejects unknown action type', () => {
+    expect(validateAction({ type: 'explode' })).toBeNull()
+  })
+
+  it('rejects null/undefined/non-object', () => {
+    expect(validateAction(null)).toBeNull()
+    expect(validateAction(undefined)).toBeNull()
+    expect(validateAction('string')).toBeNull()
+    expect(validateAction(42)).toBeNull()
+  })
+
+  it('rejects object without type field', () => {
+    expect(validateAction({ content: 'text' })).toBeNull()
+  })
+
+  it('rejects rename without newTitle', () => {
+    expect(validateAction({ type: 'rename' })).toBeNull()
+    expect(validateAction({ type: 'rename', newTitle: '' })).toBeNull()
+  })
+
+  it('rejects delete without deleteText', () => {
+    expect(validateAction({ type: 'delete' })).toBeNull()
+    expect(validateAction({ type: 'delete', deleteText: '' })).toBeNull()
+  })
+
+  it('rejects propose without proposal', () => {
+    expect(validateAction({ type: 'propose' })).toBeNull()
+  })
+
+  it('rejects ask without question', () => {
+    expect(validateAction({ type: 'ask' })).toBeNull()
+  })
+
+  it('rejects insert without content', () => {
+    expect(validateAction({ type: 'insert' })).toBeNull()
+    expect(validateAction({ type: 'insert', content: '' })).toBeNull()
+  })
+
+  it('rejects replace without searchText', () => {
+    expect(validateAction({ type: 'replace', replaceWith: 'b' })).toBeNull()
+  })
+
+  it('rejects replace without replaceWith', () => {
+    expect(validateAction({ type: 'replace', searchText: 'a' })).toBeNull()
+  })
+})
+
+describe('code fence stripping', () => {
+  function stripCodeFences(text: string): string {
+    let s = text.trim()
+    s = s.replace(/^```(?:json)?\s*\n?/, '').replace(/\n?```\s*$/, '')
+    return s.trim()
+  }
+
+  it('strips ```json prefix and ``` suffix', () => {
+    const result = stripCodeFences('```json\n{"type":"chat"}\n```')
+    expect(result).toBe('{"type":"chat"}')
+  })
+
+  it('strips ``` without json label', () => {
+    const result = stripCodeFences('```\n{"type":"chat"}\n```')
+    expect(result).toBe('{"type":"chat"}')
+  })
+
+  it('passes through clean JSON', () => {
+    const result = stripCodeFences('{"type":"chat"}')
+    expect(result).toBe('{"type":"chat"}')
+  })
+
+  it('handles whitespace around fences', () => {
+    const result = stripCodeFences('  ```json\n{"type":"chat"}\n```  ')
+    expect(result).toBe('{"type":"chat"}')
+  })
+})

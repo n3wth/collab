@@ -77,7 +77,7 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
   function scheduleTimeout(fn: () => void, ms: number): number {
     const id = window.setTimeout(() => {
       scheduledTimers.delete(id)
-      fn()
+      if (!destroyed) fn()
     }, ms)
     scheduledTimers.add(id)
     return id
@@ -90,6 +90,7 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
       clearTimeout(typingTimers[k])
       delete typingTimers[k]
     })
+    stopHeartbeat()
   }
 
   function enqueue(req: TurnRequest) {
@@ -145,10 +146,14 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
       }
 
       const callbacks: ActionCallbacks = {
-        onStateChange: (status, thought) => config.onAgentState(req.agent, status, thought),
-        onChatMessage: (from, text) => config.onChatMessage(from, text),
+        onStateChange: (status, thought) => {
+          if (!destroyed) config.onAgentState(req.agent, status, thought)
+        },
+        onChatMessage: (from, text) => {
+          if (!destroyed) config.onChatMessage(from, text)
+        },
         onDone: (success?: boolean) => {
-          if (destroyed) return
+          if (destroyed) { processing = false; return }
           consecutiveFailures[req.agent] = 0
           log('done', req.agent, action.type, 'success:', success, 'shouldContinue:', action.shouldContinue)
           const actionDesc = describeAction(req.agent, action)
@@ -163,7 +168,7 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
             config.onProposal(req.agent, action.proposalType, action.proposal || '')
           }
           // Fire timeline callback for doc edits
-          const didDocEdit = action.type === 'insert' || action.type === 'replace' || action.type === 'read'
+          const didDocEdit = action.type === 'insert' || action.type === 'replace' || action.type === 'read' || action.type === 'image'
           if (didDocEdit) {
             config.onDocAction?.(req.agent, actionDesc)
           }
@@ -181,20 +186,29 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
           }
 
           // After a SUCCESSFUL doc edit, prompt the OTHER agent to react
-          const didEdit = (action.type === 'insert' || action.type === 'replace') && success !== false
+          const didEdit = (action.type === 'insert' || action.type === 'replace' || action.type === 'image') && success !== false
           if (didEdit && queue.length === 0) {
-            const other: AgentName = req.agent === 'Aiden' ? 'Nova' : 'Aiden'
-            if (exchangeCount < limits.maxExchanges && turnCount[other] < limits.maxTurns && pendingReaction !== other) {
+            // Dynamic routing: pick a random other agent (not hardcoded Aiden/Nova)
+            const otherNames = agentNames.filter(n => n !== req.agent)
+            const other: AgentName = otherNames[Math.floor(Math.random() * otherNames.length)] || agentNames[0]
+            if (other !== req.agent && exchangeCount < limits.maxExchanges && turnCount[other] < limits.maxTurns && pendingReaction !== other) {
               exchangeCount++
               pendingReaction = other
+              // Build richer reaction instruction with specialty context
+              const otherCfg = getAgentConfig(other)
+              const specialtyHint = otherCfg?.persona ? otherCfg.persona.slice(0, 80) : ''
+              const reactionInstruction = [
+                `${req.agent} just edited the doc: ${actionDesc}.`,
+                action.type === 'insert' ? `They added new content. Evaluate it from your perspective${specialtyHint ? ` (${specialtyHint})` : ''}.` : '',
+                action.type === 'replace' ? `They rewrote existing text. Check if the replacement is better or lost important nuance.` : '',
+                `Options: build on it with your expertise, challenge a specific claim, add a missing angle, or ask a pointed question. If you fully agree and have nothing to add, just acknowledge briefly and yield.`,
+              ].filter(Boolean).join(' ')
               scheduleTimeout(() => {
-                if (!destroyed) {
-                  enqueue({
-                    agent: other,
-                    trigger: 'instruction',
-                    instruction: `${req.agent} just edited the doc: ${actionDesc}. React to their changes — build on it, challenge it, add your perspective, or ask a question about it. Don't just repeat what they did.`,
-                  })
-                }
+                enqueue({
+                  agent: other,
+                  trigger: 'instruction',
+                  instruction: reactionInstruction,
+                })
               }, limits.reactionDelayMs[0] + Math.random() * (limits.reactionDelayMs[1] - limits.reactionDelayMs[0]))
             }
           } else if (action.shouldContinue && turnCount[req.agent] < limits.maxTurns) {
@@ -247,6 +261,7 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
       case 'propose': return `${agent} proposed: ${(action.proposal || '').slice(0, 80)}`
       case 'plan': return `${agent} outlined a plan with ${action.steps?.length || 0} steps`
       case 'ask': return `${agent} asked: "${(action.question || '').slice(0, 80)}"`
+      case 'image': return `${agent} generated an image: "${(action.imageCaption || action.imagePrompt || '').slice(0, 80)}"`
       default: return `${agent} acted`
     }
   }
@@ -359,18 +374,26 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
     if (destroyed || processing || agentNames.length === 0) return
 
     const agent = config.agents[Math.floor(Math.random() * config.agents.length)]
-    if (queue.some(q => q.agent === agent.name)) return
+    if (queue.some(q => q.agent === agent.name)) {
+      // Agent is busy, restart heartbeat and try later
+      if (!destroyed) startHeartbeat()
+      return
+    }
 
-    const observation = await generateObservation(
-      config.getDocText(),
-      config.getMessages().slice(-10),
-      agent.name,
-      agent.persona,
-      agentNames.filter(n => n !== agent.name),
-    )
+    try {
+      const observation = await generateObservation(
+        config.getDocText(),
+        config.getMessages().slice(-10),
+        agent.name,
+        agent.persona,
+        agentNames.filter(n => n !== agent.name),
+      )
 
-    if (observation && !destroyed) {
-      config.onChatMessage(agent.name, observation)
+      if (observation && !destroyed) {
+        config.onChatMessage(agent.name, observation)
+      }
+    } catch (err) {
+      log('heartbeat error:', err)
     }
 
     // Restart heartbeat timer
@@ -380,7 +403,6 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
   function destroy() {
     destroyed = true
     clearAllTimers()
-    stopHeartbeat()
     resetRateLimiter()
     resetHeartbeat()
     queue.length = 0
@@ -389,7 +411,9 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
     for (const name of agentNames) {
       turnCount[name] = 0
       consecutiveFailures[name] = 0
+      delete pendingInstructions[name]
     }
+    lastActionDescription = {}
     exchangeCount = 0
     pendingReaction = null
     pausedAgents.clear()
