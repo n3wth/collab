@@ -25,7 +25,6 @@
     "@vercel/analytics": "^2.0.1",
     "ai": "^6.0.116",
     "posthog-js": "^1.363.0",
-    "posthog-node": "^5.28.4",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "simplex-noise": "^4.0.3",
