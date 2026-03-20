@@ -1,10 +1,19 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { createGoogleGenerativeAI } from '@ai-sdk/google'
 import { generateObject } from 'ai'
-import './instrumentation'
+import { LangfuseSpanProcessor } from '@langfuse/otel'
+import { NodeTracerProvider } from '@opentelemetry/sdk-trace-node'
 import { startActiveObservation, propagateAttributes } from '@langfuse/tracing'
-import { langfuseSpanProcessor } from './instrumentation'
 import { agentActionSchema } from './agent-schema'
+
+// Langfuse tracing setup (inline to avoid cross-file import issues in Vercel serverless)
+const langfuseSpanProcessor = new LangfuseSpanProcessor({
+  publicKey: process.env.LANGFUSE_PUBLIC_KEY,
+  secretKey: process.env.LANGFUSE_SECRET_KEY,
+  baseUrl: process.env.LANGFUSE_BASE_URL || 'https://us.cloud.langfuse.com',
+})
+const tracerProvider = new NodeTracerProvider({ spanProcessors: [langfuseSpanProcessor] })
+tracerProvider.register()
 
 const MODEL_ID = 'gemini-2.5-flash'
 
