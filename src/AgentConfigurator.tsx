@@ -1,13 +1,6 @@
 import { useState } from 'react'
 import { BlobAvatar } from './blob-avatar'
-
-export interface AgentConfig {
-  name: string
-  description: string
-  persona: string
-  owner: string
-  color: string
-}
+import type { AgentConfig } from './types'
 
 const PRESETS: AgentConfig[] = [
   {

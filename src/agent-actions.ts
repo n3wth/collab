@@ -1,5 +1,15 @@
 import type { Editor } from '@tiptap/react'
 import type { AgentAction } from './agent'
+import { generateImage } from './lib/image-gen'
+
+// Check if an editor instance is still usable (not destroyed)
+function isEditorAlive(editor: Editor): boolean {
+  try {
+    return !editor.isDestroyed && editor.view !== null
+  } catch {
+    return false
+  }
+}
 
 export interface DocChangeInfo {
   type: 'insert' | 'replace' | 'delete'
@@ -179,20 +189,23 @@ function typeTextAt(
   timers: Record<string, number>,
   cb: ActionCallbacks
 ) {
+  if (!isEditorAlive(editor)) { cb.onDone(false); return }
   cb.onStateChange('editing')
   try {
     const tr = editor.view.state.tr.insertText(text, clampPos(editor, pos))
     editor.view.dispatch(tr)
   } catch { /* best effort */ }
-  safeCursor(editor, {
-    name: agentName,
-    color: agentColor,
-    pos: clampPos(editor, pos + text.length),
-  }, true)
+  if (isEditorAlive(editor)) {
+    safeCursor(editor, {
+      name: agentName,
+      color: agentColor,
+      pos: clampPos(editor, pos + text.length),
+    }, true)
+  }
   timers[agentName] = window.setTimeout(() => {
     cb.onStateChange('idle')
     timers[agentName] = window.setTimeout(() => {
-      safeRemoveCursor(editor, agentName)
+      if (isEditorAlive(editor)) safeRemoveCursor(editor, agentName)
       cb.onDone(true)
     }, 800)
   }, 400)
@@ -208,7 +221,13 @@ export function executeAgentAction(
   timers: Record<string, number>,
   callbacks: ActionCallbacks
 ) {
-  const needsLock = action.type === 'insert' || action.type === 'replace'
+  // Guard: bail if editor is already destroyed
+  if (!isEditorAlive(editor)) {
+    callbacks.onDone(false)
+    return
+  }
+
+  const needsLock = action.type === 'insert' || action.type === 'replace' || action.type === 'image'
 
   if (needsLock && editorLockRef.current && editorLockRef.current !== agentName) {
     const retries = (action as { _lockRetries?: number })._lockRetries || 0
@@ -269,6 +288,7 @@ export function executeAgentAction(
     const SCAN_INTERVAL = 280
 
     function advanceScan() {
+      if (!isEditorAlive(editor)) { releaseLockAndDone(false); return }
       if (scanIdx >= scanPoints.length) {
         // Done scanning — hold on target briefly, then finish
         if (found) {
@@ -283,7 +303,7 @@ export function executeAgentAction(
         }
         timers[agentName] = window.setTimeout(() => {
           callbacks.onStateChange('idle')
-          safeRemoveCursor(editor, agentName)
+          if (isEditorAlive(editor)) safeRemoveCursor(editor, agentName)
           postChatAfter()
           releaseLockAndDone(true)
         }, 1200)
@@ -395,9 +415,10 @@ export function executeAgentAction(
 
     let opIdx = 0
     const streamNextOp = () => {
+      if (!isEditorAlive(editor)) { releaseLockAndDone(false); return }
       if (opIdx >= insertOps.length) {
         timers[agentName] = window.setTimeout(() => {
-          safeRemoveCursor(editor, agentName)
+          if (isEditorAlive(editor)) safeRemoveCursor(editor, agentName)
           callbacks.onStateChange('idle')
           postChatAfter()
           releaseLockAndDone(true)
@@ -546,9 +567,12 @@ export function executeAgentAction(
     }, true) // scroll to replace position
 
     timers[agentName] = window.setTimeout(() => {
-      editor.chain()
-        .deleteRange({ from: found.from, to: found.to })
-        .run()
+      if (!isEditorAlive(editor)) { releaseLockAndDone(false); return }
+      try {
+        editor.chain()
+          .deleteRange({ from: found.from, to: found.to })
+          .run()
+      } catch { /* editor state may have changed */ }
       safeCursor(editor, {
         name: agentName,
         color: agentColor,
@@ -600,15 +624,13 @@ export function executeAgentAction(
   } else if (action.type === 'delete') {
     // Delete specific text from the document
     if (action.deleteText) {
-      const doc = editor.state.doc
-      const docText = doc.textContent
-      const idx = docText.indexOf(action.deleteText)
-      if (idx >= 0) {
+      const found = findTextPos(editor, action.deleteText)
+      if (found) {
         if (action.chatBefore) callbacks.onChatMessage(agentName, action.chatBefore)
-        const from = idx + 1
-        const to = from + action.deleteText.length
-        const tr = editor.state.tr.delete(from, to)
-        editor.view.dispatch(tr)
+        try {
+          const tr = editor.state.tr.delete(found.from, found.to)
+          editor.view.dispatch(tr)
+        } catch { /* editor state may have changed */ }
         if (action.chatMessage) callbacks.onChatMessage(agentName, action.chatMessage)
       }
     }
@@ -632,6 +654,97 @@ export function executeAgentAction(
     const msg = action.question || action.chatMessage || 'I have a question.'
     callbacks.onChatMessage(agentName, msg)
     releaseLockAndDone(true)
+
+  } else if (action.type === 'image') {
+    postChatBefore()
+    callbacks.onStateChange('thinking', 'Generating image...')
+
+    const imagePrompt = action.imagePrompt || ''
+    const caption = action.imageCaption || ''
+
+    generateImage(imagePrompt).then((result) => {
+      if (!result) {
+        callbacks.onChatMessage(agentName, `[from doc] Couldn't generate the image. The request may have been blocked or the service is unavailable.`)
+        callbacks.onStateChange('idle')
+        releaseLockAndDone(false)
+        return
+      }
+
+      callbacks.onStateChange('editing', 'Inserting image...')
+
+      if (!isEditorAlive(editor)) { releaseLockAndDone(false); return }
+
+      // Determine insert position (same logic as insert action)
+      let insertPos = editor.state.doc.content.size
+      if (action.position && action.position.startsWith('after:')) {
+        const targetHeading = action.position.slice(6).trim().toLowerCase()
+        let foundHeading = false
+        editor.state.doc.descendants((node, pos) => {
+          if (foundHeading) return false
+          if (node.type.name === 'heading') {
+            const headingText = node.textContent.trim().toLowerCase()
+            if (headingText === targetHeading || headingText.includes(targetHeading)) {
+              let sectionEnd = pos + node.nodeSize
+              let foundNext = false
+              editor.state.doc.descendants((innerNode, innerPos) => {
+                if (foundNext) return false
+                if (innerPos > pos && innerNode.type.name === 'heading') {
+                  sectionEnd = innerPos
+                  foundNext = true
+                  return false
+                }
+                if (innerPos > pos) {
+                  sectionEnd = innerPos + innerNode.nodeSize
+                }
+              })
+              insertPos = sectionEnd
+              foundHeading = true
+              return false
+            }
+          }
+        })
+      }
+
+      // Build HTML for the figure with image
+      const alt = caption || imagePrompt.slice(0, 100)
+      const figcaptionHtml = caption ? `<figcaption>${caption.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</figcaption>` : ''
+      const html = `<figure class="agent-image"><img src="${result.dataUrl}" alt="${alt.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')}" />${figcaptionHtml}</figure>`
+
+      try {
+        editor.commands.insertContentAt(clampPos(editor, insertPos), html)
+      } catch {
+        // Fallback: insert at end
+        try {
+          editor.commands.insertContentAt(editor.state.doc.content.size, html)
+        } catch { /* give up */ }
+      }
+
+      // Fade in the image
+      const editorEl = editor.view.dom
+      const lastChild = editorEl.lastElementChild
+      if (lastChild && !lastChild.classList.contains('agent-fade-in')) {
+        lastChild.classList.add('agent-fade-in')
+      }
+
+      safeCursor(editor, {
+        name: agentName,
+        color: agentColor,
+        pos: clampPos(editor, editor.state.doc.content.size - 1),
+        thought: 'Image added',
+      }, true)
+
+      postChatAfter()
+
+      timers[agentName] = window.setTimeout(() => {
+        safeRemoveCursor(editor, agentName)
+        callbacks.onStateChange('idle')
+        releaseLockAndDone(true)
+      }, 800)
+    }).catch(() => {
+      callbacks.onChatMessage(agentName, `[from doc] Image generation failed unexpectedly.`)
+      callbacks.onStateChange('idle')
+      releaseLockAndDone(false)
+    })
 
   } else if (action.type === 'chat') {
     callbacks.onChatMessage(agentName, action.chatMessage || 'Got it.')

@@ -51,3 +51,49 @@ export const DEFAULT_LIMITS: OrchestratorLimits = {
   heartbeatDelayMs: [20000, 30000],
   reactionDelayMs: [3000, 5000],
 }
+
+// Shared agent config used across orchestrator, configurator, and UI
+export interface AgentConfig {
+  name: string
+  persona: string
+  owner: string
+  color: string
+  description?: string
+}
+
+// Chat message as rendered in the UI
+export interface DocChange {
+  type: 'insert' | 'replace' | 'delete'
+  summary: string
+  added?: string
+  removed?: string
+}
+
+export interface Proposal {
+  type: 'create-doc' | 'delete-doc' | 'add-agent' | 'remove-agent'
+  description: string
+  status: 'pending' | 'approved' | 'rejected'
+}
+
+export interface Message {
+  id: string
+  from: string
+  text: string
+  time: string
+  showDocButton?: boolean
+  reasoning?: string[]
+  docChange?: DocChange
+  proposal?: Proposal
+}
+
+export interface AgentState {
+  status: 'idle' | 'thinking' | 'typing' | 'reading' | 'editing'
+  thought?: string
+  inDoc: boolean
+}
+
+export interface TimelineEntry {
+  id: string
+  color: string
+  tooltip: string
+}

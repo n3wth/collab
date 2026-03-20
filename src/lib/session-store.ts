@@ -6,6 +6,26 @@ import type {
   ChatMessageRecord,
 } from '../types'
 
+// Retry helper for transient network failures
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  maxRetries = 2,
+  delayMs = 1000,
+): Promise<T> {
+  let lastError: unknown
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn()
+    } catch (err) {
+      lastError = err
+      if (attempt < maxRetries) {
+        await new Promise(r => setTimeout(r, delayMs * (attempt + 1)))
+      }
+    }
+  }
+  throw lastError
+}
+
 /* Sessions */
 
 export async function createSession(
@@ -60,17 +80,19 @@ export async function saveDocument(
   sessionId: string,
   html: string,
 ): Promise<void> {
-  const { error } = await supabase
-    .from('documents')
-    .upsert(
-      {
-        session_id: sessionId,
-        html_snapshot: html,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'session_id' },
-    )
-  if (error) throw error
+  await withRetry(async () => {
+    const { error } = await supabase
+      .from('documents')
+      .upsert(
+        {
+          session_id: sessionId,
+          html_snapshot: html,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'session_id' },
+      )
+    if (error) throw error
+  })
 }
 
 export async function loadDocument(
@@ -91,18 +113,20 @@ export async function saveChatMessage(
   sessionId: string,
   msg: { sender: string; text: string; reasoning?: string[] },
 ): Promise<ChatMessageRecord> {
-  const { data, error } = await supabase
-    .from('chat_messages')
-    .insert({
-      session_id: sessionId,
-      sender: msg.sender,
-      text: msg.text,
-      reasoning: msg.reasoning || null,
-    })
-    .select()
-    .single()
-  if (error) throw error
-  return data
+  return withRetry(async () => {
+    const { data, error } = await supabase
+      .from('chat_messages')
+      .insert({
+        session_id: sessionId,
+        sender: msg.sender,
+        text: msg.text,
+        reasoning: msg.reasoning || null,
+      })
+      .select()
+      .single()
+    if (error) throw error
+    return data
+  })
 }
 
 export async function loadChatMessages(
@@ -123,25 +147,28 @@ export async function saveAgentPersonas(
   sessionId: string,
   personas: Omit<AgentPersonaRecord, 'id' | 'session_id'>[],
 ): Promise<void> {
-  await supabase
-    .from('agent_personas')
-    .delete()
-    .eq('session_id', sessionId)
+  await withRetry(async () => {
+    const { error: delError } = await supabase
+      .from('agent_personas')
+      .delete()
+      .eq('session_id', sessionId)
+    if (delError) throw delError
 
-  if (personas.length === 0) return
+    if (personas.length === 0) return
 
-  const rows = personas.map((p, i) => ({
-    session_id: sessionId,
-    name: p.name,
-    description: p.description,
-    system_prompt: p.system_prompt,
-    color: p.color,
-    owner: p.owner,
-    model: p.model,
-    sort_order: i,
-  }))
-  const { error } = await supabase.from('agent_personas').insert(rows)
-  if (error) throw error
+    const rows = personas.map((p, i) => ({
+      session_id: sessionId,
+      name: p.name,
+      description: p.description,
+      system_prompt: p.system_prompt,
+      color: p.color,
+      owner: p.owner,
+      model: p.model,
+      sort_order: i,
+    }))
+    const { error } = await supabase.from('agent_personas').insert(rows)
+    if (error) throw error
+  })
 }
 
 export async function loadAgentPersonas(
