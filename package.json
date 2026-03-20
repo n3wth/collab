@@ -21,6 +21,7 @@
     "@tiptap/extension-placeholder": "^3.20.1",
     "@tiptap/react": "^3.20.1",
     "@tiptap/starter-kit": "^3.20.1",
+    "@vercel/analytics": "^2.0.1",
     "posthog-js": "^1.363.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
