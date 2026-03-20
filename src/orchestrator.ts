@@ -341,7 +341,8 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
     stopHeartbeat()
     const [hbMin, hbMax] = limits.heartbeatDelayMs
     const delay = config.demoMode ? 8000 + Math.random() * 4000 : hbMin + Math.random() * (hbMax - hbMin)
-    heartbeatTimer = window.setTimeout(() => {
+    heartbeatTimer = scheduleTimeout(() => {
+      heartbeatTimer = null
       fireHeartbeat()
     }, delay)
   }
@@ -349,6 +350,7 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
   function stopHeartbeat() {
     if (heartbeatTimer) {
       clearTimeout(heartbeatTimer)
+      scheduledTimers.delete(heartbeatTimer)
       heartbeatTimer = null
     }
   }

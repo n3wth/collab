@@ -237,7 +237,7 @@ export const DocMinimap = Extension.create<DocMinimapOptions>({
         }
 
         el.style.backgroundColor = dot.color
-        el.style.top = `${dot.y}px`
+        el.style.transform = `translateY(${dot.y}px)`
 
         let opacity = 0.2
         if (dot.state === 'reading') opacity = 0.6
@@ -253,7 +253,7 @@ export const DocMinimap = Extension.create<DocMinimapOptions>({
       if (scrollHeight > 0 && minimapHeight > 0) {
         const viewportTop = scrollEl.scrollTop / scrollHeight
         const viewportHeight = scrollEl.clientHeight / scrollHeight
-        viewportBar.style.top = `${viewportTop * minimapHeight}px`
+        viewportBar.style.transform = `translateY(${viewportTop * minimapHeight}px)`
         viewportBar.style.height = `${Math.max(viewportHeight * minimapHeight, 12)}px`
       }
 
@@ -266,7 +266,7 @@ export const DocMinimap = Extension.create<DocMinimapOptions>({
           userDot.className = 'doc-minimap-dot doc-minimap-dot-user'
           strip.appendChild(userDot)
         }
-        userDot.style.top = `${userYRatio * minimapHeight}px`
+        userDot.style.transform = `translateY(${userYRatio * minimapHeight}px)`
       }
     }
 

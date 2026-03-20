@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState, useCallback } from 'react'
+import { useRef, useEffect, useState, useCallback, useMemo } from 'react'
 import { BlobAvatar } from '../blob-avatar'
 import { ChatMessage } from './ChatMessage'
 import type { Message, AgentState, AgentConfig } from '../types'
@@ -34,7 +34,7 @@ export function ChatPanel({
   const [chatVisibleCount, setChatVisibleCount] = useState(50)
   const [mentionQuery, setMentionQuery] = useState<string | null>(null)
   const [mentionIndex, setMentionIndex] = useState(0)
-  const MENTION_NAMES = [...activeAgents.map(a => a.name), 'Sarah']
+  const MENTION_NAMES = useMemo(() => [...activeAgents.map(a => a.name), 'Sarah'], [activeAgents])
 
   useEffect(() => {
     const container = chatEndRef.current?.parentElement
@@ -90,9 +90,13 @@ export function ChatPanel({
     if (e.key === 'Enter') onSend()
   }, [mentionQuery, mentionIndex, MENTION_NAMES, input, onInputChange, onSend])
 
-  const filtered = messages.filter(m => !m.text.startsWith('Couldn\'t find that text'))
-  const hiddenCount = Math.max(0, filtered.length - chatVisibleCount)
-  const visible = hiddenCount > 0 ? filtered.slice(-chatVisibleCount) : filtered
+  // Memoize filtered + visible messages to avoid re-computing in render
+  const { visible, hiddenCount } = useMemo(() => {
+    const filtered = messages.filter(m => !m.text.startsWith('Couldn\'t find that text'))
+    const hidden = Math.max(0, filtered.length - chatVisibleCount)
+    const vis = hidden > 0 ? filtered.slice(-chatVisibleCount) : filtered
+    return { visible: vis, hiddenCount: hidden }
+  }, [messages, chatVisibleCount])
 
   return (
     <div className="chat-panel chat-right" style={{ width: chatWidth, maxWidth: chatWidth, flexBasis: chatWidth }}>

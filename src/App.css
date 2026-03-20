@@ -2130,6 +2130,7 @@
 .sidebar .blob-avatar-wrap,
 .empty-state .blob-avatar-wrap {
   animation: blobBreathe 4s ease-in-out infinite;
+  will-change: transform;
 }
 
 @keyframes blobBreathe {
