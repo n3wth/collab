@@ -250,8 +250,8 @@ The 7-second minimum interval keeps usage safely below the free-tier limit of ~1
 ### 1. Install dependencies
 
 ```bash
-git clone https://github.com/n3wth/collab.git
-cd collab
+git clone https://github.com/n3wth/markup.git
+cd markup
 npm install
 ```
 

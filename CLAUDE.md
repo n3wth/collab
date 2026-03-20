@@ -74,8 +74,8 @@ VITE_SUPABASE_ANON_KEY=...      # Supabase anon key (JWT format)
 
 ## Deployment
 
-- Vercel project "collab" under n3wth team
-- Domain: collab.n3wth.com
+- Vercel project "markup" under n3wth team
+- Domain: markup.so
 - Push to `main` triggers auto-deploy, or run `vercel --prod`
 - Env vars set via `vercel env add`
 
