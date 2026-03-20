@@ -1,4 +1,6 @@
-import { ColorPanels } from '@paper-design/shaders-react'
+import { lazy, Suspense } from 'react'
+const ColorPanels = lazy(() => import('@paper-design/shaders-react').then(m => ({ default: m.ColorPanels })))
+import { MarkupLogo } from './MarkupLogo'
 import { useAuth } from './lib/auth'
 
 export function LoginPage() {
@@ -8,12 +10,14 @@ export function LoginPage() {
     <div className="login-page">
       <div className="login-shader">
         <img src="/hero-bg.jpg" alt="" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: 0.7, zIndex: 0 }} />
-        <ColorPanels speed={0.5} scale={1.15} density={3} angle1={0} angle2={0} length={1.1} edges={false} blur={0} fadeIn={1} fadeOut={0.3} gradient={0} rotation={0} offsetX={0} offsetY={0} colors={['#FF9D00', '#FD4F30', '#809BFF', '#6D2EFF', '#333AFF', '#F15CFF', '#FFD557']} colorBack="#00000000" style={{ height: '100%', width: '100%', mixBlendMode: 'screen' }} />
+        <Suspense fallback={null}>
+          <ColorPanels speed={0.5} scale={1.15} density={3} angle1={0} angle2={0} length={1.1} edges={false} blur={0} fadeIn={1} fadeOut={0.3} gradient={0} rotation={0} offsetX={0} offsetY={0} maxPixelCount={1920 * 1080} minPixelRatio={1} colors={['#FF9D00', '#FD4F30', '#809BFF', '#6D2EFF', '#333AFF', '#F15CFF', '#FFD557']} colorBack="#00000000" style={{ height: '100%', width: '100%', mixBlendMode: 'screen' }} />
+        </Suspense>
       </div>
       <div className="login-content">
         <nav className="login-nav">
           <div className="home-nav-logo">
-            <span className="home-nav-wordmark">Markup</span>
+            <MarkupLogo height={20} className="home-nav-logo-img" />
           </div>
           <div className="home-nav-actions">
             <button className="login-google-btn login-google-btn--nav" onClick={signInWithGoogle}>
@@ -25,7 +29,7 @@ export function LoginPage() {
         <header className="login-hero">
           <h1 className="login-headline">
             <span className="login-headline-main">Write with</span>
-            <span className="login-headline-italic">AI experts.</span>
+            <span className="login-headline-main">AI experts.</span>
           </h1>
           <p className="login-subtitle">
             AI agents that read your docs and push back on what you missed.

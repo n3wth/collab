@@ -2,33 +2,54 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="dark">
+
+    <!-- Favicon & Touch Icons -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+
+    <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preconnect" href="https://auth.n3wth.com">
     <link rel="dns-prefetch" href="https://auth.n3wth.com">
-    <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="preload" href="/fonts/Hubot-Sans.woff2" as="font" type="font/woff2" crossorigin>
-    <link rel="preload" href="/hero-bg.jpg" as="image">
+    <link rel="preload" href="/fonts/Signifier-Light.woff2" as="font" type="font/woff2" crossorigin>
+
+    <!-- Primary Meta -->
     <title>Markup — Every draft reviewed by four experts</title>
     <meta name="description" content="AI agents that read your PRDs, specs, and briefs, then push back on gaps, risks, and weak assumptions. Four perspectives before you ship." />
-    <meta property="og:title" content="Markup — Every draft reviewed by four experts" />
-    <meta property="og:description" content="AI agents that read your docs and push back on what you missed. Engineering, product, legal, and design perspectives in real time." />
+    <meta name="author" content="n3wth" />
+    <meta name="theme-color" content="#0e0e0e" />
+
+    <!-- Open Graph -->
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://markup.so" />
+    <meta property="og:title" content="Markup — Every draft reviewed by four experts" />
+    <meta property="og:description" content="AI agents that read your docs and push back on what you missed. Engineering, product, legal, and design perspectives in real time." />
     <meta property="og:site_name" content="Markup" />
+    <meta property="og:locale" content="en_US" />
     <meta property="og:image" content="https://markup.so/og-image.png" />
+    <meta property="og:image:type" content="image/png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Markup — Every draft reviewed by four experts. AI agents that read your docs and push back on what you missed." />
+
+    <!-- Twitter / X -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:image" content="https://markup.so/og-image.png" />
     <meta name="twitter:title" content="Markup — Every draft reviewed by four experts" />
     <meta name="twitter:description" content="AI agents that read your docs and push back on what you missed." />
-    <meta name="theme-color" content="#0c0c0e" />
+    <meta name="twitter:image" content="https://markup.so/og-image.png" />
+    <meta name="twitter:image:alt" content="Markup — Every draft reviewed by four experts" />
+
+    <!-- iMessage / Apple -->
+    <meta property="og:image:secure_url" content="https://markup.so/og-image.png" />
+
   </head>
-  <body style="margin:0;background:#0c0c0e">
+  <body style="margin:0;background:#0e0e0e">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

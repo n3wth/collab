@@ -1,9 +1,11 @@
 import type { Editor } from '@tiptap/react'
-import { askAgent, AgentError, resetRateLimiter, extractDocStructure, type AgentAction, type AskParams, type SessionPhase } from './agent'
+import { askAgent, AgentError, resetRateLimiter, extractDocStructure, type AgentAction, type AskParams } from './agent'
 import { executeAgentAction, type ActionCallbacks } from './agent-actions'
 import { generateObservation, resetHeartbeat } from './heartbeat'
 import { classifyDocState, type DocState } from './templates'
 import { DEFAULT_LIMITS, type OrchestratorLimits, type AgentConfig } from './types'
+import { type PhaseState, initialPhaseState, phaseReducer, isActionAllowed } from './phase-machine'
+import { getAgentMode } from './agent-modes'
 
 export type { AgentConfig }
 
@@ -32,6 +34,7 @@ interface OrchestratorConfig {
   sessionTemplate?: string
   onRenameSession?: (newTitle: string) => void
   onProposal?: (agent: AgentName, proposalType: string, proposal: string) => void
+  onPhaseChange?: (phase: PhaseState) => void
 }
 
 interface OrchestratorHandle {
@@ -74,10 +77,18 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
   const scheduledTimers = new Set<number>()
   // Heartbeat timer for proactive agent behaviors
   let heartbeatTimer: number | null = null
-  // Session phase: planning (discovery) -> active (editing) -> reviewing
-  let sessionPhase: SessionPhase = 'planning'
+  // Session phase managed by phase-machine reducer
+  let phaseState: PhaseState = { ...initialPhaseState }
   // Doc state classification cached on doc-opened
   let currentDocState: DocState = 'blank'
+
+  function dispatchPhase(action: Parameters<typeof phaseReducer>[1]) {
+    const next = phaseReducer(phaseState, action)
+    if (next !== phaseState) {
+      phaseState = next
+      config.onPhaseChange?.(phaseState)
+    }
+  }
 
   function scheduleTimeout(fn: () => void, ms: number): number {
     const id = window.setTimeout(() => {
@@ -129,6 +140,7 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
       const otherNames = agentNames.filter(n => n !== req.agent)
       const otherAgent = otherNames[0] || req.agent
       const docText = config.getDocText()
+      const agentMode = getAgentMode(req.agent, phaseState.current)
       const action = await askAgent({
         agentName: req.agent,
         ownerName: agentCfg?.owner || 'You',
@@ -143,15 +155,15 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
         otherAgents: agentNames,
         sessionTemplate: config.sessionTemplate,
         docStructure: extractDocStructure(docText),
-        phase: sessionPhase,
+        phase: phaseState.current,
         docState: currentDocState,
+        agentMode,
       })
 
-      // Planning phase safety net: if the LLM ignores the prompt constraint
-      // and returns a doc-editing action, downgrade it to chat
-      const DOC_EDIT_TYPES = new Set(['insert', 'replace', 'delete', 'rename', 'image'])
-      if (sessionPhase === 'planning' && DOC_EDIT_TYPES.has(action.type)) {
-        log('planning phase: blocked doc edit action', action.type, '-> downgrading to chat')
+      // Phase safety net: if the LLM returns an action not allowed in the current phase,
+      // downgrade it to chat
+      if (!isActionAllowed(phaseState.current, action.type)) {
+        log(`phase ${phaseState.current}: blocked action`, action.type, '-> downgrading to chat')
         action.type = 'chat'
         action.chatMessage = action.chatBefore || action.chatMessage || action.content?.slice(0, 120) || 'Let me know what direction you want to take this.'
         // Clear doc-edit fields
@@ -307,8 +319,8 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
         log('doc-opened', 'docState:', currentDocState, 'template:', template)
 
         if (currentDocState === 'content') {
-          // Existing content: skip planning, go straight to active
-          sessionPhase = 'active'
+          // Existing content: skip to drafting phase
+          dispatchPhase({ type: 'jump-to', phase: 'drafting' })
           startHeartbeat()
           config.agents.forEach((a, i) => {
             scheduleTimeout(() => enqueue({
@@ -318,8 +330,7 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
             }), config.demoMode ? 1500 + i * 2500 : 2500 + i * 3500)
           })
         } else {
-          // Blank, template, or sparse: enter planning phase
-          sessionPhase = 'planning'
+          // Blank, template, or sparse: start in discovery phase (initial state)
           // Only trigger the FIRST agent to ask a question — don't dogpile
           const lead = config.agents[0]
           if (lead) {
@@ -343,14 +354,14 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
         const instruction = payload?.instruction || ''
         const lower = instruction.toLowerCase()
 
-        // Transition from planning to active when user provides substantive input
-        if (sessionPhase === 'planning') {
+        // Transition from discovery to planning when user provides substantive input
+        if (phaseState.current === 'discovery') {
           const words = instruction.trim().split(/\s+/).filter(Boolean)
           const trivialGreetings = ['hi', 'hey', 'hello', 'yo', 'sup', 'thanks', 'ok', 'okay', 'sure', 'yes', 'no', 'yep', 'nope']
           const isSubstantive = words.length > 2 || (words.length > 0 && !trivialGreetings.includes(lower.trim()))
           if (isSubstantive) {
-            sessionPhase = 'active'
-            log('phase transition: planning -> active (user gave direction)')
+            dispatchPhase({ type: 'advance' })
+            log('phase transition: discovery -> planning (user gave direction)')
           }
         }
         const mentionedAgents = agentNames.filter(n => lower.includes(n.toLowerCase()) || lower.includes('@' + n.toLowerCase()))
@@ -480,7 +491,7 @@ export function createOrchestrator(config: OrchestratorConfig): OrchestratorHand
     exchangeCount = 0
     pendingReaction = null
     pausedAgents.clear()
-    sessionPhase = 'planning'
+    phaseState = { ...initialPhaseState }
     currentDocState = 'blank'
   }
 
